@@ -1,58 +1,42 @@
-import { App, SlackEventMiddlewareArgs, AllMiddlewareArgs, GenericMessageEvent } from '@slack/bolt';
+import express from 'express';
+import { App, ExpressReceiver, SlackEventMiddlewareArgs, AllMiddlewareArgs, GenericMessageEvent } from '@slack/bolt';
 import dotenv from 'dotenv';
-import { CronJob } from 'cron';  // <-- changed here
+import { CronJob } from 'cron';
+import { MESSAGE_BLOCKS } from './constants';
 
 dotenv.config();
 
-const app = new App({
-    token: process.env.SLACK_BOT_TOKEN!,
-    signingSecret: process.env.SLACK_SIGNING_SECRET!,
-    socketMode: true,
-    appToken: process.env.SLACK_APP_TOKEN!,
+// Create ExpressReceiver to use custom Express app inside Bolt
+const receiver = new ExpressReceiver({
+  signingSecret: process.env.SLACK_SIGNING_SECRET!,
+  endpoints: '/slack/events',  // Slack events endpoint
 });
+
+const app = new App({
+  token: process.env.SLACK_BOT_TOKEN!,
+  signingSecret: process.env.SLACK_SIGNING_SECRET!,
+  socketMode: false,   // Disable socket mode because we are using ExpressReceiver
+  receiver,
+  appToken: process.env.SLACK_APP_TOKEN,
+});
+
+const expressApp = receiver.app; // This is the Express app used by Bolt
 
 const channelId = process.env.CHANNEL_ID!;
 
-// Scheduled reminder: 9 AM Cairo time using cron package with timezone support
+// In-memory storage for standup updates
+const updatesByUser: Record<string, { text: string; timestamp: string }[]> = {};
+
+// Your cron job for sending reminders
 const job = new CronJob(
-  '0 9 * * *', // 9:00 AM every day
+  '0 9 * * *',
   async () => {
     try {
       await app.client.chat.postMessage({
         channel: channelId,
-        text: 'Good morning, team! :sunny: \n\nIt\'s time for our daily standup. Please reply in this thread with your updates:\n• What did you accomplish yesterday?\n• What are your plans for today?\n• Any blockers or challenges?',
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: ":wave: *Good morning, team!*\n\nIt's time for our daily standup."
-            }
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: "*Please reply in this thread* with your updates:"
-            }
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: "• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*"
-            }
-          },
-          {
-            type: "context",
-            elements: [
-              {
-                type: "mrkdwn",
-                text: "Thank you for keeping us all aligned! :rocket:"
-              }
-            ]
-          }
-        ]
+        text:
+          'Good morning, team! :sunny: \n\nIt\'s time for our daily standup. Please reply in this thread with your updates:\n• What did you accomplish yesterday?\n• What are your plans for today?\n• Any blockers or challenges?',
+          blocks: MESSAGE_BLOCKS
       });
       console.log('✅ Sent standup reminder');
     } catch (err) {
@@ -60,23 +44,46 @@ const job = new CronJob(
     }
   },
   null,
-  true,             // Start the job right now
-  'Africa/Cairo'    // Timezone
+  true,
+  'Africa/Cairo'
 );
 
 app.message(async (args: SlackEventMiddlewareArgs<'message'> & AllMiddlewareArgs) => {
-    const { message, say } = args;
-
-    // Narrow the type properly
-    if ('channel' in message && 'user' in message && !('subtype' in message)) {
-        const msg = message as GenericMessageEvent;
-        if (msg.channel === channelId) {
-            await say(`Thanks for the update, <@${msg.user}>!`);
-        }
+  const { message, say } = args;
+  if ('channel' in message && 'user' in message && !('subtype' in message)) {
+    const msg = message as GenericMessageEvent;
+    if (msg.channel === channelId) {
+      if (!updatesByUser[msg.user]) updatesByUser[msg.user] = [];
+      updatesByUser[msg.user].push({
+        text: msg.text || '',
+        timestamp: msg.ts,
+      });
+      await say(`Thanks for the update, <@${msg.user}>!`);
     }
+  }
 });
 
+
+// Add a simple UI route on the same Express app
+expressApp.get('/standup', (req, res) => {
+  let html = `<h1>Daily Standup Updates</h1>`;
+  if (Object.keys(updatesByUser).length === 0) {
+    html += `<p>No updates yet.</p>`;
+  } else {
+    for (const userId in updatesByUser) {
+      html += `<h2>User: <a href="https://slack.com/team/${userId}" target="_blank">${userId}</a></h2><ul>`;
+      updatesByUser[userId].forEach(update => {
+        html += `<li>${new Date(parseFloat(update.timestamp) * 1000).toLocaleTimeString()} — ${update.text}</li>`;
+      });
+      html += `</ul>`;
+    }
+  }
+  res.send(html);
+});
+
+// Start the combined app on the Heroku port
 (async () => {
-    await app.start(Number(process.env.PORT) || 3000);
-    console.log('⚡️ Slack bot is running (TS)');
+  const port = Number(process.env.PORT) || 3000;
+  await app.start(port);
+  console.log(`⚡️ Slack bot and UI running on port ${port}`);
 })();
