@@ -1,0 +1,25 @@
+{
+    "name": "slack-standup-bot",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+        "dev": "npx nodemon ./src/index.ts",
+        "build": "tsc",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@slack/bolt": "^3.22.0",
+        "cron": "^4.3.0",
+        "dotenv": "^16.5.0"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "devDependencies": {
+        "@types/node": "^22.15.20",
+        "nodemon": "^3.1.10",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.8.3"
+    }
+}
