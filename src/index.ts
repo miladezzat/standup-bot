@@ -63,6 +63,15 @@ app.message(async (args: SlackEventMiddlewareArgs<'message'> & AllMiddlewareArgs
   }
 });
 
+app.command('/standup', async ({ command, ack, respond }) => {
+  await ack();
+  await respond({
+    response_type: 'in_channel',
+    text: `👋 <@${command.user_id}> kicked off the daily standup! Please share your updates:`,
+    blocks: MESSAGE_BLOCKS,
+  });
+});
+
 
 // Add a simple UI route on the same Express app
 expressApp.get('/standup', (req, res) => {
