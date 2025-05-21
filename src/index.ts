@@ -91,6 +91,25 @@ const job = new CronJob(
 );
 
 
+const job2 = new CronJob(
+    '0 10 * * *',
+    async () => {
+        try {
+            await app.client.chat.postMessage({
+                channel: channelId,
+                text: `:sunny: It's time for our daily standup huddle.`,
+            });
+            console.log('✅ Sent standup huddle reminder');
+        } catch (err) {
+            console.error('❌ Error sending standup reminder:', err);
+        }
+    },
+    null,
+    true,
+    'Africa/Cairo'
+);
+
+
 app.message(
     async (args: SlackEventMiddlewareArgs<'message'> & AllMiddlewareArgs) => {
         const { message, say } = args;
