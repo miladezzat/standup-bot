@@ -65,21 +65,21 @@ const job = new CronJob(
                 blocks: MESSAGE_BLOCKS,
             });
             currentStandupThreadTs = result.ts || null;
-            
+
             // Save the thread to MongoDB
             if (currentStandupThreadTs) {
                 const dateKey = format(new Date(), 'yyyy-MM-dd');
                 await StandupThread.findOneAndUpdate(
                     { date: dateKey },
-                    { 
+                    {
                         date: dateKey,
                         threadTs: currentStandupThreadTs,
-                        channelId: channelId 
+                        channelId: channelId
                     },
                     { upsert: true, new: true }
                 );
             }
-            
+
             console.log('✅ Sent standup reminder');
         } catch (err) {
             console.error('❌ Error sending standup reminder:', err);
@@ -194,62 +194,15 @@ app.event('app_mention', async ({ event, client, say }) => {
     }
 });
 
-// Web UI to view updates
-expressApp.get('/standup', async (req, res) => {
-    let html = `<h1>Daily Standup Updates</h1>`;
-
-    if (Object.keys(standups).length === 0) {
-        html += `<p>No standup data available.</p>`;
-    } else {
-        const threadsSorted = Object.entries(standups).sort(
-            ([aTs], [bTs]) => parseFloat(bTs) - parseFloat(aTs)
-        );
-
-        for (const [threadTs, { date, updatesByUser }] of threadsSorted) {
-            html += `<h2>📅 ${date}</h2>`;
-
-            for (const userId in updatesByUser) {
-                let userDisplay = userId;
-                try {
-                    const userInfo = await app.client.users.info({ user: userId });
-                    userDisplay = userInfo.user?.real_name || userInfo.user?.name || userId;
-                } catch (err) {
-                    console.error(`❌ Couldn't fetch user info for ${userId}:`, err);
-                }
-
-                html += `<h3>${userDisplay}</h3><ul>`;
-                updatesByUser[userId].forEach(update => {
-                    html += `<li>${update.text}</li>`;
-                });
-                html += `</ul>`;
-            }
-        }
-    }
-
-    res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <title>Standup Summary</title>
-      <style>
-        body { font-family: sans-serif; margin: 2rem; line-height: 1.6; background: #f5f5f5; }
-        h1 { color: #222; }
-        h2 { color: #333; margin-top: 2rem; }
-        h3 { color: #555; margin-top: 1rem; }
-        ul { padding-left: 1.5rem; }
-        li { background: #fff; padding: 0.5rem; margin-bottom: 0.3rem; border-radius: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-      </style>
-    </head>
-    <body>
-      ${html}
-    </body>
-    </html>
-  `);
-});
-
 expressApp.get('/standup-history', async (req, res) => {
-    const standupThreads = await StandupThread.find().sort({ date: -1 });
+    const queryDate = req.query.date as string | undefined;
+    let standupThreads;
+
+    if (queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
+        standupThreads = await StandupThread.find({ date: queryDate }).sort({ date: -1 });
+    } else {
+        standupThreads = await StandupThread.find().sort({ date: -1 });
+    }
 
 
     let html = `
@@ -399,7 +352,7 @@ expressApp.get('/standup-history', async (req, res) => {
                 continue;
             }
 
-            const grouped: Record<string, string[]> = replies.filter((m)=> {
+            const grouped: Record<string, string[]> = replies.filter((m) => {
                 return m.user !== 'U08T0FLAJ11';
             }).reduce((acc, m) => {
                 if (!m.user || !m.text) return acc;
@@ -409,14 +362,25 @@ expressApp.get('/standup-history', async (req, res) => {
             }, {} as Record<string, string[]>);
 
             for (const [user, messages] of Object.entries(grouped)) {
-                const displayName = await getUserName(user);
-                html += `<div class="user-block"><h3><a href="https://slack.com/team/${user}" target="_blank" rel="noopener noreferrer">@${displayName}</a></h3>`;
+                const { name, avatarUrl } = await getUserName(user);
+                html += `
+                    <div class="user-block" style="display: flex; align-items: flex-start; margin-bottom: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 1.5rem;">
+                        <img src="${avatarUrl}" alt="${name}'s avatar" style="width: 48px; height: 48px; border-radius: 50%; margin-right: 1rem; object-fit: cover;">
+                        <div>
+                        <h3 style="margin: 0 0 0.5rem;"><a href="https://slack.com/team/${user}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #0077cc;">@${name}</a></h3>
+                    `;
+
                 for (const msg of messages) {
                     if (!msg || !formatStandupHTML(msg).length) continue;
                     html += formatStandupHTML(msg);
                 }
-                html += `</div>`;
+
+                html += `
+                        </div>
+                    </div>
+                    `;
             }
+
             html += `</section>`;
         } catch (error) {
             console.error(`Error loading thread for ${thread.date}:`, error);
