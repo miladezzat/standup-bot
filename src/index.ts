@@ -120,13 +120,22 @@ app.event('app_mention', async ({ event, client, say }) => {
 });
 
 // Web UI to view updates
-expressApp.get('/standup', (req, res) => {
+expressApp.get('/standup', async (req, res) => {
   let html = `<h1>Daily Standup Updates</h1>`;
+
   if (Object.keys(updatesByUser).length === 0) {
     html += `<p>No updates yet.</p>`;
   } else {
     for (const userId in updatesByUser) {
-      html += `<h2>User: <a href="https://slack.com/team/${userId}" target="_blank">${userId}</a></h2><ul>`;
+      let userDisplay = userId;
+      try {
+        const userInfo = await app.client.users.info({ user: userId });
+        userDisplay = userInfo.user?.real_name || userInfo.user?.name || userId;
+      } catch (err) {
+        console.error(`❌ Couldn't fetch user info for ${userId}:`, err);
+      }
+
+      html += `<h2>User: ${userDisplay}</h2><ul>`;
       updatesByUser[userId].forEach(update => {
         html += `<li>${new Date(
           parseFloat(update.timestamp) * 1000
@@ -135,7 +144,26 @@ expressApp.get('/standup', (req, res) => {
       html += `</ul>`;
     }
   }
-  res.send(html);
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Standup Summary</title>
+      <style>
+        body { font-family: sans-serif; margin: 2rem; line-height: 1.6; background: #f9f9f9; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 2rem; }
+        ul { padding-left: 1.5rem; }
+        li { background: #fff; padding: 0.5rem; margin-bottom: 0.3rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+      </style>
+    </head>
+    <body>
+      ${html}
+    </body>
+    </html>
+  `);
 });
 
 expressApp.get('/health', (_, res) => res.send('OK'));
