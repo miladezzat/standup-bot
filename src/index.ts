@@ -8,6 +8,8 @@ import {
 import dotenv from 'dotenv';
 import { CronJob } from 'cron';
 import { MESSAGE_BLOCKS } from './constants';
+import { format } from 'date-fns'; // you can use `new Date().toISOString().split("T")[0]` if avoiding extra packages
+import { standupThreadsByDate } from './tandupThreads';
 
 dotenv.config();
 
@@ -22,7 +24,21 @@ const expressApp = express();
 const channelId = process.env.CHANNEL_ID!;
 
 // In-memory storage for standup updates
-const updatesByUser: Record<string, { text: string; timestamp: string }[]> = {};
+interface StandupUpdate {
+  text: string;
+  timestamp: string;
+}
+
+type UpdatesMap = Record<
+  string, // thread_ts
+  {
+    date: string; // formatted like "2025-05-20"
+    updatesByUser: Record<string, StandupUpdate[]>;
+  }
+>;
+
+const standups: UpdatesMap = {};
+
 let currentStandupThreadTs: string | null = null;
 
 // Daily standup reminder (09:00 Africa/Cairo)
@@ -49,22 +65,34 @@ const job = new CronJob(
 app.message(
   async (args: SlackEventMiddlewareArgs<'message'> & AllMiddlewareArgs) => {
     const { message, say } = args;
-
-    // ✅ Force the correct type here
     const msg = message as GenericMessageEvent;
 
     if (
       msg.channel === channelId &&
       msg.user &&
       msg.thread_ts &&
-      msg.thread_ts !== msg.ts &&
-      msg.thread_ts === currentStandupThreadTs
+      msg.thread_ts !== msg.ts
     ) {
-      if (!updatesByUser[msg.user]) updatesByUser[msg.user] = [];
-      updatesByUser[msg.user].push({
+      const dateKey = format(new Date(parseFloat(msg.thread_ts) * 1000), 'yyyy-MM-dd');
+
+      if (!standups[msg.thread_ts]) {
+        standups[msg.thread_ts] = {
+          date: dateKey,
+          updatesByUser: {},
+        };
+      }
+
+      const thread = standups[msg.thread_ts];
+
+      if (!thread.updatesByUser[msg.user]) {
+        thread.updatesByUser[msg.user] = [];
+      }
+
+      thread.updatesByUser[msg.user].push({
         text: msg.text || '',
         timestamp: msg.ts,
       });
+
       await say({
         thread_ts: msg.thread_ts,
         text: `Thanks for the update, <@${msg.user}>!`,
@@ -72,7 +100,6 @@ app.message(
     }
   }
 );
-
 
 
 // Handle @app_mention with "standup" keyword
@@ -123,25 +150,31 @@ app.event('app_mention', async ({ event, client, say }) => {
 expressApp.get('/standup', async (req, res) => {
   let html = `<h1>Daily Standup Updates</h1>`;
 
-  if (Object.keys(updatesByUser).length === 0) {
-    html += `<p>No updates yet.</p>`;
+  if (Object.keys(standups).length === 0) {
+    html += `<p>No standup data available.</p>`;
   } else {
-    for (const userId in updatesByUser) {
-      let userDisplay = userId;
-      try {
-        const userInfo = await app.client.users.info({ user: userId });
-        userDisplay = userInfo.user?.real_name || userInfo.user?.name || userId;
-      } catch (err) {
-        console.error(`❌ Couldn't fetch user info for ${userId}:`, err);
-      }
+    const threadsSorted = Object.entries(standups).sort(
+      ([aTs], [bTs]) => parseFloat(bTs) - parseFloat(aTs)
+    );
 
-      html += `<h2>User: ${userDisplay}</h2><ul>`;
-      updatesByUser[userId].forEach(update => {
-        html += `<li>${new Date(
-          parseFloat(update.timestamp) * 1000
-        ).toLocaleTimeString()} — ${update.text}</li>`;
-      });
-      html += `</ul>`;
+    for (const [threadTs, { date, updatesByUser }] of threadsSorted) {
+      html += `<h2>📅 ${date}</h2>`;
+
+      for (const userId in updatesByUser) {
+        let userDisplay = userId;
+        try {
+          const userInfo = await app.client.users.info({ user: userId });
+          userDisplay = userInfo.user?.real_name || userInfo.user?.name || userId;
+        } catch (err) {
+          console.error(`❌ Couldn't fetch user info for ${userId}:`, err);
+        }
+
+        html += `<h3>${userDisplay}</h3><ul>`;
+        updatesByUser[userId].forEach(update => {
+          html += `<li>${update.text}</li>`;
+        });
+        html += `</ul>`;
+      }
     }
   }
 
@@ -152,11 +185,12 @@ expressApp.get('/standup', async (req, res) => {
       <meta charset="UTF-8" />
       <title>Standup Summary</title>
       <style>
-        body { font-family: sans-serif; margin: 2rem; line-height: 1.6; background: #f9f9f9; }
-        h1 { color: #333; }
-        h2 { color: #444; margin-top: 2rem; }
+        body { font-family: sans-serif; margin: 2rem; line-height: 1.6; background: #f5f5f5; }
+        h1 { color: #222; }
+        h2 { color: #333; margin-top: 2rem; }
+        h3 { color: #555; margin-top: 1rem; }
         ul { padding-left: 1.5rem; }
-        li { background: #fff; padding: 0.5rem; margin-bottom: 0.3rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        li { background: #fff; padding: 0.5rem; margin-bottom: 0.3rem; border-radius: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
       </style>
     </head>
     <body>
@@ -165,6 +199,54 @@ expressApp.get('/standup', async (req, res) => {
     </html>
   `);
 });
+
+
+
+expressApp.get('/standup-history', async (req, res) => {
+  const dateEntries = Object.entries(standupThreadsByDate).sort(
+    (a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()
+  );
+
+  let html = `<h1>📆 Standup History</h1>`;
+
+  for (const [date, threadTs] of dateEntries) {
+    try {
+      const result = await app.client.conversations.replies({
+        channel: channelId,
+        ts: threadTs,
+      });
+
+      const replies = result.messages?.filter(m => m.ts !== threadTs);
+      html += `<h2>${date}</h2>`;
+
+      if (!replies || replies.length === 0) {
+        html += `<p><i>No updates.</i></p>`;
+        continue;
+      }
+
+      const grouped = replies.reduce<Record<string, string[]>>((acc, m) => {
+        if (!m.user || !m.text) return acc;
+        acc[m.user] = acc[m.user] || [];
+        acc[m.user].push(m.text);
+        return acc;
+      }, {});
+
+      for (const [user, messages] of Object.entries(grouped)) {
+        html += `<h3><a href="https://slack.com/team/${user}" target="_blank">@${user}</a></h3><ul>`;
+        for (const msg of messages) {
+          html += `<li>${msg}</li>`;
+        }
+        html += `</ul>`;
+      }
+    } catch (error) {
+      html += `<p style="color:red">❌ Failed to load thread for ${date}</p>`;
+      console.error(`Error loading thread for ${date}:`, error);
+    }
+  }
+
+  res.send(html);
+});
+
 
 expressApp.get('/health', (_, res) => res.send('OK'));
 
