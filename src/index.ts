@@ -9,8 +9,10 @@ import dotenv from 'dotenv';
 import { CronJob } from 'cron';
 import { MESSAGE_BLOCKS } from './constants';
 import { format } from 'date-fns'; // you can use `new Date().toISOString().split("T")[0]` if avoiding extra packages
-import { standupThreadsByDate } from './tandupThreads';
+// import { standupThreadsByDate } from './tandupThreads';
 import { WebClient, ConversationsRepliesResponse } from '@slack/web-api';
+import { connectToDatabase } from './db/connection';
+import StandupThread from './models/standupThread';
 
 dotenv.config();
 
@@ -63,6 +65,21 @@ const job = new CronJob(
                 blocks: MESSAGE_BLOCKS,
             });
             currentStandupThreadTs = result.ts || null;
+            
+            // Save the thread to MongoDB
+            if (currentStandupThreadTs) {
+                const dateKey = format(new Date(), 'yyyy-MM-dd');
+                await StandupThread.findOneAndUpdate(
+                    { date: dateKey },
+                    { 
+                        date: dateKey,
+                        threadTs: currentStandupThreadTs,
+                        channelId: channelId 
+                    },
+                    { upsert: true, new: true }
+                );
+            }
+            
             console.log('✅ Sent standup reminder');
         } catch (err) {
             console.error('❌ Error sending standup reminder:', err);
@@ -72,6 +89,7 @@ const job = new CronJob(
     true,
     'Africa/Cairo'
 );
+
 
 app.message(
     async (args: SlackEventMiddlewareArgs<'message'> & AllMiddlewareArgs) => {
@@ -230,9 +248,8 @@ async function getUserName(userId: string): Promise<string> {
 }
 
 expressApp.get('/standup-history', async (req, res) => {
-    const dateEntries = Object.entries(standupThreadsByDate).sort(
-        (a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()
-    );
+    const standupThreads = await StandupThread.find().sort({ date: -1 });
+
 
     let html = `
     <!DOCTYPE html>
@@ -359,20 +376,20 @@ expressApp.get('/standup-history', async (req, res) => {
       <main>
     `;
 
-    for (const [date, threadTs] of dateEntries) {
-        html += `<section class="date-block"><h2>${date}</h2>`;
-        console.log(`Fetching thread for ${date}...`, threadTs, channelId);
+    for (const thread of standupThreads) {
+        html += `<section class="date-block"><h2>${thread.date}</h2>`;
+        console.log(`Fetching thread for ${thread.date}...`, thread.threadTs, thread.channelId);
 
         try {
             const result: ConversationsRepliesResponse = await web.conversations.replies({
                 channel: channelId,
-                ts: threadTs,
+                ts: thread.threadTs,
             });
 
             const replies: SlackMessage[] =
                 result.messages?.filter(
                     (m): m is SlackMessage =>
-                        m.ts !== threadTs && typeof m.user === 'string' && typeof m.text === 'string'
+                        m.ts !== thread.threadTs && typeof m.user === 'string' && typeof m.text === 'string'
                 ) || [];
 
             if (replies.length === 0) {
@@ -398,8 +415,8 @@ expressApp.get('/standup-history', async (req, res) => {
             }
             html += `</section>`;
         } catch (error) {
-            console.error(`Error loading thread for ${date}:`, error);
-            html += `<p class="error">❌ Failed to load thread for ${date}</p></section>`;
+            console.error(`Error loading thread for ${thread.date}:`, error);
+            html += `<p class="error">❌ Failed to load thread for ${thread.date}</p></section>`;
         }
     }
 
@@ -417,6 +434,7 @@ expressApp.get('/health', (_, res) => res.send('OK'));
 const PORT = Number(process.env.PORT) || 3000;
 
 (async () => {
+    await connectToDatabase();
     await app.start();
     console.log('⚡️ Slack bot started in Socket Mode');
 
