@@ -1,5 +1,9 @@
 import { WebClient } from '@slack/web-api';
 import dotenv from 'dotenv';
+import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+
+const timeZone = 'Africa/Cairo';
 
 dotenv.config();
 
@@ -61,5 +65,21 @@ export async function getUserName(userId?: string): Promise<{name: string, avata
     } catch (err) {
         console.error(`Error fetching user ${userId}:`, err);
         return {name: `@${userId}`, avatarUrl: undefined};
+    }
+}
+
+
+export function formatCairoDate(tsSeconds: number): string {
+    const date = new Date(tsSeconds * 1000);
+    const cairoDate = toZonedTime(date, timeZone);
+
+    if (isToday(cairoDate)) {
+        return `Today at ${format(cairoDate, 'h:mm a')}`;
+    } else if (isYesterday(cairoDate)) {
+        return `Yesterday at ${format(cairoDate, 'h:mm a')}`;
+    } else if (isThisWeek(cairoDate, { weekStartsOn: 1 })) {
+        return `${format(cairoDate, 'EEEE')} at ${format(cairoDate, 'h:mm a')}`;
+    } else {
+        return `${format(cairoDate, 'MMMM do')} at ${format(cairoDate, 'h:mm a')}`;
     }
 }

@@ -12,7 +12,7 @@ import { format } from 'date-fns'; // you can use `new Date().toISOString().spli
 import { WebClient, ConversationsRepliesResponse } from '@slack/web-api';
 import { connectToDatabase } from './db/connection';
 import StandupThread from './models/standupThread';
-import { formatStandupHTML, getUserName } from './helper';
+import { formatCairoDate, formatStandupHTML, getUserName } from './helper';
 
 dotenv.config();
 
@@ -195,15 +195,19 @@ app.event('app_mention', async ({ event, client, say }) => {
 });
 
 expressApp.get('/standup-history', async (req, res) => {
-    const queryDate = req.query.date as string | undefined;
-    let standupThreads;
+    let queryDate = req.query.date as string | undefined;
 
+    if (queryDate === 'today') {
+        const now = new Date();
+        queryDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+
+    let standupThreads;
     if (queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
         standupThreads = await StandupThread.find({ date: queryDate }).sort({ date: -1 });
     } else {
         standupThreads = await StandupThread.find().sort({ date: -1 });
     }
-
 
     let html = `
     <!DOCTYPE html>
@@ -352,33 +356,42 @@ expressApp.get('/standup-history', async (req, res) => {
                 continue;
             }
 
-            const grouped: Record<string, string[]> = replies.filter((m) => {
-                return m.user !== 'U08T0FLAJ11';
-            }).reduce((acc, m) => {
-                if (!m.user || !m.text) return acc;
-                acc[m.user] = acc[m.user] || [];
-                acc[m.user].push(m.text);
-                return acc;
-            }, {} as Record<string, string[]>);
-
+            const grouped: Record<string, { text: string; ts: string }[]> = replies
+                .filter(m => m.user !== 'U08T0FLAJ11')
+                .reduce((acc, m) => {
+                    if (!m.user || !m.text || !m.ts) return acc;
+                    acc[m.user] = acc[m.user] || [];
+                    acc[m.user].push({ text: m.text, ts: m.ts });
+                    return acc;
+                }, {} as Record<string, { text: string; ts: string }[]>);
             for (const [user, messages] of Object.entries(grouped)) {
                 const { name, avatarUrl } = await getUserName(user);
+
+                const replyTime = messages.length
+                    ? formatCairoDate(parseFloat(messages[0].ts))
+                    : '';
+
                 html += `
                     <div class="user-block" style="display: flex; align-items: flex-start; margin-bottom: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 1.5rem;">
-                        <img src="${avatarUrl}" alt="${name}'s avatar" style="width: 48px; height: 48px; border-radius: 50%; margin-right: 1rem; object-fit: cover;">
-                        <div>
-                        <h3 style="margin: 0 0 0.5rem;"><a href="https://slack.com/team/${user}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #0077cc;">@${name}</a></h3>
-                    `;
-
-                for (const msg of messages) {
-                    if (!msg || !formatStandupHTML(msg).length) continue;
-                    html += formatStandupHTML(msg);
-                }
-
-                html += `
-                        </div>
+                    <div style="text-align: center; margin-right: 1rem;">
+                        <img src="${avatarUrl}" alt="${name}'s avatar" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover;">
+                        <div style="font-size: 0.85rem; color: #888; margin-top: 0.3rem;">🕒 ${replyTime}</div>
                     </div>
-                    `;
+                    <div>
+                        <h3 style="margin: 0 0 0.5rem;">
+                        <a href="https://slack.com/team/${user}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: #0077cc;">@${name}</a>
+                        </h3>
+                `;
+
+                            for (const msgObj of messages) {
+                                if (!msgObj.text || !formatStandupHTML(msgObj.text).length) continue;
+                                html += formatStandupHTML(msgObj.text);
+                            }
+
+                            html += `
+                    </div>
+                    </div>
+                `;
             }
 
             html += `</section>`;
