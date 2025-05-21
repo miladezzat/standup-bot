@@ -1,4 +1,4 @@
-import express, { Request } from 'express';
+import express from 'express';
 import {
     App,
     SlackEventMiddlewareArgs,
@@ -9,10 +9,10 @@ import dotenv from 'dotenv';
 import { CronJob } from 'cron';
 import { MESSAGE_BLOCKS } from './constants';
 import { format } from 'date-fns'; // you can use `new Date().toISOString().split("T")[0]` if avoiding extra packages
-// import { standupThreadsByDate } from './tandupThreads';
 import { WebClient, ConversationsRepliesResponse } from '@slack/web-api';
 import { connectToDatabase } from './db/connection';
 import StandupThread from './models/standupThread';
+import { formatStandupHTML, getUserName } from './helper';
 
 dotenv.config();
 
@@ -229,24 +229,6 @@ expressApp.get('/standup', async (req, res) => {
   `);
 });
 
-const userCache = new Map<string, string>();
-
-async function getUserName(userId: string): Promise<string> {
-    if (userCache.has(userId)) return userCache.get(userId)!;
-    try {
-        const result = await web.users.info({ user: userId });
-        const name =
-            result.user?.profile?.real_name ||
-            result.user?.name ||
-            `@${userId}`;
-        userCache.set(userId, name);
-        return name;
-    } catch (err) {
-        console.error(`Error fetching user ${userId}:`, err);
-        return `@${userId}`;
-    }
-}
-
 expressApp.get('/standup-history', async (req, res) => {
     const standupThreads = await StandupThread.find().sort({ date: -1 });
 
@@ -398,7 +380,9 @@ expressApp.get('/standup-history', async (req, res) => {
                 continue;
             }
 
-            const grouped: Record<string, string[]> = replies.reduce((acc, m) => {
+            const grouped: Record<string, string[]> = replies.filter((m)=> {
+                return m.user !== 'U08T0FLAJ11';
+            }).reduce((acc, m) => {
                 if (!m.user || !m.text) return acc;
                 acc[m.user] = acc[m.user] || [];
                 acc[m.user].push(m.text);
@@ -407,11 +391,12 @@ expressApp.get('/standup-history', async (req, res) => {
 
             for (const [user, messages] of Object.entries(grouped)) {
                 const displayName = await getUserName(user);
-                html += `<div class="user-block"><h3><a href="https://slack.com/team/${user}" target="_blank" rel="noopener noreferrer">@${displayName}</a></h3><ul>`;
+                html += `<div class="user-block"><h3><a href="https://slack.com/team/${user}" target="_blank" rel="noopener noreferrer">@${displayName}</a></h3>`;
                 for (const msg of messages) {
-                    html += `<li>${msg}</li>`;
+                    if (!msg || !formatStandupHTML(msg).length) continue;
+                    html += formatStandupHTML(msg);
                 }
-                html += `</ul></div>`;
+                html += `</div>`;
             }
             html += `</section>`;
         } catch (error) {
