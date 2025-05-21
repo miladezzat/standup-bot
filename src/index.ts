@@ -194,7 +194,7 @@ app.event('app_mention', async ({ event, client, say }) => {
     }
 });
 
-expressApp.get('/standup-history', async (req, res) => {
+expressApp.get('/', async (req, res) => {
     let queryDate = req.query.date as string | undefined;
 
     if (queryDate === 'today') {
