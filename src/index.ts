@@ -1,20 +1,18 @@
 import express from 'express';
-import {
-    App,
-    SlackEventMiddlewareArgs,
-    AllMiddlewareArgs,
-    GenericMessageEvent,
-} from '@slack/bolt';
 import dotenv from 'dotenv';
 import { CronJob } from 'cron';
-import { MESSAGE_BLOCKS } from './constants';
-import { format } from 'date-fns'; // you can use `new Date().toISOString().split("T")[0]` if avoiding extra packages
-import { WebClient, ConversationsRepliesResponse } from '@slack/web-api';
+import { format } from 'date-fns';
+import { AllMiddlewareArgs, App, SlackEventMiddlewareArgs } from '@slack/bolt';
+import { ConversationsRepliesResponse, GenericMessageEvent, WebClient } from '@slack/web-api';
+
 import { connectToDatabase } from './db/connection';
 import StandupThread from './models/standupThread';
+import { MESSAGE_BLOCKS } from './constants';
 import { formatCairoDate, formatStandupHTML, getUserName } from './helper';
 
 dotenv.config();
+
+
 
 interface SlackMessage {
     ts: string;
@@ -22,93 +20,117 @@ interface SlackMessage {
     text?: string;
     [key: string]: any;
 }
+// Validate essential environment variables
+const requiredEnvVars = [
+  'SLACK_BOT_TOKEN',
+  'SLACK_SIGNING_SECRET',
+  'SLACK_APP_TOKEN',
+  'CHANNEL_ID',
+];
+for (const key of requiredEnvVars) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+}
 
-const app = new App({
-    token: process.env.SLACK_BOT_TOKEN!,
-    signingSecret: process.env.SLACK_SIGNING_SECRET!,
-    socketMode: true,
-    appToken: process.env.SLACK_APP_TOKEN!,
-});
-
-const token = process.env.SLACK_BOT_TOKEN; // Ensure this has the necessary scopes
-const web = new WebClient(token);
-
-const expressApp = express();
+const token = process.env.SLACK_BOT_TOKEN!;
 const channelId = process.env.CHANNEL_ID!;
 
-// In-memory storage for standup updates
+const app = new App({
+  token,
+  signingSecret: process.env.SLACK_SIGNING_SECRET!,
+  socketMode: true,
+  appToken: process.env.SLACK_APP_TOKEN!,
+});
+
+const web = new WebClient(token);
+const expressApp = express();
+
 interface StandupUpdate {
-    text: string;
-    timestamp: string;
+  text: string;
+  timestamp: string;
 }
 
 type UpdatesMap = Record<
-    string, // thread_ts
-    {
-        date: string; // formatted like "2025-05-20"
-        updatesByUser: Record<string, StandupUpdate[]>;
-    }
+  string, // thread_ts
+  {
+    date: string; // "yyyy-MM-dd"
+    updatesByUser: Record<string, StandupUpdate[]>;
+  }
 >;
 
 const standups: UpdatesMap = {};
-
 let currentStandupThreadTs: string | null = null;
 
-// Daily standup reminder (09:00 Africa/Cairo)
+// Connect to DB before starting jobs
+(async () => {
+  try {
+    await connectToDatabase();
+    console.log('✅ Connected to MongoDB');
+  } catch (err) {
+    console.error('❌ Failed to connect to MongoDB:', err);
+    process.exit(1);
+  }
+})();
+
+// Cron: Daily standup reminder at 09:00 Africa/Cairo
 const job = new CronJob(
-    '0 9 * * *',
-    async () => {
-        try {
-            const result = await app.client.chat.postMessage({
-                channel: channelId,
-                text: `Good morning, team! :sunny:\n\nIt's time for our daily standup. Please reply in this thread with your updates:\n• What did you accomplish yesterday?\n• What are your plans for today?\n• Any blockers or challenges?`,
-                blocks: MESSAGE_BLOCKS,
-            });
-            currentStandupThreadTs = result.ts || null;
+  '0 9 * * *',
+  async () => {
+    try {
+      const result = await app.client.chat.postMessage({
+        channel: channelId,
+        text: `Good morning, team! :sunny:\n\nIt's time for our daily standup. Please reply in this thread with your updates:\n• What did you accomplish yesterday?\n• What are your plans for today?\n• Any blockers or challenges?`,
+        blocks: MESSAGE_BLOCKS,
+      });
 
-            // Save the thread to MongoDB
-            if (currentStandupThreadTs) {
-                const dateKey = format(new Date(), 'yyyy-MM-dd');
-                await StandupThread.findOneAndUpdate(
-                    { date: dateKey },
-                    {
-                        date: dateKey,
-                        threadTs: currentStandupThreadTs,
-                        channelId: channelId
-                    },
-                    { upsert: true, new: true }
-                );
-            }
+      currentStandupThreadTs = result.ts || null;
 
-            console.log('✅ Sent standup reminder');
-        } catch (err) {
-            console.error('❌ Error sending standup reminder:', err);
-        }
-    },
-    null,
-    true,
-    'Africa/Cairo'
+      if (currentStandupThreadTs) {
+        const dateKey = format(new Date(), 'yyyy-MM-dd');
+
+        await StandupThread.findOneAndUpdate(
+          { date: dateKey },
+          {
+            date: dateKey,
+            threadTs: currentStandupThreadTs,
+            channelId: channelId,
+          },
+          { upsert: true, new: true }
+        );
+      }
+
+      console.log('✅ Sent standup reminder');
+    } catch (err) {
+      console.error('❌ Error sending standup reminder:', err);
+    }
+  },
+  null,
+  true,
+  'Africa/Cairo'
 );
 
-
+// Cron: Standup huddle follow-up at 10:00 Africa/Cairo
 const job2 = new CronJob(
-    '0 10 * * *',
-    async () => {
-        try {
-            await app.client.chat.postMessage({
-                channel: channelId,
-                text: `:sunny: It's time for our daily standup huddle.`,
-            });
-            console.log('✅ Sent standup huddle reminder');
-        } catch (err) {
-            console.error('❌ Error sending standup reminder:', err);
-        }
-    },
-    null,
-    true,
-    'Africa/Cairo'
+  '0 10 * * *',
+  async () => {
+    try {
+      await app.client.chat.postMessage({
+        channel: channelId,
+        text: `:sunny: It's time for our daily standup huddle.`,
+      });
+      console.log('✅ Sent standup huddle reminder');
+    } catch (err) {
+      console.error('❌ Error sending standup huddle reminder:', err);
+    }
+  },
+  null,
+  true,
+  'Africa/Cairo'
 );
 
+// (Optional) Start express server if needed
+// expressApp.listen(3000, () => console.log('Express server running on port 3000'));
 
 app.message(
     async (args: SlackEventMiddlewareArgs<'message'> & AllMiddlewareArgs) => {
