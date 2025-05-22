@@ -117,7 +117,8 @@ const job2 = new CronJob(
     try {
       await app.client.chat.postMessage({
         channel: channelId,
-        text: `:sunny: It's time for our daily standup huddle.`,
+        text: `@channel :sunny: It's time for our daily standup huddle — starting in 15 minutes! Please make sure to join the thread and share your updates if you haven't already.`,
+        link_names: true,
       });
       console.log('✅ Sent standup huddle reminder');
     } catch (err) {
@@ -128,6 +129,7 @@ const job2 = new CronJob(
   true,
   'Africa/Cairo'
 );
+
 
 // (Optional) Start express server if needed
 // expressApp.listen(3000, () => console.log('Express server running on port 3000'));
