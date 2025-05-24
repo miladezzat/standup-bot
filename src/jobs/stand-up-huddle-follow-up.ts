@@ -3,7 +3,7 @@ import {slackApp} from '../singleton'
 import { CHANNEL_ID } from '../config';
 
 export const standupHuddleFollowUp= new CronJob(
-  '0 10 * * *',
+ '0 10 * * 0-4',
   async () => {
     try {
       await slackApp.client.chat.postMessage({
