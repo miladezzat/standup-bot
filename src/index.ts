@@ -21,7 +21,7 @@ for (const key of requiredEnvVars) {
     }
 }
 
-slackApp.message(getThanksMessage);
+// slackApp.message(getThanksMessage);
 
 // Handle @app_mention with "standup" keyword
 slackApp.event('app_mention', mentionApp);
