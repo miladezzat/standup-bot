@@ -3,7 +3,6 @@ import { connectToDatabase } from './db/connection';
 import { expressApp, slackApp } from './singleton';
 import { runJobs } from './jobs';
 import { getStandupHistory } from './service/standup-history.service';
-import { getThanksMessage } from './service/thanks-message.service';
 import { mentionApp } from './service/app-mention.service';
 
 dotenv.config();
@@ -31,15 +30,19 @@ expressApp.get('/', getStandupHistory);
 
 expressApp.get('/health', (_, res) => res.send('OK'));
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3001;
 
 (async () => {
-    await connectToDatabase();
-    console.log('⚡️ Slack bot started in Socket Mode');
-    await slackApp.start();
-    await runJobs();
-
-    expressApp.listen(PORT, () => {
-        console.log(`🌐 Express UI running on port ${PORT}`);
-    });
+    try {
+        await connectToDatabase();
+        console.log('⚡️ Slack bot started in Socket Mode');
+        await slackApp.start();
+        await runJobs();
+        await expressApp.listen(PORT, () => {
+            console.log(`🌐 Express UI running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Startup error:', error);
+        process.exit(1); // Optional: graceful shutdown
+    }
 })();
