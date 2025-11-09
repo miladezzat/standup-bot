@@ -7,6 +7,7 @@ import { mentionApp } from './service/app-mention.service';
 import { openStandupModal, handleStandupSubmission } from './service/standup-submission.service';
 import { getSubmissionsDashboard } from './service/submissions-dashboard.service';
 import { getUserReport } from './service/user-report.service';
+import { getDailySummaryView } from './service/daily-summary-view.service';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ slackApp.event('app_mention', mentionApp);
 expressApp.get('/', getSubmissionsDashboard);
 expressApp.get('/submissions', getSubmissionsDashboard);
 expressApp.get('/user/:userId', getUserReport); // Individual user report
+expressApp.get('/daily-summary', getDailySummaryView); // AI-powered daily summary view
 expressApp.get('/history', getStandupHistory); // Legacy thread-based view
 expressApp.get('/health', (_, res) => res.send('OK'));
 

@@ -19,8 +19,9 @@ export const runJobs = () => {
     console.log('🕘 Starting standupHuddleFollowUp...');
     standupHuddleFollowUp.start();
     
-    console.log('🕘 Starting dailySummary...');
-    dailySummary.start();
+    // Daily summary disabled - view on dashboard instead
+    // console.log('🕘 Starting dailySummary...');
+    // dailySummary.start();
   
     console.log('🕘 Starting startWeek...');
     startWeek.start();

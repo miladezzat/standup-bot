@@ -39,29 +39,63 @@ function extractTasks(text: string): string[] {
  */
 async function estimateTaskTime(task: string): Promise<TaskEstimate> {
   try {
-    const prompt = `You are a software development time estimation expert. Estimate how many hours this SINGLE task likely took to complete.
+    const prompt = `You are a SENIOR SOFTWARE ENGINEER with 10+ years of experience. Estimate REALISTICALLY how many hours this task actually took, based on real-world development experience.
 
 Task: "${task}"
 
-IMPORTANT RULES:
-- Maximum 8 hours for any single task
-- Most tasks are 1-4 hours
-- Bug fixes: 0.5-3 hours
-- Code reviews: 0.5-1.5 hours
-- Small features: 1-3 hours
-- Medium features: 2-6 hours
-- Large features: 4-8 hours (split if bigger)
-- Meetings: Usually 0.5-2 hours
-- Research: 1-4 hours
-- Setup tasks: 0.5-2 hours
+REALISTIC ESTIMATION RULES (based on actual development):
 
-Respond ONLY with JSON in this EXACT format:
+Quick Tasks (0.5-1h):
+- Simple code reviews (< 100 lines)
+- Minor text/UI changes
+- Simple bug fixes (typos, small logic errors)
+- Config changes
+- Documentation updates
+
+Short Tasks (1-2h):
+- Standard code reviews (100-300 lines)
+- Simple bug fixes with testing
+- Small UI components
+- Basic API endpoints
+- Simple database queries
+- Meetings (most are 1h)
+
+Medium Tasks (2-4h):
+- Complex bug fixes (debugging + fix + testing)
+- Medium features (full implementation + tests)
+- API integration with third party
+- Complex code reviews
+- Database schema changes
+- Research and spike work
+
+Long Tasks (4-6h):
+- Large features (design + implement + test)
+- Complex integrations
+- Performance optimization work
+- Major refactoring
+- Architecture work
+
+Very Long Tasks (6-8h):
+- Full feature development (multiple components)
+- Complex system integration
+- Production debugging sessions
+- Major migrations
+
+BE HONEST AND REALISTIC:
+- If task says "started" or "X% complete" - estimate based on % (e.g., 50% of 8h = 4h)
+- If task is vague "worked on X" - estimate lower (1-2h)
+- Research tasks are often longer than expected (2-4h)
+- Production bugs take longer than dev bugs (add 30-50%)
+- Tasks with "urgent" or "critical" often take longer (people underestimate)
+- "Set up environment" is often 1-3h depending on complexity
+
+Respond ONLY with JSON:
 {
-  "hours": <number between 0.5 and 8>,
+  "hours": <honest decimal number 0.5-8>,
   "confidence": "<low|medium|high>"
 }
 
-Be realistic - most tasks take 1-3 hours. Only respond with the JSON, nothing else.`;
+Be a senior engineer - estimate honestly. Don't be generous, don't be stingy. Be realistic.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',

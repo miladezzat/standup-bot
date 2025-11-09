@@ -22,7 +22,7 @@ export async function generateStandupSummary(
   }
 
   try {
-    const prompt = `You are writing a brief, professional summary of a developer's daily standup update.
+    const prompt = `You are a SENIOR ENGINEERING MANAGER writing a professional summary of a developer's standup for performance tracking and team visibility.
 
 Team member: ${userName}
 
@@ -35,11 +35,24 @@ ${today}
 Blockers:
 ${blockers || 'None'}
 
-Write a 2-3 sentence natural language summary in third person. Be concise and professional. Focus on what matters.
+Write a 2-3 sentence summary that is:
+- HONEST and REALISTIC (don't exaggerate or minimize)
+- PROFESSIONAL (third person, clear language)
+- ACTIONABLE (highlight important work and real blockers)
+- SPECIFIC (mention actual features/tasks, not vague "worked on stuff")
 
-Example format: "${userName} completed the user authentication feature and fixed several bugs yesterday. Today, they're working on implementing the password reset functionality and writing unit tests. They're currently blocked waiting for API documentation from the backend team."
+Focus on:
+1. Concrete accomplishments (what was delivered)
+2. Current work (what's being built)
+3. Real blockers (what's preventing progress)
 
-Write only the summary, nothing else.`;
+Example GOOD summary:
+"${userName} completed the payment gateway integration (50% done) and fixed three production bugs yesterday. Today, they're continuing the gateway work, researching email service options, and setting up the mobile development environment. They're blocked by a critical memory leak requiring senior developer assistance and an unstable app affecting users."
+
+Example BAD summary:
+"${userName} worked on various tasks yesterday and plans to continue working today. Some issues encountered."
+
+Write ONLY the summary, nothing else. Be honest and specific.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
@@ -73,26 +86,76 @@ export async function generateDailyTeamSummary(date: string): Promise<string> {
       return '';
     }
 
-    // Generate summaries for each team member
-    const summaries: string[] = [];
+    // Build context for the AI
+    let teamContext = '';
+    const blockersCount = standups.filter(s => s.blockers && s.blockers.trim()).length;
+    const totalTeamHours = standups.reduce((sum, s) => sum + (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0), 0);
     
     for (const standup of standups) {
-      const summary = await generateStandupSummary(
-        standup.slackUserName,
-        standup.yesterday,
-        standup.today,
-        standup.blockers
-      );
-      
-      if (summary) {
-        summaries.push(`• ${summary}`);
-      }
+      const totalHours = (standup.yesterdayHoursEstimate || 0) + (standup.todayHoursEstimate || 0);
+      teamContext += `
+${standup.slackUserName} (Est: ${standup.yesterdayHoursEstimate || 0}h yesterday, ${standup.todayHoursEstimate || 0}h today = ${totalHours}h total):
+Yesterday: ${standup.yesterday}
+Today: ${standup.today}
+Blockers: ${standup.blockers || 'None'}
+---
+`;
     }
 
-    // Combine all summaries
-    const fullReport = summaries.join('\n\n');
-    
-    return fullReport;
+    const prompt = `You are a SENIOR ENGINEERING MANAGER reviewing team performance. Write an HONEST, ACTIONABLE summary for leadership (CTO/CEO level).
+
+Date: ${date}
+Team Size: ${standups.length} developers
+Total Estimated Hours: ${Math.round(totalTeamHours)}h
+Active Blockers: ${blockersCount}
+
+Team Standups:
+${teamContext}
+
+Write a 3-4 paragraph summary:
+
+**1. Key Accomplishments** (What shipped? Real progress?)
+- Be specific: features, bugs, integrations completed
+- Note completion percentages (e.g., "50% done")
+- Highlight wins worth celebrating
+- Call out if progress seems low
+
+**2. Current Focus** (What's being built today?)
+- Group similar work (e.g., "3 devs on payment system")
+- Mention new initiatives starting
+- Note research/setup tasks
+- Flag if priorities seem scattered
+
+**3. Blockers & Risks** (What needs immediate attention?)
+- CRITICAL blockers first (production issues, team blocked)
+- Identify recurring problems
+- Suggest what's needed (resources, decisions, help)
+- Be urgent if warranted
+
+**4. Team Health** (Honest assessment)
+- Is workload reasonable? (${Math.round(totalTeamHours/standups.length)}h avg per person)
+- Are estimates realistic or inflated?
+- Any red flags (burnout, under-utilization, morale)?
+- Overall velocity judgment
+
+BE BRUTALLY HONEST:
+- If estimates look suspicious, say so
+- If blockers are critical, emphasize urgency
+- If team is overloaded, call it out
+- If productivity is strong, acknowledge it
+- If someone seems stuck, mention it
+
+Write like you're briefing the CEO - truth matters more than politeness.`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4,
+      max_tokens: 600,
+    });
+
+    const summary = completion.choices[0]?.message?.content?.trim() || '';
+    return summary;
   } catch (error) {
     console.error('Error generating daily team summary:', error);
     return '';
