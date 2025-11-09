@@ -48,7 +48,7 @@ expressApp.get('/health', (_, res) => res.send('OK'));
 // Test trigger - Send standup reminder now
 expressApp.get('/trigger/standup-reminder', async (_, res) => {
     try {
-        const result = await slackApp.client.chat.postMessage({
+        await slackApp.client.chat.postMessage({
             channel: process.env.CHANNEL_ID!,
             text: `Good morning, team! :sunny:\n\nIt's time for our daily standup. Please submit your standup using the /standup command.`,
             blocks: [
