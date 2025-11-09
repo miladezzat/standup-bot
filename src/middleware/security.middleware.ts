@@ -34,13 +34,20 @@ export function escapeHtml(text: string): string {
 
 /**
  * Rate limiter for general API endpoints
+ * DEVELOPMENT: Very permissive limits for development
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: 10000, // Very high limit for development (10,000 requests per 15 min)
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for auth routes and in development
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const isAuthRoute = req.path.startsWith('/auth/');
+    return isDevelopment || isAuthRoute;
+  },
   handler: (req, res) => {
     logger.warn('Rate limit exceeded', {
       ip: req.ip,

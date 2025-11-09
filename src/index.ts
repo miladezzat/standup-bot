@@ -13,9 +13,13 @@ import { openStandupModal, handleStandupSubmission } from './service/standup-sub
 import { getSubmissionsDashboard } from './service/submissions-dashboard.service';
 import { getUserReport } from './service/user-report.service';
 import { getDailySummaryView } from './service/daily-summary-view.service';
+import { getManagerDashboard } from './service/manager-dashboard.service';
+import { getTeamAnalyticsDashboard } from './service/team-analytics-dashboard.service';
+import { exportStandupsCSV, exportPerformanceMetricsCSV, exportAlertsCSV, exportAchievementsCSV, exportUserReportCSV } from './service/export.service';
 import { apiLimiter } from './middleware/security.middleware';
 import { checkAuth } from './middleware/clerk-auth.middleware';
 import { logger, logInfo, logError } from './utils/logger';
+import { CLERK_SIGN_IN_URL } from './config';
 
 // ============================================
 // 🔒 SECURITY MIDDLEWARE
@@ -191,18 +195,37 @@ expressApp.get('/auth/sign-out', async (req, res) => {
                         <p class="redirect-msg">Redirecting to dashboard...</p>
                     </div>
                     <script>
-                        setTimeout(() => { window.location.href = '/'; }, 2000);
+                        // Redirect immediately to avoid issues
+                        setTimeout(() => { 
+                            window.location.replace('/'); 
+                        }, 1500);
                     </script>
                 </body>
                 </html>
             `);
         } catch (error) {
             logger.error('Error during sign out:', error);
-            // Even if there's an error, redirect to home
-            res.redirect('/');
+            // Clear cookies and redirect even if there's an error
+            res.clearCookie('__session', { path: '/' });
+            res.clearCookie('__clerk_db_jwt', { path: '/' });
+            res.clearCookie('__client_uat', { path: '/' });
+            
+            // Use replace to avoid adding to browser history
+            res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Signing Out...</title>
+                    <script>window.location.replace('/');</script>
+                </head>
+                <body>
+                    <p>Signing out...</p>
+                </body>
+                </html>
+            `);
         }
     } else {
-        // If Clerk not configured, user menu shouldn't be visible anyway
+        // If Clerk not configured, just redirect home
         logger.info('Sign-out accessed but Clerk not configured');
         res.redirect('/');
     }
@@ -211,53 +234,96 @@ expressApp.get('/auth/sign-out', async (req, res) => {
 // Auth sign-in page (Clerk) - Redirect to Clerk hosted page
 expressApp.get('/auth/sign-in', (req, res) => {
     if (!hasClerk) {
+        // Show error page if Clerk not configured
         res.send(`
-            <html>
-                <head>
-                    <title>Authentication Required</title>
-                    <style>
-                        body {
-                            font-family: Arial, sans-serif;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            min-height: 100vh;
-                            margin: 0;
-                        }
-                        .container {
-                            background: white;
-                            padding: 3rem;
-                            border-radius: 16px;
-                            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                            max-width: 500px;
-                            text-align: center;
-                        }
-                        h1 { color: #e74c3c; margin-bottom: 1rem; }
-                        p { color: #7f8c8d; line-height: 1.6; }
-                        code {
-                            background: #f5f5f5;
-                            padding: 0.2rem 0.5rem;
-                            border-radius: 4px;
-                            font-family: monospace;
-                        }
-                        .warning { background: #fff3cd; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <h1>⚠️ Authentication Not Configured</h1>
-                        <p>Clerk authentication is not set up. Please add your API keys to the <code>.env</code> file:</p>
-                        <div class="warning">
-                            <p><strong>Required in .env:</strong></p>
-                            <code>CLERK_PUBLISHABLE_KEY=pk_...</code><br>
-                            <code>CLERK_SECRET_KEY=sk_...</code>
-                        </div>
-                        <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #95a5a6;">
-                            See <strong>AUTHENTICATION_SETUP.md</strong> for detailed instructions
-                        </p>
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Authentication Not Configured</title>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body {
+                        font-family: 'Inter', Arial, sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        min-height: 100vh;
+                        padding: 1rem;
+                    }
+                    .container {
+                        background: white;
+                        padding: 3rem;
+                        border-radius: 16px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                        max-width: 600px;
+                        width: 100%;
+                        text-align: center;
+                        animation: fadeIn 0.5s ease;
+                    }
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(20px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    .icon { font-size: 4rem; margin-bottom: 1rem; }
+                    h1 { color: #e74c3c; margin-bottom: 1rem; font-size: 1.75rem; }
+                    p { color: #7f8c8d; line-height: 1.6; margin-bottom: 1rem; }
+                    code {
+                        background: #f5f5f5;
+                        padding: 0.25rem 0.5rem;
+                        border-radius: 4px;
+                        font-family: 'Courier New', monospace;
+                        font-size: 0.875rem;
+                        color: #e74c3c;
+                    }
+                    .warning {
+                        background: #fff3cd;
+                        padding: 1.5rem;
+                        border-radius: 8px;
+                        margin: 1.5rem 0;
+                        border-left: 4px solid #f59e0b;
+                    }
+                    .warning p {
+                        margin: 0.5rem 0;
+                        color: #92400e;
+                    }
+                    .btn {
+                        display: inline-block;
+                        margin-top: 1.5rem;
+                        padding: 0.75rem 1.5rem;
+                        background: #667eea;
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        transition: all 0.3s;
+                    }
+                    .btn:hover {
+                        background: #5568d3;
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="icon">⚠️</div>
+                    <h1>Authentication Not Configured</h1>
+                    <p>Clerk authentication is not set up. The dashboards are currently <strong>publicly accessible</strong> without authentication.</p>
+                    <div class="warning">
+                        <p><strong>To enable authentication, add these to your .env file:</strong></p>
+                        <p><code>CLERK_PUBLISHABLE_KEY=pk_...</code></p>
+                        <p><code>CLERK_SECRET_KEY=sk_...</code></p>
                     </div>
-                </body>
+                    <p style="font-size: 0.875rem; color: #95a5a6;">
+                        For detailed setup instructions, see <strong>AUTHENTICATION_SETUP.md</strong>
+                    </p>
+                    <a href="/" class="btn">Go to Dashboard</a>
+                </div>
+            </body>
             </html>
         `);
         return;
@@ -265,11 +331,16 @@ expressApp.get('/auth/sign-in', (req, res) => {
     
     logger.info('Redirecting to Clerk sign-in');
     
-    // Redirect to Clerk's hosted sign-in page
-    // Use the redirect_url from query params, or default to /submissions
+    // Direct redirect to Clerk's hosted sign-in page (no intermediate HTML)
     const returnPath = req.query.redirect_url as string || '/submissions';
-    const redirectUrl = encodeURIComponent(`${req.protocol}://${req.get('host')}${returnPath}`);
-    res.redirect(`https://adapted-buffalo-53.accounts.dev/sign-in?redirect_url=${redirectUrl}`);
+    const hostUrl = `${req.protocol}://${req.get('host')}`;
+    const fullRedirectUrl = `${hostUrl}${returnPath}`;
+    
+    // Redirect directly to Clerk Account Portal sign-in
+    const clerkSignInUrl = `${CLERK_SIGN_IN_URL}?redirect_url=${encodeURIComponent(fullRedirectUrl)}`;
+    
+    logger.info(`Redirecting to Clerk: ${clerkSignInUrl}`);
+    res.redirect(clerkSignInUrl);
 });
 
 // Protected dashboard routes (require auth if Clerk is configured)
@@ -280,6 +351,15 @@ expressApp.get('/submissions', authMiddleware, getSubmissionsDashboard);
 expressApp.get('/user/:userId', authMiddleware, getUserReport); // Individual user report
 expressApp.get('/daily-summary', authMiddleware, getDailySummaryView); // AI-powered daily summary view
 expressApp.get('/history', authMiddleware, getStandupHistory); // Legacy thread-based view
+expressApp.get('/manager', authMiddleware, getManagerDashboard); // Manager insights dashboard
+expressApp.get('/analytics', authMiddleware, getTeamAnalyticsDashboard); // Team analytics with charts
+
+// Export routes
+expressApp.get('/export/standups', authMiddleware, exportStandupsCSV); // Export standups to CSV
+expressApp.get('/export/metrics', authMiddleware, exportPerformanceMetricsCSV); // Export performance metrics to CSV
+expressApp.get('/export/alerts', authMiddleware, exportAlertsCSV); // Export alerts to CSV
+expressApp.get('/export/achievements', authMiddleware, exportAchievementsCSV); // Export achievements to CSV
+expressApp.get('/export/user/:userId', authMiddleware, exportUserReportCSV); // Export comprehensive user report to CSV
 
 // ============================================
 // 🧪 TEST ENDPOINTS (Remove in production)

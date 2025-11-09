@@ -1,10 +1,13 @@
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
+import PerformanceMetrics from '../models/performanceMetrics';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getUserName } from '../helper';
 import { getUserContributions, getUserStreak, generateContributionGraphHTML, getContributionGraphCSS } from './contribution-graph.service';
 import { hasClerk } from '../index';
+import { generatePerformanceInsights } from './ai-performance-analysis.service';
+import { escapeHtml } from '../middleware/security.middleware';
 
 const TIMEZONE = 'Africa/Cairo';
 
@@ -103,6 +106,33 @@ export const getUserReport = async (req: Request, res: Response) => {
         const contributions = await getUserContributions(userId, 90); // Last 90 days
         const streak = await getUserStreak(userId);
         const contributionGraphHTML = generateContributionGraphHTML(contributions, streak);
+
+        // Get performance metrics and AI insights
+        let performanceScore = 0;
+        let velocityTrend = 'stable';
+        let riskLevel = 'low';
+        let aiInsights: { strengths: string[], improvements: string[], recommendations: string[] } = { strengths: [], improvements: [], recommendations: [] };
+
+        try {
+            // Get latest performance metrics
+            const perfMetrics = await PerformanceMetrics.findOne({
+                slackUserId: userId,
+                period: 'week'
+            }).sort({ startDate: -1 }).lean();
+
+            if (perfMetrics) {
+                performanceScore = perfMetrics.overallScore || 0;
+                velocityTrend = perfMetrics.velocityTrend || 'stable';
+                riskLevel = perfMetrics.riskLevel || 'low';
+            }
+
+            // Generate AI insights if OpenAI is configured
+            if (process.env.OPENAI_API_KEY) {
+                aiInsights = await generatePerformanceInsights(userId, 30);
+            }
+        } catch (error) {
+            console.error('Error fetching performance data:', error);
+        }
 
         // Generate HTML
         let html = `
@@ -536,6 +566,98 @@ export const getUserReport = async (req: Request, res: Response) => {
         
         ${contributionGraphHTML}
         
+        <!-- Performance Insights Section -->
+        ${performanceScore > 0 || aiInsights.strengths.length > 0 ? `
+        <div class="contribution-section" style="margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-800); display: flex; align-items: center; gap: 0.5rem;">
+                    <span>📊</span>
+                    <span>Performance Insights</span>
+                </h2>
+                ${performanceScore > 0 ? `
+                <div style="font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                    ${performanceScore}/100
+                </div>
+                ` : ''}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div style="background: linear-gradient(135deg, #ede9fe, #ddd6fe); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #8b5cf6;">
+                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+                        Velocity Trend
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--gray-800);">
+                        ${velocityTrend === 'increasing' ? '📈 Increasing' : velocityTrend === 'decreasing' ? '📉 Decreasing' : '➡️ Stable'}
+                    </div>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, ${riskLevel === 'high' ? '#fee2e2, #fecaca' : riskLevel === 'medium' ? '#fef3c7, #fde68a' : '#d1fae5, #a7f3d0'}); padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${riskLevel === 'high' ? '#ef4444' : riskLevel === 'medium' ? '#f59e0b' : '#10b981'};">
+                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+                        Risk Level
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--gray-800);">
+                        ${riskLevel === 'high' ? '⚠️ High' : riskLevel === 'medium' ? '⚡ Medium' : '✅ Low'}
+                    </div>
+                </div>
+            </div>
+            
+            ${aiInsights.strengths.length > 0 || aiInsights.improvements.length > 0 || aiInsights.recommendations.length > 0 ? `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                ${aiInsights.strengths.length > 0 ? `
+                <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #10b981;">
+                    <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--gray-800); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>💪</span>
+                        <span>Strengths</span>
+                    </h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${aiInsights.strengths.map(s => `
+                        <li style="padding: 0.5rem 0; padding-left: 1.5rem; position: relative; font-size: 0.875rem; color: var(--gray-700); line-height: 1.6;">
+                            <span style="position: absolute; left: 0;">✓</span>
+                            ${escapeHtml(s)}
+                        </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${aiInsights.improvements.length > 0 ? `
+                <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #f59e0b;">
+                    <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--gray-800); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>📈</span>
+                        <span>Areas to Improve</span>
+                    </h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${aiInsights.improvements.map(i => `
+                        <li style="padding: 0.5rem 0; padding-left: 1.5rem; position: relative; font-size: 0.875rem; color: var(--gray-700); line-height: 1.6;">
+                            <span style="position: absolute; left: 0;">→</span>
+                            ${escapeHtml(i)}
+                        </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${aiInsights.recommendations.length > 0 ? `
+                <div style="background: linear-gradient(135deg, #dbeafe, #bfdbfe); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #3b82f6;">
+                    <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--gray-800); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>💡</span>
+                        <span>Recommendations</span>
+                    </h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${aiInsights.recommendations.map(r => `
+                        <li style="padding: 0.5rem 0; padding-left: 1.5rem; position: relative; font-size: 0.875rem; color: var(--gray-700); line-height: 1.6;">
+                            <span style="position: absolute; left: 0;">★</span>
+                            ${escapeHtml(r)}
+                        </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            </div>
+            ` : ''}
+        </div>
+        ` : ''}
+        
         <div class="filters">
             <span class="filter-label">📅 Time Period:</span>
             <a href="/user/${userId}?period=week" class="filter-btn ${period === 'week' ? 'active' : ''}">Last 7 Days</a>
@@ -596,15 +718,4 @@ export const getUserReport = async (req: Request, res: Response) => {
         res.status(500).send('Error generating report');
     }
 };
-
-function escapeHtml(text: string): string {
-    const map: { [key: string]: string } = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
-}
 
