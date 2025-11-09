@@ -39,26 +39,29 @@ function extractTasks(text: string): string[] {
  */
 async function estimateTaskTime(task: string): Promise<TaskEstimate> {
   try {
-    const prompt = `You are a software development time estimation expert. Estimate how many hours this task likely took to complete.
+    const prompt = `You are a software development time estimation expert. Estimate how many hours this SINGLE task likely took to complete.
 
 Task: "${task}"
 
-Provide your estimate in this exact JSON format:
+IMPORTANT RULES:
+- Maximum 8 hours for any single task
+- Most tasks are 1-4 hours
+- Bug fixes: 0.5-3 hours
+- Code reviews: 0.5-1.5 hours
+- Small features: 1-3 hours
+- Medium features: 2-6 hours
+- Large features: 4-8 hours (split if bigger)
+- Meetings: Usually 0.5-2 hours
+- Research: 1-4 hours
+- Setup tasks: 0.5-2 hours
+
+Respond ONLY with JSON in this EXACT format:
 {
-  "hours": <number>,
+  "hours": <number between 0.5 and 8>,
   "confidence": "<low|medium|high>"
 }
 
-Consider:
-- Code complexity
-- Testing requirements
-- Common development patterns
-- Bug fixing typically takes 1-4 hours
-- New features typically take 2-8 hours
-- Reviews typically take 0.5-2 hours
-- Meetings are usually listed as actual duration
-
-Be realistic and concise. Only respond with the JSON, nothing else.`;
+Be realistic - most tasks take 1-3 hours. Only respond with the JSON, nothing else.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
@@ -76,9 +79,14 @@ Be realistic and concise. Only respond with the JSON, nothing else.`;
     // Parse JSON response
     const estimate = JSON.parse(response);
     
+    // Validate and constrain the hours (safety check)
+    let hours = estimate.hours || 2;
+    if (hours > 8) hours = 8; // Max 8 hours per task
+    if (hours < 0.5) hours = 0.5; // Min 0.5 hours
+    
     return {
       task,
-      estimatedHours: estimate.hours || 2,
+      estimatedHours: Math.round(hours * 2) / 2, // Round to nearest 0.5
       confidence: estimate.confidence || 'medium',
     };
   } catch (error) {
@@ -130,21 +138,33 @@ export async function estimateStandupTime(
     );
 
     // Calculate totals
-    const totalYesterdayHours = yesterdayEstimates.reduce(
+    let totalYesterdayHours = yesterdayEstimates.reduce(
       (sum, est) => sum + est.estimatedHours,
       0
     );
     
-    const totalTodayHours = todayEstimates.reduce(
+    let totalTodayHours = todayEstimates.reduce(
       (sum, est) => sum + est.estimatedHours,
       0
     );
 
+    // Sanity check: Cap at reasonable maximums
+    // A typical work day is 6-8 hours of actual coding
+    if (totalYesterdayHours > 10) {
+      console.warn(`Yesterday estimate too high (${totalYesterdayHours}h), capping at 10h`);
+      totalYesterdayHours = 10;
+    }
+    
+    if (totalTodayHours > 10) {
+      console.warn(`Today estimate too high (${totalTodayHours}h), capping at 10h`);
+      totalTodayHours = 10;
+    }
+
     return {
       yesterdayEstimates,
       todayEstimates,
-      totalYesterdayHours: Math.round(totalYesterdayHours * 10) / 10,
-      totalTodayHours: Math.round(totalTodayHours * 10) / 10,
+      totalYesterdayHours: Math.round(totalYesterdayHours * 2) / 2, // Round to nearest 0.5
+      totalTodayHours: Math.round(totalTodayHours * 2) / 2,
     };
   } catch (error) {
     console.error('Error in estimateStandupTime:', error);

@@ -238,6 +238,13 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                     <div class="timestamp">Submitted at ${submittedAt}</div>
                 </div>
                 
+                ${entry.aiSummary ? `
+                <div class="standup-section" style="background: #f0f7ff; padding: 1rem; border-radius: 8px; border-left: 3px solid #2196f3;">
+                    <div class="section-label">🤖 AI Summary</div>
+                    <div class="section-content" style="background: transparent; font-style: italic; color: #1565c0;">${escapeHtml(entry.aiSummary)}</div>
+                </div>
+                ` : ''}
+                
                 <div class="standup-section">
                     <div class="section-label">
                         🕒 Yesterday

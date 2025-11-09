@@ -5,6 +5,7 @@ import { startWeek } from "./start-week";
 import { weeklyReport } from "./weekly-report";
 import { monthlyReport } from "./monthly-report";
 import { reminderNonSubmitters } from "./reminder-non-submitters";
+import { dailySummary } from "./daily-summary";
 
 export const runJobs = () => {
     console.log('✅ Starting scheduled jobs...');
@@ -17,6 +18,9 @@ export const runJobs = () => {
   
     console.log('🕘 Starting standupHuddleFollowUp...');
     standupHuddleFollowUp.start();
+    
+    console.log('🕘 Starting dailySummary...');
+    dailySummary.start();
   
     console.log('🕘 Starting startWeek...');
     startWeek.start();

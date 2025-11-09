@@ -91,6 +91,24 @@ expressApp.get('/trigger/standup-reminder', async (_, res) => {
     }
 });
 
+// Test trigger - Generate daily summary now
+expressApp.get('/trigger/daily-summary', async (req, res) => {
+    try {
+        const { postDailySummaryToSlack } = await import('./service/ai-summary.service');
+        const { format } = await import('date-fns');
+        const { toZonedTime } = await import('date-fns-tz');
+        
+        const dateParam = req.query.date as string;
+        const date = dateParam || format(toZonedTime(new Date(), 'Africa/Cairo'), 'yyyy-MM-dd');
+        
+        await postDailySummaryToSlack(date);
+        res.send(`✅ <b>Daily summary generated for ${date}!</b><br><br>Check your Slack channel now.<br><br><a href="/submissions">View Dashboard</a>`);
+    } catch (error) {
+        console.error('Error triggering daily summary:', error);
+        res.status(500).send(`❌ Error: ${error}`);
+    }
+});
+
 const PORT = Number(process.env.PORT) || 3001;
 
 (async () => {

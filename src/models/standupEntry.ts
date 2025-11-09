@@ -14,6 +14,8 @@ export interface IStandupEntry extends Document {
   yesterdayHoursEstimate?: number;  // Estimated hours for yesterday's work
   todayHoursEstimate?: number;      // Estimated hours for today's plan
   timeEstimatesRaw?: any;           // Raw AI estimates data
+  // AI Summary (optional)
+  aiSummary?: string;               // Natural language summary of standup
   createdAt: Date;
   updatedAt: Date;
 }
@@ -68,6 +70,11 @@ const StandupEntrySchema: Schema = new Schema(
     timeEstimatesRaw: {
       type: Schema.Types.Mixed,
       default: null
+    },
+    // AI Summary
+    aiSummary: {
+      type: String,
+      default: ''
     }
   },
   { 

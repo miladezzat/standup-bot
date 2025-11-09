@@ -2,6 +2,7 @@ import StandupEntry from '../models/standupEntry';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { estimateStandupTime } from './ai-time-estimation.service';
+import { generateStandupSummary } from './ai-summary.service';
 
 const TIMEZONE = 'Africa/Cairo';
 
@@ -137,15 +138,23 @@ export const handleStandupSubmission = async (args: any) => {
     let timeEstimates = null;
     let yesterdayHours = 0;
     let todayHours = 0;
+    let aiSummary = '';
 
     if (process.env.OPENAI_API_KEY) {
       try {
+        // Generate time estimates
         timeEstimates = await estimateStandupTime(yesterday, today_plan);
         yesterdayHours = timeEstimates.totalYesterdayHours;
         todayHours = timeEstimates.totalTodayHours;
         console.log(`⏱️ Estimated ${yesterdayHours}h yesterday, ${todayHours}h today for ${userName}`);
+
+        // Generate AI summary
+        aiSummary = await generateStandupSummary(userName, yesterday, today_plan, blockers);
+        if (aiSummary) {
+          console.log(`📝 Generated summary for ${userName}`);
+        }
       } catch (error) {
-        console.error('Error estimating time:', error);
+        console.error('Error with AI services:', error);
       }
     }
 
@@ -166,7 +175,8 @@ export const handleStandupSubmission = async (args: any) => {
         workspaceId: workspaceId,
         yesterdayHoursEstimate: yesterdayHours,
         todayHoursEstimate: todayHours,
-        timeEstimatesRaw: timeEstimates
+        timeEstimatesRaw: timeEstimates,
+        aiSummary: aiSummary
       },
       {
         upsert: true,
@@ -179,14 +189,19 @@ export const handleStandupSubmission = async (args: any) => {
     // Build confirmation message
     let confirmationText = `✅ *Your standup for ${today} has been saved!*\n\nThank you for keeping the team updated. You can update it anytime by running \`/standup\` again.`;
     
+    // Add AI summary if available
+    if (aiSummary) {
+      confirmationText += `\n\n📝 *AI Summary:*\n_${aiSummary}_`;
+    }
+    
     // Add time estimates if available
     if (yesterdayHours > 0 || todayHours > 0) {
-      confirmationText += `\n\n⏱️ *Time Estimates (AI):*`;
+      confirmationText += `\n\n⏱️ *Time Estimates:*`;
       if (yesterdayHours > 0) {
-        confirmationText += `\n• Yesterday's work: ~${yesterdayHours} hours`;
+        confirmationText += `\n• Yesterday: ~${yesterdayHours}h`;
       }
       if (todayHours > 0) {
-        confirmationText += `\n• Today's plan: ~${todayHours} hours`;
+        confirmationText += `\n• Today: ~${todayHours}h`;
       }
     }
 
