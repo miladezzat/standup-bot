@@ -8,19 +8,25 @@
         "start": "node dist/index.js"
     },
     "dependencies": {
+        "@clerk/express": "^1.7.46",
         "@slack/bolt": "^3.22.0",
+        "cookie-parser": "^1.4.7",
         "cron": "^4.3.0",
         "date-fns": "^4.1.0",
         "date-fns-tz": "^3.2.0",
         "dotenv": "^16.5.0",
+        "express-rate-limit": "^8.2.1",
+        "helmet": "^8.1.0",
         "mongoose": "^8.15.0",
-        "openai": "^6.8.1"
+        "openai": "^6.8.1",
+        "winston": "^3.18.3"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "description": "",
     "devDependencies": {
+        "@types/cookie-parser": "^1.4.10",
         "@types/mongoose": "^5.11.96",
         "@types/node": "^22.15.20",
         "nodemon": "^3.1.10",

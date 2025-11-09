@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Standup Bot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 450px;
+            width: 100%;
+            padding: 3rem;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .logo-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        
+        #clerk-sign-in {
+            margin: 2rem 0;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #ecf0f1;
+            color: #95a5a6;
+            font-size: 0.85rem;
+        }
+        
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <div class="logo-icon">📊</div>
+            <h1>Standup Bot</h1>
+            <p class="subtitle">Sign in to view team standups and reports</p>
+        </div>
+        
+        <div id="clerk-sign-in"></div>
+        
+        <div class="footer">
+            <p>Secure authentication powered by <a href="https://clerk.com" target="_blank">Clerk</a></p>
+        </div>
+    </div>
+    
+    <script>
+        // Simple redirect to Clerk hosted sign-in
+        // Since we're using Clerk's Account Portal (as configured in dashboard)
+        window.location.href = 'https://adapted-buffalo-53.accounts.dev/sign-in?redirect_url=' + 
+            encodeURIComponent(window.location.origin + '/submissions');
+    </script>
+</body>
+</html>
+

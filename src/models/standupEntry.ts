@@ -85,6 +85,12 @@ const StandupEntrySchema: Schema = new Schema(
 // Compound index to ensure one standup per user per day
 StandupEntrySchema.index({ slackUserId: 1, date: 1 }, { unique: true });
 
+// Additional indexes for performance
+StandupEntrySchema.index({ date: -1 }); // Daily submissions view
+StandupEntrySchema.index({ workspaceId: 1, date: -1 }); // Multi-workspace queries
+StandupEntrySchema.index({ createdAt: -1 }); // Recent submissions
+StandupEntrySchema.index({ slackUserId: 1, createdAt: -1 }); // User history
+
 // Create and export the model
 export default mongoose.model<IStandupEntry>('StandupEntry', StandupEntrySchema);
 
