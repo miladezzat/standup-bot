@@ -1,6 +1,7 @@
 import StandupEntry from '../models/standupEntry';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { estimateStandupTime } from './ai-time-estimation.service';
 
 const TIMEZONE = 'Africa/Cairo';
 
@@ -132,6 +133,22 @@ export const handleStandupSubmission = async (args: any) => {
       return;
     }
 
+    // Estimate time using AI (if configured)
+    let timeEstimates = null;
+    let yesterdayHours = 0;
+    let todayHours = 0;
+
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        timeEstimates = await estimateStandupTime(yesterday, today_plan);
+        yesterdayHours = timeEstimates.totalYesterdayHours;
+        todayHours = timeEstimates.totalTodayHours;
+        console.log(`⏱️ Estimated ${yesterdayHours}h yesterday, ${todayHours}h today for ${userName}`);
+      } catch (error) {
+        console.error('Error estimating time:', error);
+      }
+    }
+
     // Upsert the standup entry (update if exists, create if not)
     const standupEntry = await StandupEntry.findOneAndUpdate(
       {
@@ -146,7 +163,10 @@ export const handleStandupSubmission = async (args: any) => {
         today: today_plan,
         blockers: blockers,
         source: 'modal',
-        workspaceId: workspaceId
+        workspaceId: workspaceId,
+        yesterdayHoursEstimate: yesterdayHours,
+        todayHoursEstimate: todayHours,
+        timeEstimatesRaw: timeEstimates
       },
       {
         upsert: true,
@@ -156,16 +176,30 @@ export const handleStandupSubmission = async (args: any) => {
 
     console.log(`✅ Standup saved for ${userName} (${userId}) on ${today}`);
 
+    // Build confirmation message
+    let confirmationText = `✅ *Your standup for ${today} has been saved!*\n\nThank you for keeping the team updated. You can update it anytime by running \`/standup\` again.`;
+    
+    // Add time estimates if available
+    if (yesterdayHours > 0 || todayHours > 0) {
+      confirmationText += `\n\n⏱️ *Time Estimates (AI):*`;
+      if (yesterdayHours > 0) {
+        confirmationText += `\n• Yesterday's work: ~${yesterdayHours} hours`;
+      }
+      if (todayHours > 0) {
+        confirmationText += `\n• Today's plan: ~${todayHours} hours`;
+      }
+    }
+
     // Send confirmation message to the user
     await client.chat.postMessage({
       channel: userId,
-      text: `✅ Your standup for ${today} has been saved! Thank you for keeping the team updated.`,
+      text: `✅ Your standup for ${today} has been saved!`,
       blocks: [
         {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `✅ *Your standup for ${today} has been saved!*\n\nThank you for keeping the team updated. You can update it anytime by running \`/standup\` again.`
+            text: confirmationText
           }
         }
       ]

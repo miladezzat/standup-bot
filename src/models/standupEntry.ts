@@ -10,6 +10,10 @@ export interface IStandupEntry extends Document {
   blockers: string;           // Any blockers? (can be empty)
   source: 'slash_command' | 'modal' | 'dm'; // How it was submitted
   workspaceId: string;        // Slack workspace/team ID
+  // AI Time Estimates (optional)
+  yesterdayHoursEstimate?: number;  // Estimated hours for yesterday's work
+  todayHoursEstimate?: number;      // Estimated hours for today's plan
+  timeEstimatesRaw?: any;           // Raw AI estimates data
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +55,19 @@ const StandupEntrySchema: Schema = new Schema(
     workspaceId: { 
       type: String, 
       required: true 
+    },
+    // AI Time Estimates
+    yesterdayHoursEstimate: {
+      type: Number,
+      default: 0
+    },
+    todayHoursEstimate: {
+      type: Number,
+      default: 0
+    },
+    timeEstimatesRaw: {
+      type: Schema.Types.Mixed,
+      default: null
     }
   },
   { 

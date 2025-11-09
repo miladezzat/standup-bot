@@ -223,6 +223,7 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                 for (const entry of entries) {
                     const hasBlocker = entry.blockers && entry.blockers.trim();
                     const submittedAt = format(new Date(entry.createdAt), 'h:mm a');
+                    const hasTimeEstimates = entry.yesterdayHoursEstimate || entry.todayHoursEstimate;
 
                     html += `
             <div class="standup-card ${hasBlocker ? 'blocker-highlight' : ''}">
@@ -232,17 +233,24 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                             <a href="/user/${entry.slackUserId}" style="text-decoration: none; color: #2c3e50;">${entry.slackUserName}</a>
                         </div>
                         ${hasBlocker ? '<span class="blocker-badge">HAS BLOCKERS</span>' : ''}
+                        ${hasTimeEstimates ? `<span style="background: #e3f2fd; color: #1976d2; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">⏱️ ${(entry.yesterdayHoursEstimate || 0) + (entry.todayHoursEstimate || 0)}h</span>` : ''}
                     </div>
                     <div class="timestamp">Submitted at ${submittedAt}</div>
                 </div>
                 
                 <div class="standup-section">
-                    <div class="section-label">🕒 Yesterday</div>
+                    <div class="section-label">
+                        🕒 Yesterday
+                        ${entry.yesterdayHoursEstimate ? `<span style="color: #1976d2; font-size: 0.85rem; margin-left: 0.5rem;">~${entry.yesterdayHoursEstimate}h AI</span>` : ''}
+                    </div>
                     <div class="section-content">${escapeHtml(entry.yesterday)}</div>
                 </div>
                 
                 <div class="standup-section">
-                    <div class="section-label">🗓️ Today</div>
+                    <div class="section-label">
+                        🗓️ Today
+                        ${entry.todayHoursEstimate ? `<span style="color: #1976d2; font-size: 0.85rem; margin-left: 0.5rem;">~${entry.todayHoursEstimate}h AI</span>` : ''}
+                    </div>
                     <div class="section-content">${escapeHtml(entry.today)}</div>
                 </div>
                 
