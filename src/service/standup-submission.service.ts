@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { estimateStandupTime } from './ai-time-estimation.service';
 import { generateStandupSummary } from './ai-summary.service';
+import { CHANNEL_ID } from '../config';
 
 const TIMEZONE = 'Africa/Cairo';
 
@@ -219,6 +220,27 @@ export const handleStandupSubmission = async (args: any) => {
         }
       ]
     });
+
+    // Send thank you message to the channel
+    try {
+      await client.chat.postMessage({
+        channel: CHANNEL_ID,
+        text: `Thanks <@${userId}> for your standup notes! 🙏`,
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `Thanks <@${userId}> for your standup notes! 🙏`
+            }
+          }
+        ]
+      });
+      console.log(`📢 Posted thank you message to channel for ${userName}`);
+    } catch (channelError) {
+      console.error('Error posting to channel:', channelError);
+      // Don't fail the whole submission if channel post fails
+    }
 
   } catch (error) {
     console.error('Error handling standup submission:', error);
