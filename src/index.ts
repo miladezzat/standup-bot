@@ -25,6 +25,10 @@ import { CLERK_SIGN_IN_URL } from './config';
 // 🔒 SECURITY MIDDLEWARE
 // ============================================
 
+// Trust proxy - Required for Heroku to properly detect HTTPS
+// Without this, req.protocol will be 'http' even on HTTPS requests
+expressApp.set('trust proxy', 1);
+
 // Helmet - Security headers
 expressApp.use(helmet({
     contentSecurityPolicy: {
