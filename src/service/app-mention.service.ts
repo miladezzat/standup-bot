@@ -300,6 +300,11 @@ export const mentionApp = async ({
     const hasTicketKeyword = normalized.includes('ticket') || normalized.includes('issue');
     const issueMatches = text.match(/\b[A-Z][A-Z0-9]+-\d+\b/gi) || [];
     const wantsTicketStatus = hasTicketKeyword || issueMatches.length > 0;
+    
+    console.log(`[DEBUG] Text: "${text}"`);
+    console.log(`[DEBUG] Has ticket keyword: ${hasTicketKeyword}`);
+    console.log(`[DEBUG] Issue matches: ${JSON.stringify(issueMatches)}`);
+    console.log(`[DEBUG] Wants ticket status: ${wantsTicketStatus}`);
     let wantsAvailability = hasMentions && (normalized.includes('where') || normalized.includes('ooo') || (normalized.includes('status') && !hasTicketKeyword));
     let wantsWorkSummary = hasMentions && (normalized.includes('working on') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
 
@@ -331,16 +336,22 @@ export const mentionApp = async ({
             contexts.push('Please include a ticket identifier like "ABC-123" so I know which Linear issue to look up.');
         } else {
             for (const rawId of issueMatches) {
+                console.log(`[DEBUG] Looking up Linear issue: ${rawId}`);
                 const summary = await describeIssueStatus(rawId);
+                console.log(`[DEBUG] Linear issue summary: ${summary}`);
                 contexts.push(summary);
             }
         }
     }
 
+    console.log(`[DEBUG] Total contexts collected: ${contexts.length}`, contexts);
+
     if (contexts.length > 0) {
         // Generate AI response for more natural language
         const aiAnswer = await generateAIResponse(text, contexts);
+        console.log(`[DEBUG] AI Answer: "${aiAnswer}"`);
         const useAI = aiAnswer && !/i\s+don't\s+know/i.test(aiAnswer.trim());
+        console.log(`[DEBUG] Use AI: ${useAI}`);
         
         // If we have structured status results, use Block Kit formatting with AI enhancement
         if (statusResults.length > 0 && !wantsWorkSummary && !wantsTicketStatus) {

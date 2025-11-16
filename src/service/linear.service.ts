@@ -104,24 +104,29 @@ export const getActiveIssuesForUser = async (userId: string): Promise<LinearIssu
 
 export const getIssueByIdentifier = async (identifier: string): Promise<LinearIssue | null> => {
   try {
-    const data = await requestLinear<{ issue: LinearIssue | null }>(
-      `query IssueById($identifier: String!) {
-        issue(identifier: $identifier) {
-          id
-          identifier
-          title
-          url
-          dueDate
-          priorityLabel
-          state { name }
+    console.log(`[Linear] Fetching issue with identifier: ${identifier}`);
+    const data = await requestLinear<{ issues: { nodes: LinearIssue[] } }>(
+      `query IssueByIdentifier($identifier: String!) {
+        issues(filter: { identifier: { eq: $identifier } }) {
+          nodes {
+            id
+            identifier
+            title
+            url
+            dueDate
+            priorityLabel
+            state { name }
+          }
         }
       }`,
       { identifier }
     );
 
-    return data.issue;
+    console.log(`[Linear] Received data:`, JSON.stringify(data, null, 2));
+    return data.issues.nodes[0] || null;
   } catch (error) {
     logger.error('Error fetching Linear issue:', error);
+    console.error('[Linear] Error details:', error);
     return null;
   }
 };
