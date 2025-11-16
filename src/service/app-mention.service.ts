@@ -121,19 +121,22 @@ const describeMemberStatus = async (userId: string) => {
 
 const describeWorkForMember = async (userId: string) => {
     if (!isLinearEnabled()) {
-        return 'Linear integration is not configured yet.';
+        return ''; // Silently skip if Linear is not configured
     }
 
     const { name, email } = await getUserName(userId);
     const displayName = name || `User ${userId}`;
 
     if (!email) {
-        return `${displayName}: Slack profile is missing an email, so I can't look them up in Linear.`;
+        // Silently skip if no email - availability info is enough
+        console.log(`[Linear] Skipping work summary for ${displayName} - no email in Slack profile`);
+        return '';
     }
 
     const linearUser = await getLinearUserByEmail(email);
     if (!linearUser) {
-        return `${displayName}: I couldn't find a Linear user with the email ${email}.`;
+        console.log(`[Linear] Skipping work summary for ${displayName} - no Linear user found for ${email}`);
+        return ''; // Silently skip if not in Linear
     }
 
     const issues = await getActiveIssuesForUser(linearUser.id);
@@ -207,6 +210,78 @@ const extractMentionedUsers = (text: string, botUserId: string | null) => {
     return unique.filter((id) => id !== botUserId);
 };
 
+const getRecentStandupHistory = async (userId: string, days: number = 7) => {
+    const now = toZonedTime(new Date(), TIMEZONE);
+    const startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - days);
+    const startDateStr = format(startDate, 'yyyy-MM-dd');
+    
+    const entries = await StandupEntry.find({
+        slackUserId: userId,
+        date: { $gte: startDateStr }
+    }).sort({ date: -1 }).limit(10).lean();
+    
+    return entries;
+};
+
+const buildGeneralContext = async (text: string, mentionedUsers: string[]) => {
+    const contexts: string[] = [];
+    
+    // Get recent standup history for mentioned users
+    for (const userId of mentionedUsers) {
+        const { name } = await getUserName(userId);
+        const displayName = name || `User ${userId}`;
+        const entries = await getRecentStandupHistory(userId, 14); // Last 2 weeks
+        
+        if (entries.length === 0) {
+            contexts.push(`${displayName}: No recent standup submissions found.`);
+            continue;
+        }
+        
+        const summaries = entries.map(entry => {
+            const date = format(new Date(`${entry.date}T00:00:00`), 'MMM d');
+            if (entry.isDayOff) {
+                return `${date}: Day off - ${entry.dayOffReason || 'No reason provided'}`;
+            }
+            const parts = [];
+            if (entry.yesterday) parts.push(`Yesterday: ${entry.yesterday}`);
+            if (entry.today) parts.push(`Today: ${entry.today}`);
+            if (entry.blockers) parts.push(`Blockers: ${entry.blockers}`);
+            return `${date}: ${parts.join(' | ')}`;
+        });
+        
+        contexts.push(`${displayName}'s recent activity:\n${summaries.join('\n')}`);
+    }
+    
+    // If no users mentioned, check if they're asking about team-wide info
+    if (mentionedUsers.length === 0) {
+        const normalized = text.toLowerCase();
+        if (normalized.includes('team') || normalized.includes('everyone') || normalized.includes('who')) {
+            // Get recent activity for all team members
+            const now = toZonedTime(new Date(), TIMEZONE);
+            const todayStr = format(now, 'yyyy-MM-dd');
+            const recentEntries = await StandupEntry.find({
+                date: todayStr
+            }).lean();
+            
+            const teamInfo = await Promise.all(
+                recentEntries.slice(0, 10).map(async (entry) => {
+                    const { name } = await getUserName(entry.slackUserId);
+                    const displayName = name || `User ${entry.slackUserId}`;
+                    if (entry.isDayOff) {
+                        return `${displayName}: Day off - ${entry.dayOffReason || 'No reason'}`;
+                    }
+                    return `${displayName}: Working today`;
+                })
+            );
+            
+            contexts.push(`Today's team status:\n${teamInfo.join('\n')}`);
+        }
+    }
+    
+    return contexts;
+};
+
 const generateAIResponse = async (question: string, contexts: string[]): Promise<string> => {
     const contextText = contexts.filter(Boolean).join('\n\n');
     if (!contextText) {
@@ -216,31 +291,35 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         return contextText;
     }
     try {
-        const prompt = `You are a friendly and helpful engineering team assistant. Your goal is to answer the user's question in a natural, conversational way.
+        const prompt = `You are a friendly and helpful engineering team assistant. Your goal is to answer the user's question in a natural, conversational way based on team standup data.
 
 Guidelines:
 - Be warm and personable while remaining professional
 - Answer directly and concisely, but in natural language
 - Use the provided context data to inform your answer
-- Don't just repeat the data - synthesize it into a helpful response
-- If the person is available, be positive and upbeat
-- If they're out of office, acknowledge it naturally
-- Use casual language like "right now", "currently", "at the moment"
+- Synthesize information - don't just list data, analyze and summarize it
+- If asking about progress, highlight key accomplishments and current focus
+- If asking about blockers, identify patterns or common issues
+- If asking about team status, give an overview with highlights
+- Use casual language like "right now", "currently", "this week", "recently"
 - Don't use phrases like "according to the data" or "based on the information" - just answer naturally
-- Keep your response to 2-3 sentences maximum
+- For historical questions, you can be more detailed (3-4 sentences)
+- For status questions, keep it brief (2-3 sentences)
+- If someone is making good progress, be encouraging
+- If there are blockers, acknowledge them empathetically
 
 Question: ${question}
 
 Context Data:
 ${contextText}
 
-Provide a natural, friendly response:`;
+Provide a natural, insightful response:`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
             temperature: 0.7,
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 200,
+            max_tokens: 300,
         });
         return completion.choices[0]?.message?.content?.trim() || contextText;
     } catch (error) {
@@ -308,9 +387,13 @@ export const mentionApp = async ({
     let wantsAvailability = hasMentions && (normalized.includes('where') || normalized.includes('ooo') || (normalized.includes('status') && !hasTicketKeyword));
     let wantsWorkSummary = hasMentions && (normalized.includes('working on') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
 
+    // Always show availability when asking about someone
     if (hasMentions && !wantsAvailability && !wantsWorkSummary) {
         wantsAvailability = true;
         wantsWorkSummary = isLinearEnabled();
+    } else if (wantsWorkSummary) {
+        // If asking about work, also include availability
+        wantsAvailability = true;
     }
 
     const contexts: string[] = [];
@@ -327,7 +410,9 @@ export const mentionApp = async ({
     if (wantsWorkSummary) {
         for (const userId of mentionedUsers) {
             const workText = await describeWorkForMember(userId);
-            contexts.push(workText);
+            if (workText) { // Only add if we got actual work info
+                contexts.push(workText);
+            }
         }
     }
 
@@ -345,6 +430,16 @@ export const mentionApp = async ({
     }
 
     console.log(`[DEBUG] Total contexts collected: ${contexts.length}`, contexts);
+
+    // If no specific contexts were collected, try general question answering
+    if (contexts.length === 0) {
+        console.log('[DEBUG] No specific contexts, trying general Q&A');
+        const generalContexts = await buildGeneralContext(text, mentionedUsers);
+        if (generalContexts.length > 0) {
+            contexts.push(...generalContexts);
+            console.log(`[DEBUG] Added ${generalContexts.length} general contexts`);
+        }
+    }
 
     if (contexts.length > 0) {
         // Generate AI response for more natural language
@@ -416,6 +511,45 @@ export const mentionApp = async ({
 
     await say({
         thread_ts: event.ts,
-        text: `Hi <@${event.user}>, mention me with \`standup\` in a standup thread for summaries, tag teammates to ask about their availability or current work, or include a Linear ticket ID (e.g. ABC-123) to get its status.`,
+        blocks: [
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `👋 Hi <@${event.user}>! Here's what I can help you with:`
+                }
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*Quick Status Checks:*\n• \`@Standup where is @username?\` - Check availability\n• \`@Standup what is @username doing?\` - Current work & status\n• \`@Standup status of SAK-123\` - Linear ticket status`
+                }
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*General Questions:*\n• \`@Standup what has @username been working on?\` - Recent activity\n• \`@Standup show me @username's progress\` - Work summary\n• \`@Standup what blockers did @username face?\` - Recent issues\n• \`@Standup who's working today?\` - Team overview`
+                }
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*Summaries:*\n• Mention me with \`standup\` in a standup thread for summaries`
+                }
+            },
+            {
+                type: 'context',
+                elements: [
+                    {
+                        type: 'mrkdwn',
+                        text: '💡 Just ask me questions naturally - I use AI to understand and answer!'
+                    }
+                ]
+            }
+        ],
+        text: `Hi! I can help you check team member availability, work status, Linear tickets, and answer general questions about recent standups.`,
     });
 };
