@@ -1,16 +1,19 @@
+import { LinearClient } from '@linear/sdk';
 import { logger } from '../utils/logger';
-
-// import node env to load the API key
 import dotenv from 'dotenv';
-dotenv.config(); // Load env first!
 
-const LINEAR_API_URL = 'https://api.linear.app/graphql';
+dotenv.config();
+
 const API_KEY = process.env.LINEAR_API_KEY;
+
+// Initialize Linear client
+let linearClient: LinearClient | null = null;
 
 if (API_KEY) {
   console.log('[Linear] API Key configured:', API_KEY.slice(0, 10) + '...' + API_KEY.slice(-5));
   console.log('[Linear] API Key length:', API_KEY.length);
-  console.log('[Linear] API URL:', LINEAR_API_URL);
+  linearClient = new LinearClient({ apiKey: API_KEY });
+  console.log('[Linear] SDK client initialized');
 } else {
   console.warn('[Linear] ⚠️  LINEAR_API_KEY is NOT configured!');
 }
@@ -31,65 +34,22 @@ interface LinearIssue {
   dueDate?: string | null;
 }
 
-const requestLinear = async <T>(query: string, variables?: Record<string, unknown>): Promise<T> => {
-  if (!API_KEY) {
-    throw new Error('LINEAR_API_KEY is not configured.');
-  }
-
-  console.log('[Linear] Making request with query:', query.substring(0, 100) + '...');
-  console.log('[Linear] Variables:', JSON.stringify(variables));
-
-  const response = await fetch(LINEAR_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': API_KEY,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  console.log('[Linear] Response status:', response.status);
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error('[Linear] Error response:', text);
-    throw new Error(`Linear API error: ${response.status} ${text}`);
-  }
-
-  const payload = await response.json();
-  console.log('[Linear] Response payload:', JSON.stringify(payload, null, 2));
-  
-  if (payload.errors) {
-    console.error('[Linear] GraphQL errors:', JSON.stringify(payload.errors, null, 2));
-    throw new Error(`Linear API returned errors: ${JSON.stringify(payload.errors)}`);
-  }
-
-  return payload.data as T;
-};
-
-export const isLinearEnabled = () => Boolean(API_KEY);
+export const isLinearEnabled = () => Boolean(linearClient);
 
 export const testLinearConnection = async (): Promise<{ success: boolean; message: string }> => {
-  if (!API_KEY) {
+  if (!linearClient) {
     return { success: false, message: 'LINEAR_API_KEY is not configured' };
   }
 
   try {
     console.log('[Linear] Testing connection...');
-    const data = await requestLinear<{ viewer: { id: string; name: string; email: string } }>(
-      `query {
-        viewer {
-          id
-          name
-          email
-        }
-      }`
-    );
+    const viewer = await linearClient.viewer;
+    const viewerData = await viewer;
     
-    console.log('[Linear] Connection test successful! Viewer:', data.viewer);
+    console.log('[Linear] Connection test successful! Viewer:', viewerData.name);
     return { 
       success: true, 
-      message: `Connected as ${data.viewer.name} (${data.viewer.email})` 
+      message: `Connected as ${viewerData.name} (${viewerData.email})` 
     };
   } catch (error: any) {
     console.error('[Linear] Connection test failed:', error);
@@ -101,17 +61,29 @@ export const testLinearConnection = async (): Promise<{ success: boolean; messag
 };
 
 export const getLinearUserByEmail = async (email: string): Promise<LinearUser | null> => {
-  try {
-    const data = await requestLinear<{ users: { nodes: LinearUser[] } }>(
-      `query UserByEmail($email: String!) {
-        users(filter: { email: { eq: $email } }) {
-          nodes { id name email }
-        }
-      }`,
-      { email }
-    );
+  if (!linearClient) {
+    return null;
+  }
 
-    return data.users.nodes[0] || null;
+  try {
+    console.log(`[Linear] Searching for user with email: ${email}`);
+    const users = await linearClient.users({
+      filter: { email: { eq: email } }
+    });
+    
+    const userNodes = await users.nodes;
+    if (userNodes.length === 0) {
+      console.log(`[Linear] No user found with email: ${email}`);
+      return null;
+    }
+
+    const user = userNodes[0];
+    console.log(`[Linear] Found user: ${user.name} (${user.id})`);
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email
+    };
   } catch (error) {
     logger.error('Error fetching Linear user:', error);
     return null;
@@ -119,29 +91,37 @@ export const getLinearUserByEmail = async (email: string): Promise<LinearUser | 
 };
 
 export const getActiveIssuesForUser = async (userId: string): Promise<LinearIssue[]> => {
-  try {
-    const data = await requestLinear<{ issues: { nodes: LinearIssue[] } }>(
-      `query ActiveIssues($userId: ID!, $first: Int!) {
-        issues(
-          filter: { assignee: { id: { eq: $userId } } }
-          orderBy: updatedAt
-          first: $first
-        ) {
-          nodes {
-            id
-            identifier
-            title
-            url
-            dueDate
-            priorityLabel
-            state { name }
-          }
-        }
-      }`,
-      { userId, first: 5 }
-    );
+  if (!linearClient) {
+    return [];
+  }
 
-    return data.issues.nodes;
+  try {
+    console.log(`[Linear] Fetching active issues for user: ${userId}`);
+    const issues = await linearClient.issues({
+      filter: { 
+        assignee: { id: { eq: userId } }
+      },
+      first: 5
+    });
+
+    const issueNodes = await issues.nodes;
+    console.log(`[Linear] Found ${issueNodes.length} issues for user ${userId}`);
+
+    const result: LinearIssue[] = [];
+    for (const issue of issueNodes) {
+      const state = await issue.state;
+      result.push({
+        id: issue.id,
+        identifier: issue.identifier,
+        title: issue.title,
+        url: issue.url,
+        dueDate: issue.dueDate,
+        priorityLabel: issue.priorityLabel,
+        state: state ? { name: state.name } : null
+      });
+    }
+
+    return result;
   } catch (error) {
     logger.error('Error fetching Linear issues:', error);
     return [];
@@ -149,61 +129,73 @@ export const getActiveIssuesForUser = async (userId: string): Promise<LinearIssu
 };
 
 export const getIssueByIdentifier = async (identifier: string): Promise<LinearIssue | null> => {
+  if (!linearClient) {
+    return null;
+  }
+
   try {
     console.log(`[Linear] Fetching issue with identifier: ${identifier}`);
     
-    // Linear's issue(id:) requires UUID, not identifier
-    // So we search through issues by number
-    const parts = identifier.split('-');
-    if (parts.length !== 2) {
-      console.error('[Linear] Invalid identifier format:', identifier);
+    // Use the SDK's issueSearch method which supports identifier search
+    const issue = await linearClient.issue(identifier);
+    
+    if (!issue) {
+      console.log(`[Linear] No issue found with identifier: ${identifier}`);
       return null;
     }
-    
-    const [projectKey, issueNumber] = parts;
-    const number = parseInt(issueNumber, 10);
-    
-    if (isNaN(number)) {
-      console.error('[Linear] Invalid issue number:', issueNumber);
-      return null;
-    }
-    
-    // Search for issues with this number
-    const data = await requestLinear<{ issues: { nodes: LinearIssue[] } }>(
-      `query IssueByNumber($number: Float!) {
-        issues(
-          filter: { number: { eq: $number } }
-          first: 10
-        ) {
-          nodes {
-            id
-            identifier
-            title
-            url
-            dueDate
-            priorityLabel
-            state { name }
-          }
-        }
-      }`,
-      { number }
-    );
 
-    console.log(`[Linear] Found ${data.issues.nodes.length} issues with number ${number}`);
-    
-    // Find the one matching the full identifier
-    const issue = data.issues.nodes.find(i => i.identifier.toUpperCase() === identifier.toUpperCase());
-    
-    if (issue) {
-      console.log(`[Linear] Matched issue:`, issue.identifier);
-    } else {
-      console.log(`[Linear] No issue found matching ${identifier}`);
-    }
-    
-    return issue || null;
-  } catch (error) {
+    const state = await issue.state;
+    console.log(`[Linear] Found issue: ${issue.identifier} - ${issue.title}`);
+
+    return {
+      id: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      url: issue.url,
+      dueDate: issue.dueDate,
+      priorityLabel: issue.priorityLabel,
+      state: state ? { name: state.name } : null
+    };
+  } catch (error: any) {
     logger.error('Error fetching Linear issue:', error);
     console.error('[Linear] Error details:', error);
+    
+    // If direct lookup fails, try searching by number
+    try {
+      const parts = identifier.split('-');
+      if (parts.length === 2) {
+        const number = parseInt(parts[1], 10);
+        if (!isNaN(number)) {
+          console.log(`[Linear] Trying search by number: ${number}`);
+          const issues = await linearClient.issues({
+            filter: { number: { eq: number } },
+            first: 10
+          });
+
+          const issueNodes = await issues.nodes;
+          console.log(`[Linear] Found ${issueNodes.length} issues with number ${number}`);
+          
+          const matchedIssue = issueNodes.find(i => i.identifier.toUpperCase() === identifier.toUpperCase());
+          
+          if (matchedIssue) {
+            const state = await matchedIssue.state;
+            console.log(`[Linear] Matched issue via search: ${matchedIssue.identifier}`);
+            return {
+              id: matchedIssue.id,
+              identifier: matchedIssue.identifier,
+              title: matchedIssue.title,
+              url: matchedIssue.url,
+              dueDate: matchedIssue.dueDate,
+              priorityLabel: matchedIssue.priorityLabel,
+              state: state ? { name: state.name } : null
+            };
+          }
+        }
+      }
+    } catch (searchError) {
+      logger.error('Error in fallback search:', searchError);
+    }
+    
     return null;
   }
 };
