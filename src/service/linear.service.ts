@@ -6,6 +6,8 @@ dotenv.config(); // Load env first!
 
 const LINEAR_API_URL = 'https://api.linear.app/graphql';
 const API_KEY = process.env.LINEAR_API_KEY;
+console.log('API_KEY', API_KEY?.slice(0, 5) + '...');
+console.log('LINEAR_API_URL', LINEAR_API_URL);
 
 interface LinearUser {
   id: string;

@@ -2,6 +2,7 @@ import type { AppMentionEvent, SayFn } from '@slack/bolt';
 import type { WebClient } from '@slack/web-api';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import standupThread from '../models/standupThread';
 import StandupEntry from '../models/standupEntry';
@@ -16,7 +17,7 @@ import {
 
 const TIMEZONE = 'Africa/Cairo';
 const openaiClient = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
-
+dotenv.config();
 const timeStringToMinutes = (time?: string | null) => {
     if (!time) return null;
     const [hours, minutes] = time.split(':').map((n) => parseInt(n, 10));
