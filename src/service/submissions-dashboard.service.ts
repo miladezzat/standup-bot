@@ -650,6 +650,11 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
             border-left-color: var(--danger);
             background: linear-gradient(to right, rgba(239, 68, 68, 0.03), white);
         }
+
+        .standup-card.dayoff-highlight {
+            border-left-color: var(--warning);
+            background: linear-gradient(to right, rgba(245, 158, 11, 0.05), white);
+        }
         
         .standup-header {
             display: flex;
@@ -730,6 +735,11 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
         .time-badge {
             background: linear-gradient(135deg, #e0f2fe, #bae6fd);
             color: #0369a1;
+        }
+
+        .dayoff-badge {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
         }
         
         .timestamp {
@@ -1086,13 +1096,15 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                 for (const entry of entries) {
                     const hasBlocker = entry.blockers && entry.blockers.trim();
                     const hasNotes = entry.notes && entry.notes.trim();
+                    const isDayOff = entry.isDayOff;
+                    const highlightClasses = `${hasBlocker ? 'blocker-highlight' : ''} ${isDayOff ? 'dayoff-highlight' : ''}`.trim();
                     const submittedAt = format(new Date(entry.createdAt), 'h:mm a');
                     const hasTimeEstimates = entry.yesterdayHoursEstimate || entry.todayHoursEstimate;
 
                     const userInitial = entry.slackUserName.charAt(0).toUpperCase();
                     
                     html += `
-                <div class="standup-card ${hasBlocker ? 'blocker-highlight' : ''}">
+                <div class="standup-card ${highlightClasses}">
                     <div class="standup-header">
                         <div class="user-info-section">
                             <div class="user-avatar-card">${userInitial}</div>
@@ -1103,6 +1115,7 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                                 <div class="badges">
                                     ${hasBlocker ? '<span class="badge blocker-badge">⚠️ Blocked</span>' : ''}
                                     ${hasTimeEstimates ? `<span class="badge time-badge">⏱ ${(entry.yesterdayHoursEstimate || 0) + (entry.todayHoursEstimate || 0)}h</span>` : ''}
+                                    ${isDayOff ? '<span class="badge dayoff-badge">🛫 Day Off</span>' : ''}
                                 </div>
                             </div>
                         </div>
@@ -1155,6 +1168,16 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                             <span>Notes</span>
                         </div>
                         <div class="section-content">${escapeHtml(entry.notes || '')}</div>
+                    </div>
+                    ` : ''}
+
+                    ${isDayOff ? `
+                    <div class="standup-section">
+                        <div class="section-label">
+                            <span>🛫</span>
+                            <span>Day Off</span>
+                        </div>
+                        <div class="section-content">${escapeHtml(entry.dayOffReason || 'Marked as out of office')}</div>
                     </div>
                     ` : ''}
                 </div>

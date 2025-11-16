@@ -9,7 +9,7 @@ import { expressApp, slackApp } from './singleton';
 import { runJobs } from './jobs';
 import { getStandupHistory } from './service/standup-history.service';
 import { mentionApp } from './service/app-mention.service';
-import { openStandupModal, handleStandupSubmission } from './service/standup-submission.service';
+import { openStandupModal, handleStandupSubmission, handleStandupSlashCommand } from './service/standup-submission.service';
 import { getSubmissionsDashboard } from './service/submissions-dashboard.service';
 import { getUserReport } from './service/user-report.service';
 import { getDailySummaryView } from './service/daily-summary-view.service';
@@ -100,7 +100,7 @@ for (const key of requiredEnvVars) {
 logInfo('✅ Environment variables validated');
 
 // Handle /standup slash command
-slackApp.command('/standup', openStandupModal);
+slackApp.command('/standup', handleStandupSlashCommand);
 
 // Handle button click from reminder message
 slackApp.action('open_standup_modal', async ({ ack, body, client }) => {

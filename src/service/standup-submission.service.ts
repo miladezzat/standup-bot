@@ -1,11 +1,31 @@
 import StandupEntry from '../models/standupEntry';
-import { format } from 'date-fns';
+import { format, parseISO, isValid, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { estimateStandupTime } from './ai-time-estimation.service';
 import { generateStandupSummary } from './ai-summary.service';
 import { CHANNEL_ID } from '../config';
 
 const TIMEZONE = 'Africa/Cairo';
+
+const DEFAULT_DAY_OFF_MESSAGE = 'Taking time off';
+
+interface DayOffCommandParseResult {
+  targetDate: string;
+  reason: string;
+  isToday: boolean;
+}
+
+export const handleStandupSlashCommand = async ({ ack, body, client, respond }: any) => {
+  await ack();
+
+  const text = (body.text || '').trim();
+  if (text.toLowerCase().startsWith('ooo')) {
+    await handleQuickDayOffCommand({ body, client, respond, text });
+    return;
+  }
+
+  await openStandupModal({ client, body });
+};
 
 export const openStandupModal = async ({ client, body }: any) => {
   try {
@@ -16,6 +36,14 @@ export const openStandupModal = async ({ client, body }: any) => {
       slackUserId: body.user_id,
       date: today
     });
+
+    const dayOffOption = {
+      text: {
+        type: 'plain_text',
+        text: 'I am OOO / taking the day off'
+      },
+      value: 'day_off'
+    };
 
     await client.views.open({
       trigger_id: body.trigger_id,
@@ -120,12 +148,168 @@ export const openStandupModal = async ({ client, body }: any) => {
               text: '📝 Additional notes'
             },
             optional: true
+          },
+          {
+            type: 'input',
+            block_id: 'dayoff_toggle_block',
+            element: {
+              type: 'checkboxes',
+              action_id: 'dayoff_toggle',
+              options: [dayOffOption],
+              initial_options: existingEntry?.isDayOff ? [{ ...dayOffOption }] : undefined
+            },
+            label: {
+              type: 'plain_text',
+              text: 'Are you out of office today?'
+            },
+            optional: true
+          },
+          {
+            type: 'input',
+            block_id: 'dayoff_reason_block',
+            element: {
+              type: 'plain_text_input',
+              action_id: 'dayoff_reason_input',
+              multiline: true,
+              placeholder: {
+                type: 'plain_text',
+                text: 'Optional note about your day off or coverage...'
+              },
+              initial_value: existingEntry?.dayOffReason || ''
+            },
+            label: {
+              type: 'plain_text',
+              text: 'Day off reason (optional)'
+            },
+            optional: true
           }
         ]
       }
     });
   } catch (error) {
     console.error('Error opening standup modal:', error);
+  }
+};
+
+const parseDayOffCommand = (text: string): DayOffCommandParseResult => {
+  const remainder = text.replace(/^ooo\s*/i, '').trim();
+  const now = toZonedTime(new Date(), TIMEZONE);
+  const today = format(now, 'yyyy-MM-dd');
+  let targetDate = today;
+  let reason = remainder;
+
+  if (remainder) {
+    const firstToken = remainder.split(/\s+/)[0];
+    const normalized = firstToken.toLowerCase();
+    let parsedDate: Date | null = null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(firstToken)) {
+      const iso = parseISO(firstToken);
+      parsedDate = isValid(iso) ? iso : null;
+    } else if (/^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}$/i.test(firstToken)) {
+      const iso = parseISO(firstToken);
+      parsedDate = isValid(iso) ? iso : null;
+    } else if (normalized === 'today') {
+      parsedDate = now;
+    } else if (normalized === 'tomorrow') {
+      parsedDate = addDays(now, 1);
+    }
+
+    if (parsedDate) {
+      targetDate = format(parsedDate, 'yyyy-MM-dd');
+      reason = remainder.slice(firstToken.length).trim();
+    }
+  }
+
+  return {
+    targetDate,
+    reason: reason || DEFAULT_DAY_OFF_MESSAGE,
+    isToday: targetDate === today
+  };
+};
+
+const normalizeReasonForSlack = (reason: string) => reason.replace(/[<>]/g, '').trim();
+
+const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) => {
+  try {
+    const userId = body.user_id;
+    const userName = body.user_name || 'Unknown';
+    const workspaceId = body.team_id || '';
+    const { targetDate, reason, isToday } = parseDayOffCommand(text);
+    const reasonForSlack = normalizeReasonForSlack(reason);
+
+    await StandupEntry.findOneAndUpdate(
+      {
+        slackUserId: userId,
+        date: targetDate
+      },
+      {
+        slackUserId: userId,
+        slackUserName: userName,
+        date: targetDate,
+        yesterday: 'Day off',
+        today: 'Day off',
+        blockers: '',
+        notes: `OOO: ${reasonForSlack}`,
+        isDayOff: true,
+        dayOffReason: reasonForSlack,
+        source: 'slash_command',
+        workspaceId,
+        yesterdayHoursEstimate: 0,
+        todayHoursEstimate: 0,
+        timeEstimatesRaw: null,
+        aiSummary: ''
+      },
+      {
+        upsert: true,
+        new: true
+      }
+    );
+
+    const targetDateObj = toZonedTime(parseISO(targetDate), TIMEZONE);
+    const displayDate = format(targetDateObj, 'EEEE, MMM d');
+
+    if (respond) {
+      await respond({
+        response_type: 'ephemeral',
+        text: `🛫 You're marked as out of office ${isToday ? 'today' : `on ${displayDate}`}${reasonForSlack ? ` – ${reasonForSlack}` : ''}.`
+      });
+    }
+
+    const channelText = isToday
+      ? `🛫 Heads up: <@${userId}> is out of office today${reasonForSlack ? ` – ${reasonForSlack}` : ''}.`
+      : `🛫 Heads up: <@${userId}> will be out on ${displayDate}${reasonForSlack ? ` – ${reasonForSlack}` : ''}.`;
+    const blockText = isToday
+      ? `🛫 *Out of Office Alert*
+<@${userId}> is out today${reasonForSlack ? `:
+> ${reasonForSlack}` : '.'}`
+      : `🛫 *Scheduled Day Off*
+<@${userId}> will be out on *${displayDate}*${reasonForSlack ? `:
+> ${reasonForSlack}` : '.'}`;
+
+    await client.chat.postMessage({
+      channel: CHANNEL_ID,
+      text: channelText,
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: blockText
+          }
+        }
+      ]
+    });
+
+    console.log(`🛫 Recorded day off for ${userName} on ${targetDate}`);
+  } catch (error) {
+    console.error('Error handling quick day off command:', error);
+    if (respond) {
+      await respond({
+        response_type: 'ephemeral',
+        text: '❌ Sorry, something went wrong saving your day off. Please try again or use `/standup`.'
+      });
+    }
   }
 };
 
@@ -143,13 +327,18 @@ export const handleStandupSubmission = async (args: any) => {
 
     // Extract form values
     const values = view.state.values;
-    const yesterday = values.yesterday_block.yesterday_input.value || '';
-    const today_plan = values.today_block.today_input.value || '';
+    const yesterdayRaw = values.yesterday_block.yesterday_input.value || '';
+    const todayRaw = values.today_block.today_input.value || '';
     const blockers = values.blockers_block?.blockers_input?.value || '';
     const notes = values.notes_block?.notes_input?.value || '';
+    const isDayOff = Boolean(values.dayoff_toggle_block?.dayoff_toggle?.selected_options?.length);
+    const rawDayOffReason = values.dayoff_reason_block?.dayoff_reason_input?.value || '';
+    const dayOffReason = isDayOff ? rawDayOffReason : '';
+    const yesterday = isDayOff && !yesterdayRaw.trim() ? 'Day off' : yesterdayRaw;
+    const today_plan = isDayOff && !todayRaw.trim() ? 'Day off' : todayRaw;
 
     // Validate required fields
-    if (!yesterday.trim() || !today_plan.trim()) {
+    if (!isDayOff && (!yesterday.trim() || !today_plan.trim())) {
       // This shouldn't happen as fields are required, but just in case
       console.error('Missing required fields');
       return;
@@ -161,7 +350,7 @@ export const handleStandupSubmission = async (args: any) => {
     let todayHours = 0;
     let aiSummary = '';
 
-    if (process.env.OPENAI_API_KEY) {
+    if (!isDayOff && process.env.OPENAI_API_KEY) {
       try {
         // Generate time estimates
         timeEstimates = await estimateStandupTime(yesterday, today_plan);
@@ -193,6 +382,8 @@ export const handleStandupSubmission = async (args: any) => {
         today: today_plan,
         blockers: blockers,
         notes: notes,
+        isDayOff: isDayOff,
+        dayOffReason: dayOffReason,
         source: 'modal',
         workspaceId: workspaceId,
         yesterdayHoursEstimate: yesterdayHours,
@@ -211,6 +402,11 @@ export const handleStandupSubmission = async (args: any) => {
     // Build confirmation message
     let confirmationText = `✅ *Your standup for ${today} has been saved!*\n\nThank you for keeping the team updated. You can update it anytime by running \`/standup\` again.`;
     
+    // Add status info
+    if (isDayOff) {
+      confirmationText += `\n\n🛫 *Status:* Marked as out of office${dayOffReason ? ` (${dayOffReason})` : ''}.`;
+    }
+
     // Add AI summary if available
     if (aiSummary) {
       confirmationText += `\n\n📝 *AI Summary:*\n_${aiSummary}_`;
@@ -242,22 +438,33 @@ export const handleStandupSubmission = async (args: any) => {
       ]
     });
 
-    // Send thank you message to the channel
+    // Notify channel
     try {
+      const channelText = isDayOff
+        ? `🛫 Heads up: <@${userId}> is out of office today${dayOffReason ? ` – ${dayOffReason}` : ''}.`
+        : `Thanks <@${userId}> for your standup notes! 🙏`;
+      const blockText = isDayOff
+        ? `🛫 *Out of Office Alert*\n<@${userId}> is out today${dayOffReason ? `:\n> ${dayOffReason}` : '.'}`
+        : `Thanks <@${userId}> for your standup notes! 🙏`;
+
       await client.chat.postMessage({
         channel: CHANNEL_ID,
-        text: `Thanks <@${userId}> for your standup notes! 🙏`,
+        text: channelText,
         blocks: [
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `Thanks <@${userId}> for your standup notes! 🙏`
+              text: blockText
             }
           }
         ]
       });
-      console.log(`📢 Posted thank you message to channel for ${userName}`);
+      console.log(
+        isDayOff
+          ? `📢 Posted OOO announcement to channel for ${userName}`
+          : `📢 Posted thank you message to channel for ${userName}`
+      );
     } catch (channelError) {
       console.error('Error posting to channel:', channelError);
       // Don't fail the whole submission if channel post fails

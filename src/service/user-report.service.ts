@@ -89,6 +89,7 @@ export const getUserReport = async (req: Request, res: Response) => {
             s.blockers && s.blockers.trim() && 
             !s.blockers.toLowerCase().includes('none')
         ).length;
+        const dayOffCount = standups.filter(s => s.isDayOff).length;
 
         // Count total tasks
         let totalTasks = 0;
@@ -267,6 +268,11 @@ export const getUserReport = async (req: Request, res: Response) => {
             border: 2px solid var(--gray-100);
             transition: var(--transition);
         }
+
+        .stat-card.dayoff-alert {
+            border-color: var(--warning);
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+        }
         
         .stat-card:hover {
             transform: translateY(-4px);
@@ -283,6 +289,19 @@ export const getUserReport = async (req: Request, res: Response) => {
             background-clip: text;
             line-height: 1;
             margin-bottom: 0.5rem;
+        }
+
+        .stat-card.dayoff-alert .stat-value {
+            background: none;
+            -webkit-text-fill-color: #b45309;
+            color: #b45309;
+        }
+
+        .stat-alert-text {
+            margin-top: 0.35rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #92400e;
         }
         
         .stat-label {
@@ -366,6 +385,11 @@ export const getUserReport = async (req: Request, res: Response) => {
             border-left-color: var(--danger);
             background: linear-gradient(to right, rgba(239, 68, 68, 0.03), white);
         }
+
+        .standup-card.day-off-card {
+            border-left-color: var(--warning);
+            background: linear-gradient(to right, rgba(245, 158, 11, 0.05), white);
+        }
         
         .date-header {
             display: flex;
@@ -393,6 +417,16 @@ export const getUserReport = async (req: Request, res: Response) => {
             font-weight: 700;
             text-transform: uppercase;
             animation: pulse 2s infinite;
+        }
+
+        .dayoff-badge {
+            background: var(--warning);
+            color: #78350f;
+            padding: 0.375rem 0.875rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
         }
         
         .timestamp {
@@ -561,6 +595,11 @@ export const getUserReport = async (req: Request, res: Response) => {
                     <div class="stat-value">${Math.round((totalSubmissions / parseInt(endDate.split('-')[2])) * 100)}%</div>
                     <div class="stat-label">Attendance</div>
                 </div>
+                <div class="stat-card ${dayOffCount >= 3 ? 'dayoff-alert' : ''}">
+                    <div class="stat-value">${dayOffCount}</div>
+                    <div class="stat-label">Days Off</div>
+                    ${dayOffCount >= 3 ? '<div class="stat-alert-text">Check coverage</div>' : ''}
+                </div>
             </div>
         </div>
         
@@ -675,13 +714,19 @@ export const getUserReport = async (req: Request, res: Response) => {
             const hasBlocker = standup.blockers && standup.blockers.trim() && 
                                !standup.blockers.toLowerCase().includes('none');
             const hasNotes = standup.notes && standup.notes.trim();
+            const isDayOff = !!standup.isDayOff;
+            const cardClasses = ['standup-card'];
+            if (hasBlocker) cardClasses.push('has-blocker');
+            if (isDayOff) cardClasses.push('day-off-card');
+            const cardClassName = cardClasses.join(' ');
 
             html += `
-        <div class="standup-card ${hasBlocker ? 'has-blocker' : ''}">
+        <div class="${cardClassName}">
             <div class="date-header">
                 <div class="date-title">
                     ${dateFormatted}
                     ${hasBlocker ? '<span class="blocker-badge">HAS BLOCKERS</span>' : ''}
+                    ${isDayOff ? '<span class="dayoff-badge">DAY OFF</span>' : ''}
                 </div>
                 <div class="timestamp">Submitted at ${submittedAt}</div>
             </div>
@@ -707,6 +752,13 @@ export const getUserReport = async (req: Request, res: Response) => {
             <div class="section">
                 <div class="section-label">📝 Notes</div>
                 <div class="section-content" style="background: #f8fafc; border-left: 3px solid #3b82f6;">${escapeHtml(standup.notes || '')}</div>
+            </div>
+            ` : ''}
+
+            ${isDayOff ? `
+            <div class="section">
+                <div class="section-label">🛫 Day Off</div>
+                <div class="section-content" style="background: #fffbeb; border-left: 3px solid #f59e0b;">${escapeHtml(standup.dayOffReason || 'Marked as out of office')}</div>
             </div>
             ` : ''}
         </div>
