@@ -4,8 +4,10 @@ import { toZonedTime } from 'date-fns-tz';
 import { estimateStandupTime } from './ai-time-estimation.service';
 import { generateStandupSummary } from './ai-summary.service';
 import { CHANNEL_ID } from '../config';
+import { slackWebClient } from '../singleton';
 
 const TIMEZONE = 'Africa/Cairo';
+const DAY_OFF_STATUS_EMOJI = ':palm_tree:';
 
 const DEFAULT_DAY_OFF_MESSAGE = 'Taking time off';
 
@@ -266,6 +268,8 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
       }
     );
 
+    await applyDayOffStatus(userId, targetDate, reasonForSlack);
+
     const targetDateObj = toZonedTime(parseISO(targetDate), TIMEZONE);
     const displayDate = format(targetDateObj, 'EEEE, MMM d');
 
@@ -399,6 +403,12 @@ export const handleStandupSubmission = async (args: any) => {
 
     console.log(`✅ Standup saved for ${userName} (${userId}) on ${today}`);
 
+    if (isDayOff) {
+      await applyDayOffStatus(userId, today, dayOffReason);
+    } else {
+      await clearSlackStatus(userId);
+    }
+
     // Build confirmation message
     let confirmationText = `✅ *Your standup for ${today} has been saved!*\n\nThank you for keeping the team updated. You can update it anytime by running \`/standup\` again.`;
     
@@ -440,7 +450,7 @@ export const handleStandupSubmission = async (args: any) => {
 
     // Notify channel
     try {
-      const channelText = isDayOff
+    const channelText = isDayOff
         ? `🛫 Heads up: <@${userId}> is out of office today${dayOffReason ? ` – ${dayOffReason}` : ''}.`
         : `Thanks <@${userId}> for your standup notes! 🙏`;
       const blockText = isDayOff
@@ -483,4 +493,46 @@ export const handleStandupSubmission = async (args: any) => {
       console.error('Error sending error message:', msgError);
     }
   }
+};
+const setSlackStatus = async (userId: string, statusText: string, statusEmoji: string, expiration: number) => {
+  if (!process.env.SLACK_BOT_TOKEN) return;
+  try {
+    await slackWebClient.users.profile.set({
+      user: userId,
+      profile: JSON.stringify({
+        status_text: statusText,
+        status_emoji: statusEmoji,
+        status_expiration: expiration
+      })
+    });
+  } catch (error) {
+    console.error('Error setting Slack status:', error);
+  }
+};
+
+const clearSlackStatus = async (userId: string) => {
+  if (!process.env.SLACK_BOT_TOKEN) return;
+  try {
+    await slackWebClient.users.profile.set({
+      user: userId,
+      profile: JSON.stringify({
+        status_text: '',
+        status_emoji: '',
+        status_expiration: 0
+      })
+    });
+  } catch (error) {
+    console.error('Error clearing Slack status:', error);
+  }
+};
+
+const computeDayOffExpiration = (dateStr: string) => {
+  const endOfDay = toZonedTime(new Date(`${dateStr}T23:59:59`), TIMEZONE);
+  return Math.floor(endOfDay.getTime() / 1000);
+};
+
+const applyDayOffStatus = async (userId: string, targetDate: string, reason: string) => {
+  const expiration = computeDayOffExpiration(targetDate);
+  const text = reason ? `OOO – ${reason}` : 'Out of office';
+  await setSlackStatus(userId, text, DAY_OFF_STATUS_EMOJI, expiration);
 };
