@@ -1,11 +1,14 @@
 import type { AppMentionEvent, SayFn } from '@slack/bolt';
 import type { WebClient } from '@slack/web-api';
-import { format } from 'date-fns';
+import { format, subDays, differenceInDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import standupThread from '../models/standupThread';
 import StandupEntry from '../models/standupEntry';
+import PerformanceMetrics from '../models/performanceMetrics';
+import Achievement from '../models/achievements';
+import Alert from '../models/alerts';
 import { getUserName } from '../helper';
 import { APP_TIMEZONE } from '../config';
 import {
@@ -306,6 +309,123 @@ const getRecentStandupHistory = async (userId: string, days: number = 7) => {
     return entries;
 };
 
+const getUserPerformanceMetrics = async (userId: string) => {
+    const weekMetrics = await PerformanceMetrics.findOne({
+        slackUserId: userId,
+        period: 'week'
+    }).sort({ startDate: -1 }).lean();
+
+    const monthMetrics = await PerformanceMetrics.findOne({
+        slackUserId: userId,
+        period: 'month'
+    }).sort({ startDate: -1 }).lean();
+
+    return { weekMetrics, monthMetrics };
+};
+
+const getUserAchievements = async (userId: string) => {
+    const achievements = await Achievement.find({
+        slackUserId: userId,
+        isActive: true
+    }).sort({ earnedAt: -1 }).limit(5).lean();
+
+    return achievements;
+};
+
+const getUserAlerts = async (userId: string) => {
+    const now = toZonedTime(new Date(), TIMEZONE);
+    const last7Days = subDays(now, 7);
+    
+    const alerts = await Alert.find({
+        affectedUserId: userId,
+        createdAt: { $gte: last7Days },
+        status: { $in: ['active', 'acknowledged'] }
+    }).sort({ createdAt: -1 }).limit(3).lean();
+
+    return alerts;
+};
+
+const calculateStreak = async (userId: string) => {
+    const now = toZonedTime(new Date(), TIMEZONE);
+    let streak = 0;
+    let checkDate = new Date(now);
+    
+    // Check backwards from today
+    while (true) {
+        const dateStr = format(checkDate, 'yyyy-MM-dd');
+        const entry = await StandupEntry.findOne({
+            slackUserId: userId,
+            date: dateStr,
+            isDayOff: false
+        }).lean();
+        
+        if (!entry) {
+            break;
+        }
+        
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+        
+        // Safety limit
+        if (streak > 100) break;
+    }
+    
+    return streak;
+};
+
+const formatPerformanceBar = (score: number, maxWidth: number = 10): string => {
+    const filled = Math.round((score / 100) * maxWidth);
+    const empty = maxWidth - filled;
+    return '█'.repeat(filled) + '░'.repeat(empty);
+};
+
+const getScoreEmoji = (score: number): string => {
+    if (score >= 90) return '🔥';
+    if (score >= 75) return '⭐';
+    if (score >= 60) return '✅';
+    if (score >= 40) return '⚠️';
+    return '🔴';
+};
+
+const getRiskEmoji = (risk?: string): string => {
+    if (risk === 'high') return '🔴';
+    if (risk === 'medium') return '🟡';
+    return '🟢';
+};
+
+const buildEnhancedUserProfile = async (userId: string) => {
+    const { name } = await getUserName(userId);
+    const displayName = name || `User ${userId}`;
+    
+    const [metrics, achievements, alerts, streak, recentEntries] = await Promise.all([
+        getUserPerformanceMetrics(userId),
+        getUserAchievements(userId),
+        getUserAlerts(userId),
+        calculateStreak(userId),
+        getRecentStandupHistory(userId, 7)
+    ]);
+
+    const { weekMetrics, monthMetrics } = metrics;
+    
+    // Calculate additional stats
+    const workDays = recentEntries.filter(e => !e.isDayOff).length;
+    const offDays = recentEntries.filter(e => e.isDayOff).length;
+    const submissionRate = workDays > 0 ? Math.round((workDays / 7) * 100) : 0;
+    
+    return {
+        displayName,
+        weekMetrics,
+        monthMetrics,
+        achievements,
+        alerts,
+        streak,
+        recentEntries,
+        workDays,
+        offDays,
+        submissionRate
+    };
+};
+
 const buildGeneralContext = async (text: string, mentionedUsers: string[]) => {
     const contexts: string[] = [];
     
@@ -465,18 +585,215 @@ export const mentionApp = async ({
     console.log(`[DEBUG] Wants ticket status: ${wantsTicketStatus}`);
     let wantsAvailability = hasMentions && (normalized.includes('where') || normalized.includes('ooo') || (normalized.includes('status') && !hasTicketKeyword));
     let wantsWorkSummary = hasMentions && (normalized.includes('working on') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
+    let wantsPerformance = hasMentions && (
+        normalized.includes('performance') || 
+        normalized.includes('metrics') || 
+        normalized.includes('how is') ||
+        normalized.includes('report') ||
+        normalized.includes('profile') ||
+        normalized.includes('stats') ||
+        normalized.includes('progress')
+    );
+    let wantsFullProfile = hasMentions && (
+        normalized.includes('about') || 
+        normalized.includes('profile') || 
+        normalized.includes('everything') ||
+        normalized.includes('full report') ||
+        normalized.includes('detailed')
+    );
 
     // Always show availability when asking about someone
-    if (hasMentions && !wantsAvailability && !wantsWorkSummary) {
+    if (hasMentions && !wantsAvailability && !wantsWorkSummary && !wantsPerformance && !wantsFullProfile) {
         wantsAvailability = true;
         wantsWorkSummary = true; // Always try to show what they're working on (from standup)
     } else if (wantsWorkSummary) {
         // If asking about work, also include availability
         wantsAvailability = true;
     }
+    
+    // Full profile includes everything
+    if (wantsFullProfile) {
+        wantsAvailability = true;
+        wantsWorkSummary = true;
+        wantsPerformance = true;
+    }
 
     const contexts: string[] = [];
     const statusResults: any[] = [];
+    const profileData: any[] = [];
+
+    // Handle full profile requests with rich Block Kit UI
+    if (wantsPerformance || wantsFullProfile) {
+        for (const userId of mentionedUsers) {
+            const profile = await buildEnhancedUserProfile(userId);
+            profileData.push(profile);
+            
+            // Build rich blocks for this user
+            const blocks: any[] = [];
+            
+            // Header with name and status
+            const statusData = await describeMemberStatus(userId);
+            blocks.push({
+                type: 'header',
+                text: {
+                    type: 'plain_text',
+                    text: `📊 ${profile.displayName}'s Profile`,
+                    emoji: true
+                }
+            });
+            
+            blocks.push({
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `${statusData.statusEmoji} *Status:* ${statusData.statusLine}`
+                }
+            });
+            
+            // Performance Metrics Section
+            if (profile.weekMetrics || profile.monthMetrics) {
+                blocks.push({ type: 'divider' });
+                
+                const metricsFields: any[] = [];
+                
+                if (profile.weekMetrics) {
+                    const wm = profile.weekMetrics;
+                    metricsFields.push({
+                        type: 'mrkdwn',
+                        text: `*Weekly Performance*\n${getScoreEmoji(wm.overallScore)} Score: *${wm.overallScore}/100*\n${formatPerformanceBar(wm.overallScore)}`
+                    });
+                    metricsFields.push({
+                        type: 'mrkdwn',
+                        text: `*Consistency*\n${wm.totalSubmissions}/${wm.expectedSubmissions} submissions\n${wm.consistencyScore}% rate`
+                    });
+                }
+                
+                if (profile.monthMetrics) {
+                    const mm = profile.monthMetrics;
+                    metricsFields.push({
+                        type: 'mrkdwn',
+                        text: `*Monthly Velocity*\n📈 ${mm.totalTasksCompleted} tasks done\n⚡ ${mm.averageTasksPerDay.toFixed(1)} per day`
+                    });
+                    metricsFields.push({
+                        type: 'mrkdwn',
+                        text: `*Team Ranking*\n🏆 Top ${100 - mm.percentileRank}%\n${mm.percentileRank > 50 ? '⭐' : '💪'} Percentile: ${mm.percentileRank}th`
+                    });
+                }
+                
+                if (metricsFields.length > 0) {
+                    blocks.push({
+                        type: 'section',
+                        fields: metricsFields
+                    });
+                }
+            }
+            
+            // Streak & Activity
+            blocks.push({ type: 'divider' });
+            const activityFields: any[] = [
+                {
+                    type: 'mrkdwn',
+                    text: `*🔥 Current Streak*\n${profile.streak} day${profile.streak !== 1 ? 's' : ''}`
+                },
+                {
+                    type: 'mrkdwn',
+                    text: `*📅 Last 7 Days*\n${profile.workDays} work days\n${profile.offDays} days off`
+                }
+            ];
+            
+            if (profile.weekMetrics) {
+                activityFields.push({
+                    type: 'mrkdwn',
+                    text: `*⏰ Avg Submit Time*\n${profile.weekMetrics.averageSubmissionTime || 'N/A'}`
+                });
+                activityFields.push({
+                    type: 'mrkdwn',
+                    text: `*${getRiskEmoji(profile.weekMetrics.riskLevel)} Risk Level*\n${profile.weekMetrics.riskLevel?.toUpperCase() || 'LOW'}`
+                });
+            }
+            
+            blocks.push({
+                type: 'section',
+                fields: activityFields
+            });
+            
+            // Achievements
+            if (profile.achievements && profile.achievements.length > 0) {
+                blocks.push({ type: 'divider' });
+                const badgeText = profile.achievements
+                    .map(a => `${a.badgeIcon} *${a.badgeName}* (${a.level})`)
+                    .join('\n');
+                blocks.push({
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: `*🏅 Recent Achievements*\n${badgeText}`
+                    }
+                });
+            }
+            
+            // Active Alerts/Issues
+            if (profile.alerts && profile.alerts.length > 0) {
+                blocks.push({ type: 'divider' });
+                const alertText = profile.alerts
+                    .map(a => `⚠️ ${a.title} (${a.severity})`)
+                    .join('\n');
+                blocks.push({
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: `*⚠️ Active Alerts*\n${alertText}`
+                    }
+                });
+            }
+            
+            // Recent Work (if requested)
+            if (wantsWorkSummary || wantsFullProfile) {
+                const standupContent = await getTodayStandupContent(userId);
+                if (standupContent) {
+                    blocks.push({ type: 'divider' });
+                    blocks.push({
+                        type: 'section',
+                        text: {
+                            type: 'mrkdwn',
+                            text: `*📝 Today's Standup*\n${standupContent.replace(`${profile.displayName}'s standup:\n`, '')}`
+                        }
+                    });
+                }
+                
+                // Add Linear issues
+                const workText = await describeWorkForMember(userId);
+                if (workText) {
+                    blocks.push({
+                        type: 'section',
+                        text: {
+                            type: 'mrkdwn',
+                            text: `*🎯 ${workText}*`
+                        }
+                    });
+                }
+            }
+            
+            // Footer with insights
+            if (profile.weekMetrics?.riskFactors && profile.weekMetrics.riskFactors.length > 0) {
+                blocks.push({ type: 'divider' });
+                blocks.push({
+                    type: 'context',
+                    elements: [{
+                        type: 'mrkdwn',
+                        text: `💡 *Insights:* ${profile.weekMetrics.riskFactors.join(' • ')}`
+                    }]
+                });
+            }
+            
+            await say({
+                thread_ts: event.ts,
+                blocks: blocks,
+                text: `Profile for ${profile.displayName}`
+            });
+        }
+        return; // Exit after showing rich profile
+    }
 
     if (wantsAvailability) {
         for (const userId of mentionedUsers) {
@@ -599,31 +916,59 @@ export const mentionApp = async ({
         thread_ts: event.ts,
         blocks: [
             {
-                type: 'section',
+                type: 'header',
                 text: {
-                    type: 'mrkdwn',
-                    text: `👋 Hi <@${event.user}>! Here's what I can help you with:`
+                    type: 'plain_text',
+                    text: '👋 Standup Bot - Your Team Intelligence Assistant',
+                    emoji: true
                 }
             },
             {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*Quick Status Checks:*\n• \`@Standup where is @username?\` - Check availability\n• \`@Standup what is @username doing?\` - Current work & status\n• \`@Standup status of SAK-123\` - Linear ticket status`
+                    text: `Hi <@${event.user}>! I can help you understand your team better. Here's what I can do:`
+                }
+            },
+            {
+                type: 'divider'
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*🔍 Quick Status Checks:*\n• \`@Standup where is @username?\` - Check availability & OOO status\n• \`@Standup what is @username doing?\` - Current work & today's standup\n• \`@Standup status of SAK-123\` - Linear ticket status & details`
                 }
             },
             {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*General Questions:*\n• \`@Standup what has @username been working on?\` - Recent activity\n• \`@Standup show me @username's progress\` - Work summary\n• \`@Standup what blockers did @username face?\` - Recent issues\n• \`@Standup who's working today?\` - Team overview`
+                    text: `*📊 Performance & Insights:*\n• \`@Standup how is @username performing?\` - Performance metrics & scores\n• \`@Standup @username's stats\` - Weekly/monthly statistics\n• \`@Standup profile of @username\` - Full detailed profile with achievements\n• \`@Standup report on @username\` - Comprehensive performance report`
                 }
             },
             {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*Summaries:*\n• Mention me with \`standup\` in a standup thread for summaries`
+                    text: `*💬 Natural Questions:*\n• \`@Standup what has @username been working on?\` - Recent activity & history\n• \`@Standup show me @username's progress\` - Work summary & velocity\n• \`@Standup what blockers did @username face?\` - Recent blockers & issues\n• \`@Standup who's working today?\` - Team overview & availability`
+                }
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*📋 Summaries:*\n• Mention me with \`standup\` in a standup thread for instant summaries\n• \`@Standup test linear\` - Check Linear integration status`
+                }
+            },
+            {
+                type: 'divider'
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*📈 What You'll See in Profiles:*\n• 🔥 Performance scores & consistency ratings\n• 📊 Weekly/monthly velocity & task completion\n• 🏆 Achievements & badges earned\n• ⚠️ Active alerts & risk levels\n• 🎯 Current Linear issues & assignments\n• 📅 Streak tracking & submission patterns\n• 💡 AI-generated insights & recommendations`
                 }
             },
             {
@@ -631,11 +976,11 @@ export const mentionApp = async ({
                 elements: [
                     {
                         type: 'mrkdwn',
-                        text: '💡 Just ask me questions naturally - I use AI to understand and answer!'
+                        text: '🤖 Powered by AI - Just ask naturally and I\'ll understand! | 💡 Try: "Tell me everything about @username"'
                     }
                 ]
             }
         ],
-        text: `Hi! I can help you check team member availability, work status, Linear tickets, and answer general questions about recent standups.`,
+        text: `Hi! I can help you check team member availability, work status, performance metrics, achievements, and answer questions about your team.`,
     });
 };
