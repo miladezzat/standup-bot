@@ -120,6 +120,50 @@ const describeMemberStatus = async (userId: string) => {
     };
 };
 
+const getTodayStandupContent = async (userId: string) => {
+    const { name } = await getUserName(userId);
+    const displayName = name || `User ${userId}`;
+    const now = toZonedTime(new Date(), TIMEZONE);
+    const todayStr = format(now, 'yyyy-MM-dd');
+    
+    const entry = await StandupEntry.findOne({
+        slackUserId: userId,
+        date: todayStr
+    }).lean();
+    
+    if (!entry) {
+        console.log(`[Standup] No standup found for ${displayName} today`);
+        return '';
+    }
+    
+    if (entry.isDayOff) {
+        const startTime = entry.dayOffStartTime;
+        const endTime = entry.dayOffEndTime;
+        const reason = entry.dayOffReason || 'No reason provided';
+        
+        let timeInfo = '';
+        if (startTime && startTime !== '00:00') {
+            timeInfo = ` (starting late at ${formatTimeDisplay(startTime)})`;
+        } else if (endTime && endTime !== '23:59') {
+            timeInfo = ` (leaving early at ${formatTimeDisplay(endTime)})`;
+        }
+        
+        return `${displayName} - Day off${timeInfo}: ${reason}`;
+    }
+    
+    const parts = [];
+    if (entry.today) parts.push(`Today's work: ${entry.today}`);
+    if (entry.yesterday) parts.push(`Yesterday completed: ${entry.yesterday}`);
+    if (entry.blockers) parts.push(`Blockers: ${entry.blockers}`);
+    if (entry.notes) parts.push(`Notes: ${entry.notes}`);
+    
+    if (parts.length === 0) {
+        return '';
+    }
+    
+    return `${displayName}'s standup:\n${parts.join('\n')}`;
+};
+
 const describeWorkForMember = async (userId: string) => {
     if (!isLinearEnabled()) {
         return ''; // Silently skip if Linear is not configured
@@ -300,20 +344,22 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         const prompt = `You are a helpful team assistant. Answer the question directly with actual information from the standup data.
 
 CRITICAL RULES:
-- BE SPECIFIC: Mention actual tasks, features, tickets, and work items
+- BE SPECIFIC: Mention actual tasks, features, tickets, and work items from their standup
+- PRIORITIZE STANDUP CONTENT: If they wrote what they're working on today, USE THAT
+- PAY ATTENTION TO TIME DETAILS: If they say "starting late", "leaving early", include the time
 - NO VAGUE PHRASES: Don't say "working on tasks", "making progress", "staying busy"
 - NO CORPORATE SPEAK: Don't sound like a manager giving a performance review
-- NO GENERIC PRAISE: Don't say "great work", "solid progress", "doing well" unless there's specific achievement
-- JUST THE FACTS: What did they actually work on? What are the specific items?
+- NO GENERIC PRAISE: Don't say "great work", "solid progress", "doing well" unless specific
+- JUST THE FACTS: Quote their actual work items, don't summarize vaguely
 - BE CONCISE: 2-3 sentences with real information
-- If the data shows actual work items, list them. If not, say you don't have details.
+- If someone has a day off with start/end times, mention the specific schedule
 
 Question: ${question}
 
 Standup Data:
 ${contextText}
 
-Give a direct, informative answer with specifics (no fluff):`;
+Give a direct, informative answer with specifics from their standup:`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -402,7 +448,7 @@ export const mentionApp = async ({
     // Always show availability when asking about someone
     if (hasMentions && !wantsAvailability && !wantsWorkSummary) {
         wantsAvailability = true;
-        wantsWorkSummary = isLinearEnabled();
+        wantsWorkSummary = true; // Always try to show what they're working on (from standup)
     } else if (wantsWorkSummary) {
         // If asking about work, also include availability
         wantsAvailability = true;
@@ -421,8 +467,15 @@ export const mentionApp = async ({
 
     if (wantsWorkSummary) {
         for (const userId of mentionedUsers) {
+            // First priority: Get actual standup content (what they wrote today)
+            const standupContent = await getTodayStandupContent(userId);
+            if (standupContent) {
+                contexts.push(standupContent);
+            }
+            
+            // Second priority: Add Linear issues if available
             const workText = await describeWorkForMember(userId);
-            if (workText) { // Only add if we got actual work info
+            if (workText) {
                 contexts.push(workText);
             }
         }
