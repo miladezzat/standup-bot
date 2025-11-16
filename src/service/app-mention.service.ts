@@ -2,6 +2,7 @@ import type { AppMentionEvent, SayFn } from '@slack/bolt';
 import type { WebClient } from '@slack/web-api';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import OpenAI from 'openai';
 import standupThread from '../models/standupThread';
 import StandupEntry from '../models/standupEntry';
 import { getUserName } from '../helper';
@@ -14,6 +15,7 @@ import {
 } from './linear.service';
 
 const TIMEZONE = 'Africa/Cairo';
+const openaiClient = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
 const timeStringToMinutes = (time?: string | null) => {
     if (!time) return null;
@@ -193,6 +195,29 @@ const extractMentionedUsers = (text: string, botUserId: string | null) => {
     return unique.filter((id) => id !== botUserId);
 };
 
+const generateAIResponse = async (question: string, contexts: string[]): Promise<string> => {
+    const contextText = contexts.filter(Boolean).join('\n\n');
+    if (!contextText) {
+        return 'I could not find any relevant data to answer that right now.';
+    }
+    if (!openaiClient) {
+        return contextText;
+    }
+    try {
+        const prompt = `You are a concise engineering team assistant. Answer the user's question using ONLY the provided data. If something isn't covered, say you don't know.\n\nQuestion:\n${question}\n\nContext:\n${contextText}\n\nProvide a short, direct answer.`;
+        const completion = await openaiClient.chat.completions.create({
+            model: 'gpt-4o-mini',
+            temperature: 0.4,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 300,
+        });
+        return completion.choices[0]?.message?.content?.trim() || contextText;
+    } catch (error) {
+        console.error('Error generating AI response:', error);
+        return contextText;
+    }
+};
+
 export const mentionApp = async ({
     event,
     client,
@@ -228,8 +253,12 @@ export const mentionApp = async ({
     }
 
     const hasMentions = mentionedUsers.length > 0;
-    const mentionsRequired = (normalized.includes('where') || normalized.includes('ooo') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
-    if (mentionsRequired && !hasMentions) {
+    const needsMention = normalized.includes('where') ||
+        normalized.includes('ooo') ||
+        normalized.includes('working') ||
+        normalized.includes('doing') ||
+        normalized.includes('up to');
+    if (needsMention && !hasMentions) {
         await say({
             thread_ts: event.ts,
             text: `Please mention who you're asking about, e.g. \`where is @username?\` or \`what is @username working on?\``,
@@ -240,46 +269,52 @@ export const mentionApp = async ({
     const hasTicketKeyword = normalized.includes('ticket') || normalized.includes('issue');
     const issueMatches = text.match(/\b[A-Z][A-Z0-9]+-\d+\b/gi) || [];
     const wantsTicketStatus = hasTicketKeyword || issueMatches.length > 0;
-    const wantsAvailability = hasMentions && (normalized.includes('where') || normalized.includes('ooo') || (normalized.includes('status') && !hasTicketKeyword));
-    const wantsWorkSummary = hasMentions && (normalized.includes('working on') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
+    let wantsAvailability = hasMentions && (normalized.includes('where') || normalized.includes('ooo') || (normalized.includes('status') && !hasTicketKeyword));
+    let wantsWorkSummary = hasMentions && (normalized.includes('working on') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
 
-    const responses: string[] = [];
+    if (hasMentions && !wantsAvailability && !wantsWorkSummary) {
+        wantsAvailability = true;
+        wantsWorkSummary = isLinearEnabled();
+    }
+
+    const contexts: string[] = [];
 
     if (wantsAvailability) {
         for (const userId of mentionedUsers) {
             const statusText = await describeMemberStatus(userId);
-            responses.push(statusText);
+            contexts.push(statusText);
         }
     }
 
     if (wantsWorkSummary) {
         for (const userId of mentionedUsers) {
             const workText = await describeWorkForMember(userId);
-            responses.push(workText);
+            contexts.push(workText);
         }
     }
 
     if (wantsTicketStatus) {
         if (issueMatches.length === 0) {
-            responses.push('Please include a ticket identifier like `ABC-123` so I know which Linear issue to look up.');
+            contexts.push('Please include a ticket identifier like "ABC-123" so I know which Linear issue to look up.');
         } else {
             for (const rawId of issueMatches) {
                 const summary = await describeIssueStatus(rawId);
-                responses.push(summary);
+                contexts.push(summary);
             }
         }
     }
 
-    if (responses.length > 0) {
+    if (contexts.length > 0) {
+        const aiAnswer = await generateAIResponse(text, contexts);
         await say({
             thread_ts: event.ts,
-            text: responses.join('\n\n'),
+            text: aiAnswer,
         });
         return;
     }
 
     await say({
         thread_ts: event.ts,
-        text: `Hi <@${event.user}>, mention me with \`standup\` in a standup thread for summaries, ask \"where is @username?\" for OOO info, \"what is @username working on?\" for Linear status, or include a ticket ID (e.g. ABC-123) to get its status.`,
+        text: `Hi <@${event.user}>, mention me with \`standup\` in a standup thread for summaries, tag teammates to ask about their availability or current work, or include a Linear ticket ID (e.g. ABC-123) to get its status.`,
     });
 };
