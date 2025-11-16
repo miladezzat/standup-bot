@@ -45,7 +45,7 @@ const describeDayOffRange = (entry: any) => {
 
 const describeMemberStatus = async (userId: string) => {
     const { name } = await getUserName(userId);
-    const displayName = name ? `<@${userId}> (${name})` : `<@${userId}>`;
+    const displayName = name || `User ${userId}`;
     const now = toZonedTime(new Date(), TIMEZONE);
     const todayStr = format(now, 'yyyy-MM-dd');
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -57,6 +57,7 @@ const describeMemberStatus = async (userId: string) => {
 
     const dayOffEntry = todayEntry?.isDayOff ? todayEntry : null;
 
+    let statusEmoji = '✅';
     let statusLine = `${displayName} is working today.`;
     let upcomingLine = '';
 
@@ -67,17 +68,22 @@ const describeMemberStatus = async (userId: string) => {
         const rangeText = describeDayOffRange(dayOffEntry);
 
         if (nowMinutes >= startMinutes && nowMinutes <= endMinutes) {
+            statusEmoji = '🚫';
             statusLine = `${displayName} is out of the office right now (${rangeText}).`;
         } else if (nowMinutes < startMinutes) {
+            statusEmoji = '⏰';
             statusLine = `${displayName} is working right now but will be out from ${rangeText}.`;
         } else {
+            statusEmoji = '✅';
             statusLine = `${displayName} is back now (was out ${rangeText}).`;
         }
 
         statusLine += ` Reason: ${reason}.`;
     } else if (todayEntry) {
+        statusEmoji = '✅';
         statusLine = `${displayName} submitted a standup today and is working.`;
     } else {
+        statusEmoji = '❓';
         statusLine = `${displayName} hasn't submitted a standup yet today.`;
         const lastEntry = await StandupEntry.findOne({
             slackUserId: userId,
@@ -105,7 +111,12 @@ const describeMemberStatus = async (userId: string) => {
         upcomingLine = ` Next day off: ${dateLabel} (${rangeText}). Reason: ${reason}.`;
     }
 
-    return `${statusLine}${upcomingLine}`.trim();
+    return {
+        statusEmoji,
+        text: `${statusLine}${upcomingLine}`.trim(),
+        statusLine,
+        upcomingLine: upcomingLine.trim()
+    };
 };
 
 const describeWorkForMember = async (userId: string) => {
@@ -114,7 +125,7 @@ const describeWorkForMember = async (userId: string) => {
     }
 
     const { name, email } = await getUserName(userId);
-    const displayName = name ? `<@${userId}> (${name})` : `<@${userId}>`;
+    const displayName = name || `User ${userId}`;
 
     if (!email) {
         return `${displayName}: Slack profile is missing an email, so I can't look them up in Linear.`;
@@ -131,7 +142,7 @@ const describeWorkForMember = async (userId: string) => {
     }
 
     const lines = issues.slice(0, 5).map((issue) => `• ${formatIssueSummary(issue)}`);
-    return `Here’s what ${displayName} is working on:\n${lines.join('\n')}`;
+    return `Here's what ${displayName} is working on:\n${lines.join('\n')}`;
 };
 
 const describeIssueStatus = async (identifier: string) => {
@@ -205,12 +216,31 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         return contextText;
     }
     try {
-        const prompt = `You are a concise engineering team assistant. Answer the user's question using ONLY the provided data. If something isn't covered, say you don't know.\n\nQuestion:\n${question}\n\nContext:\n${contextText}\n\nProvide a short, direct answer.`;
+        const prompt = `You are a friendly and helpful engineering team assistant. Your goal is to answer the user's question in a natural, conversational way.
+
+Guidelines:
+- Be warm and personable while remaining professional
+- Answer directly and concisely, but in natural language
+- Use the provided context data to inform your answer
+- Don't just repeat the data - synthesize it into a helpful response
+- If the person is available, be positive and upbeat
+- If they're out of office, acknowledge it naturally
+- Use casual language like "right now", "currently", "at the moment"
+- Don't use phrases like "according to the data" or "based on the information" - just answer naturally
+- Keep your response to 2-3 sentences maximum
+
+Question: ${question}
+
+Context Data:
+${contextText}
+
+Provide a natural, friendly response:`;
+        
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
-            temperature: 0.4,
+            temperature: 0.7,
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 300,
+            max_tokens: 200,
         });
         return completion.choices[0]?.message?.content?.trim() || contextText;
     } catch (error) {
@@ -279,11 +309,13 @@ export const mentionApp = async ({
     }
 
     const contexts: string[] = [];
+    const statusResults: any[] = [];
 
     if (wantsAvailability) {
         for (const userId of mentionedUsers) {
-            const statusText = await describeMemberStatus(userId);
-            contexts.push(statusText);
+            const statusData = await describeMemberStatus(userId);
+            statusResults.push(statusData);
+            contexts.push(statusData.text);
         }
     }
 
@@ -306,9 +338,62 @@ export const mentionApp = async ({
     }
 
     if (contexts.length > 0) {
-        let combined = contexts.join('\n\n');
+        // Generate AI response for more natural language
         const aiAnswer = await generateAIResponse(text, contexts);
-        if (aiAnswer && !/i\s+don't\s+know/i.test(aiAnswer.trim())) {
+        const useAI = aiAnswer && !/i\s+don't\s+know/i.test(aiAnswer.trim());
+        
+        // If we have structured status results, use Block Kit formatting with AI enhancement
+        if (statusResults.length > 0 && !wantsWorkSummary && !wantsTicketStatus) {
+            const blocks: any[] = [];
+            
+            // Add AI-generated summary at the top if available
+            if (useAI) {
+                blocks.push({
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: `💬 ${aiAnswer}`
+                    }
+                });
+                blocks.push({
+                    type: 'divider'
+                });
+            }
+            
+            // Add detailed status information
+            for (const statusData of statusResults) {
+                blocks.push({
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: `${statusData.statusEmoji} ${statusData.statusLine}`
+                    }
+                });
+                
+                if (statusData.upcomingLine) {
+                    blocks.push({
+                        type: 'context',
+                        elements: [
+                            {
+                                type: 'mrkdwn',
+                                text: `📅 ${statusData.upcomingLine}`
+                            }
+                        ]
+                    });
+                }
+            }
+            
+            await say({
+                thread_ts: event.ts,
+                blocks: blocks,
+                text: useAI ? aiAnswer : contexts.join('\n\n'), // Fallback text
+            });
+            return;
+        }
+        
+        // For other cases (work summary, ticket status, etc.), use AI-enhanced text format
+        let combined = contexts.join('\n\n');
+        if (useAI) {
             combined = aiAnswer;
         }
         await say({
