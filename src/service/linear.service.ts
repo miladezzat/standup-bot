@@ -151,9 +151,30 @@ export const getActiveIssuesForUser = async (userId: string): Promise<LinearIssu
 export const getIssueByIdentifier = async (identifier: string): Promise<LinearIssue | null> => {
   try {
     console.log(`[Linear] Fetching issue with identifier: ${identifier}`);
+    
+    // Linear's issue(id:) requires UUID, not identifier
+    // So we search through issues by number
+    const parts = identifier.split('-');
+    if (parts.length !== 2) {
+      console.error('[Linear] Invalid identifier format:', identifier);
+      return null;
+    }
+    
+    const [projectKey, issueNumber] = parts;
+    const number = parseInt(issueNumber, 10);
+    
+    if (isNaN(number)) {
+      console.error('[Linear] Invalid issue number:', issueNumber);
+      return null;
+    }
+    
+    // Search for issues with this number
     const data = await requestLinear<{ issues: { nodes: LinearIssue[] } }>(
-      `query IssueByIdentifier($identifier: String!) {
-        issues(filter: { identifier: { eq: $identifier } }) {
+      `query IssueByNumber($number: Float!) {
+        issues(
+          filter: { number: { eq: $number } }
+          first: 10
+        ) {
           nodes {
             id
             identifier
@@ -165,11 +186,21 @@ export const getIssueByIdentifier = async (identifier: string): Promise<LinearIs
           }
         }
       }`,
-      { identifier }
+      { number }
     );
 
-    console.log(`[Linear] Received data:`, JSON.stringify(data, null, 2));
-    return data.issues.nodes[0] || null;
+    console.log(`[Linear] Found ${data.issues.nodes.length} issues with number ${number}`);
+    
+    // Find the one matching the full identifier
+    const issue = data.issues.nodes.find(i => i.identifier.toUpperCase() === identifier.toUpperCase());
+    
+    if (issue) {
+      console.log(`[Linear] Matched issue:`, issue.identifier);
+    } else {
+      console.log(`[Linear] No issue found matching ${identifier}`);
+    }
+    
+    return issue || null;
   } catch (error) {
     logger.error('Error fetching Linear issue:', error);
     console.error('[Linear] Error details:', error);

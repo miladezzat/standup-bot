@@ -297,35 +297,29 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         return contextText;
     }
     try {
-        const prompt = `You are a friendly and helpful engineering team assistant. Your goal is to answer the user's question in a natural, conversational way based on team standup data.
+        const prompt = `You are a helpful team assistant. Answer the question directly with actual information from the standup data.
 
-Guidelines:
-- Be warm and personable while remaining professional
-- Answer directly and concisely, but in natural language
-- Use the provided context data to inform your answer
-- Synthesize information - don't just list data, analyze and summarize it
-- If asking about progress, highlight key accomplishments and current focus
-- If asking about blockers, identify patterns or common issues
-- If asking about team status, give an overview with highlights
-- Use casual language like "right now", "currently", "this week", "recently"
-- Don't use phrases like "according to the data" or "based on the information" - just answer naturally
-- For historical questions, you can be more detailed (3-4 sentences)
-- For status questions, keep it brief (2-3 sentences)
-- If someone is making good progress, be encouraging
-- If there are blockers, acknowledge them empathetically
+CRITICAL RULES:
+- BE SPECIFIC: Mention actual tasks, features, tickets, and work items
+- NO VAGUE PHRASES: Don't say "working on tasks", "making progress", "staying busy"
+- NO CORPORATE SPEAK: Don't sound like a manager giving a performance review
+- NO GENERIC PRAISE: Don't say "great work", "solid progress", "doing well" unless there's specific achievement
+- JUST THE FACTS: What did they actually work on? What are the specific items?
+- BE CONCISE: 2-3 sentences with real information
+- If the data shows actual work items, list them. If not, say you don't have details.
 
 Question: ${question}
 
-Context Data:
+Standup Data:
 ${contextText}
 
-Provide a natural, insightful response:`;
+Give a direct, informative answer with specifics (no fluff):`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
-            temperature: 0.7,
+            temperature: 0.3,
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 300,
+            max_tokens: 250,
         });
         return completion.choices[0]?.message?.content?.trim() || contextText;
     } catch (error) {
