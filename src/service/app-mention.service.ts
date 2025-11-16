@@ -13,6 +13,7 @@ import {
     getIssueByIdentifier,
     getLinearUserByEmail,
     isLinearEnabled,
+    testLinearConnection,
 } from './linear.service';
 
 const TIMEZONE = 'Africa/Cairo';
@@ -153,12 +154,17 @@ const describeIssueStatus = async (identifier: string) => {
         return 'Linear integration is not configured yet.';
     }
 
-    const issue = await getIssueByIdentifier(identifier.toUpperCase());
-    if (!issue) {
-        return `I couldn't find the Linear issue ${identifier.toUpperCase()}.`;
-    }
+    try {
+        const issue = await getIssueByIdentifier(identifier.toUpperCase());
+        if (!issue) {
+            return `I couldn't find the Linear issue ${identifier.toUpperCase()}. Make sure the issue exists and you have access to it.`;
+        }
 
-    return formatIssueSummary(issue);
+        return formatIssueSummary(issue);
+    } catch (error: any) {
+        console.error(`[Linear] Error fetching issue ${identifier}:`, error);
+        return `There was an error fetching ${identifier.toUpperCase()} from Linear: ${error.message || 'Unknown error'}`;
+    }
 };
 
 const handleStandupSummaryRequest = async ({
@@ -347,6 +353,18 @@ export const mentionApp = async ({
 
     if (normalized.includes('standup')) {
         await handleStandupSummaryRequest({ event, client, say, threadTs });
+        return;
+    }
+
+    // Test Linear connection
+    if (normalized.includes('test linear') || normalized.includes('check linear')) {
+        const result = await testLinearConnection();
+        await say({
+            thread_ts: event.ts,
+            text: result.success 
+                ? `✅ Linear integration is working! ${result.message}` 
+                : `❌ Linear integration failed: ${result.message}`,
+        });
         return;
     }
 

@@ -6,8 +6,14 @@ dotenv.config(); // Load env first!
 
 const LINEAR_API_URL = 'https://api.linear.app/graphql';
 const API_KEY = process.env.LINEAR_API_KEY;
-console.log('API_KEY', API_KEY?.slice(0, 5) + '...');
-console.log('LINEAR_API_URL', LINEAR_API_URL);
+
+if (API_KEY) {
+  console.log('[Linear] API Key configured:', API_KEY.slice(0, 10) + '...' + API_KEY.slice(-5));
+  console.log('[Linear] API Key length:', API_KEY.length);
+  console.log('[Linear] API URL:', LINEAR_API_URL);
+} else {
+  console.warn('[Linear] ⚠️  LINEAR_API_KEY is NOT configured!');
+}
 
 interface LinearUser {
   id: string;
@@ -30,6 +36,9 @@ const requestLinear = async <T>(query: string, variables?: Record<string, unknow
     throw new Error('LINEAR_API_KEY is not configured.');
   }
 
+  console.log('[Linear] Making request with query:', query.substring(0, 100) + '...');
+  console.log('[Linear] Variables:', JSON.stringify(variables));
+
   const response = await fetch(LINEAR_API_URL, {
     method: 'POST',
     headers: {
@@ -39,13 +48,19 @@ const requestLinear = async <T>(query: string, variables?: Record<string, unknow
     body: JSON.stringify({ query, variables }),
   });
 
+  console.log('[Linear] Response status:', response.status);
+
   if (!response.ok) {
     const text = await response.text();
+    console.error('[Linear] Error response:', text);
     throw new Error(`Linear API error: ${response.status} ${text}`);
   }
 
   const payload = await response.json();
+  console.log('[Linear] Response payload:', JSON.stringify(payload, null, 2));
+  
   if (payload.errors) {
+    console.error('[Linear] GraphQL errors:', JSON.stringify(payload.errors, null, 2));
     throw new Error(`Linear API returned errors: ${JSON.stringify(payload.errors)}`);
   }
 
@@ -53,6 +68,37 @@ const requestLinear = async <T>(query: string, variables?: Record<string, unknow
 };
 
 export const isLinearEnabled = () => Boolean(API_KEY);
+
+export const testLinearConnection = async (): Promise<{ success: boolean; message: string }> => {
+  if (!API_KEY) {
+    return { success: false, message: 'LINEAR_API_KEY is not configured' };
+  }
+
+  try {
+    console.log('[Linear] Testing connection...');
+    const data = await requestLinear<{ viewer: { id: string; name: string; email: string } }>(
+      `query {
+        viewer {
+          id
+          name
+          email
+        }
+      }`
+    );
+    
+    console.log('[Linear] Connection test successful! Viewer:', data.viewer);
+    return { 
+      success: true, 
+      message: `Connected as ${data.viewer.name} (${data.viewer.email})` 
+    };
+  } catch (error: any) {
+    console.error('[Linear] Connection test failed:', error);
+    return { 
+      success: false, 
+      message: `Connection failed: ${error.message}` 
+    };
+  }
+};
 
 export const getLinearUserByEmail = async (email: string): Promise<LinearUser | null> => {
   try {
