@@ -76,4 +76,7 @@ which uses `nodemon` + `ts-node`.
 - Sensitive files such as `.env`, `logs`, `dist`, and `node_modules` are already excluded via `.gitignore`.
 
 ## Additional docs
-- [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) – Clerk configuration & fallback options.
+- [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) – Clerk configuration & fallback options
+- [COMMANDS_REFERENCE.md](COMMANDS_REFERENCE.md) – Complete guide to all commands, routes, and actions
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) – One-page cheat sheet for quick lookup
+- [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) – New AI-powered profile and analytics features

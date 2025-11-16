@@ -48,58 +48,95 @@ const describeDayOffRange = (entry: any) => {
     return `${formatTimeDisplay(start)} – ${formatTimeDisplay(end)}`.trim();
 };
 
-const describeMemberStatus = async (userId: string) => {
+const describeMemberStatus = async (userId: string, checkDate?: string) => {
     const { name } = await getUserName(userId);
     const displayName = name || `User ${userId}`;
     const now = toZonedTime(new Date(), TIMEZONE);
     const todayStr = format(now, 'yyyy-MM-dd');
+    const queryDate = checkDate || todayStr;
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    const isToday = queryDate === todayStr;
+    const isFuture = queryDate > todayStr;
 
     const todayEntry = await StandupEntry.findOne({
         slackUserId: userId,
-        date: todayStr
+        date: queryDate
     }).lean();
 
     const dayOffEntry = todayEntry?.isDayOff ? todayEntry : null;
 
     let statusEmoji = '✅';
-    let statusLine = `${displayName} is working today.`;
+    let statusLine = '';
     let upcomingLine = '';
-
-    if (dayOffEntry) {
-        const startMinutes = timeStringToMinutes(dayOffEntry.dayOffStartTime) ?? 0;
-        const endMinutes = timeStringToMinutes(dayOffEntry.dayOffEndTime) ?? (24 * 60 - 1);
-        const reason = dayOffEntry.dayOffReason || 'No details provided';
-        const rangeText = describeDayOffRange(dayOffEntry);
-
-        if (nowMinutes >= startMinutes && nowMinutes <= endMinutes) {
+    
+    // Handle future date queries
+    if (isFuture) {
+        const dateLabel = format(new Date(`${queryDate}T00:00:00`), 'EEEE, MMM d');
+        if (dayOffEntry) {
+            const reason = dayOffEntry.dayOffReason || 'No reason provided';
+            const rangeText = describeDayOffRange(dayOffEntry);
             statusEmoji = '🚫';
-            statusLine = `${displayName} is out of the office right now (${rangeText}).`;
-        } else if (nowMinutes < startMinutes) {
-            statusEmoji = '⏰';
-            statusLine = `${displayName} is working right now but will be out from ${rangeText}.`;
+            statusLine = `${displayName} has scheduled time off on ${dateLabel} (${rangeText}). Reason: ${reason}.`;
         } else {
-            statusEmoji = '✅';
-            statusLine = `${displayName} is back now (was out ${rangeText}).`;
+            statusEmoji = '❓';
+            statusLine = `${displayName} hasn't indicated any time off for ${dateLabel}. They're expected to be working, but haven't submitted a standup yet for that day.`;
         }
+    }
+    // Handle today's status
+    else if (isToday) {
+        statusLine = `${displayName} is working today.`;
+        
+        if (dayOffEntry) {
+            const startMinutes = timeStringToMinutes(dayOffEntry.dayOffStartTime) ?? 0;
+            const endMinutes = timeStringToMinutes(dayOffEntry.dayOffEndTime) ?? (24 * 60 - 1);
+            const reason = dayOffEntry.dayOffReason || 'No details provided';
+            const rangeText = describeDayOffRange(dayOffEntry);
 
-        statusLine += ` Reason: ${reason}.`;
-    } else if (todayEntry) {
-        statusEmoji = '✅';
-        statusLine = `${displayName} submitted a standup today and is working.`;
-    } else {
-        statusEmoji = '❓';
-        statusLine = `${displayName} hasn't submitted a standup yet today.`;
-        const lastEntry = await StandupEntry.findOne({
-            slackUserId: userId,
-            date: { $lt: todayStr }
-        }).sort({ date: -1 }).lean();
+            if (nowMinutes >= startMinutes && nowMinutes <= endMinutes) {
+                statusEmoji = '🚫';
+                statusLine = `${displayName} is out of the office right now (${rangeText}).`;
+            } else if (nowMinutes < startMinutes) {
+                statusEmoji = '⏰';
+                statusLine = `${displayName} is working right now but will be out from ${rangeText}.`;
+            } else {
+                statusEmoji = '✅';
+                statusLine = `${displayName} is back now (was out ${rangeText}).`;
+            }
 
-        if (lastEntry) {
-            const lastLabel = format(new Date(`${lastEntry.date}T00:00:00`), 'EEEE, MMM d');
-            statusLine += ` Last update was ${lastLabel}.`;
+            statusLine += ` Reason: ${reason}.`;
+        } else if (todayEntry) {
+            statusEmoji = '✅';
+            statusLine = `${displayName} submitted a standup today and is working.`;
         } else {
-            statusLine += ` No historical standups found.`;
+            statusEmoji = '❓';
+            statusLine = `${displayName} hasn't submitted a standup yet today.`;
+            const lastEntry = await StandupEntry.findOne({
+                slackUserId: userId,
+                date: { $lt: todayStr }
+            }).sort({ date: -1 }).lean();
+
+            if (lastEntry) {
+                const lastLabel = format(new Date(`${lastEntry.date}T00:00:00`), 'EEEE, MMM d');
+                statusLine += ` Last update was ${lastLabel}.`;
+            } else {
+                statusLine += ` No historical standups found.`;
+            }
+        }
+    }
+    // Handle past dates
+    else {
+        const dateLabel = format(new Date(`${queryDate}T00:00:00`), 'EEEE, MMM d');
+        if (dayOffEntry) {
+            const reason = dayOffEntry.dayOffReason || 'No reason provided';
+            statusEmoji = '🚫';
+            statusLine = `${displayName} was out on ${dateLabel}. Reason: ${reason}.`;
+        } else if (todayEntry) {
+            statusEmoji = '✅';
+            statusLine = `${displayName} submitted a standup on ${dateLabel} and was working.`;
+        } else {
+            statusEmoji = '❓';
+            statusLine = `${displayName} didn't submit a standup on ${dateLabel}.`;
         }
     }
 
@@ -295,6 +332,28 @@ const extractMentionedUsers = (text: string, botUserId: string | null) => {
     return unique.filter((id) => id !== botUserId);
 };
 
+const extractDateFromQuery = (text: string): string | null => {
+    const normalized = text.toLowerCase();
+    const now = toZonedTime(new Date(), TIMEZONE);
+    
+    // Check for "tomorrow"
+    if (normalized.includes('tomorrow')) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return format(tomorrow, 'yyyy-MM-dd');
+    }
+    
+    // Check for "yesterday"
+    if (normalized.includes('yesterday')) {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return format(yesterday, 'yyyy-MM-dd');
+    }
+    
+    // Check for "today" or no date (default to today)
+    return null; // null means today/default
+};
+
 const getRecentStandupHistory = async (userId: string, days: number = 7) => {
     const now = toZonedTime(new Date(), TIMEZONE);
     const startDate = new Date(now);
@@ -487,28 +546,57 @@ const buildGeneralContext = async (text: string, mentionedUsers: string[]) => {
 const generateAIResponse = async (question: string, contexts: string[]): Promise<string> => {
     const contextText = contexts.filter(Boolean).join('\n\n');
     if (!contextText) {
-        return 'I could not find any relevant data to answer that right now.';
+        return 'I don\'t have any information to answer that question right now.';
     }
     if (!openaiClient) {
+        // No AI available, return raw context
         return contextText;
     }
     try {
-        const prompt = `Answer this question about a team member based on the information provided. Be natural and conversational.
+        const prompt = `You are a team standup assistant. Answer the question using ONLY the information provided below. 
+
+CRITICAL RULES:
+- Use ONLY the facts from the "Information" section
+- If the information doesn't contain the answer, say "I don't have that information in the standup data"
+- DO NOT make up or infer details not explicitly stated
+- DO NOT hallucinate appointments, meetings, or reasons not mentioned
+- Be accurate and factual
 
 Question: ${question}
 
 Information:
 ${contextText}
 
-Give a brief, natural answer in 2-3 sentences:`;
+Answer briefly and accurately (2-3 sentences max):`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
-            temperature: 0.3,
-            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1, // Lower temperature for more factual responses
+            messages: [
+                { 
+                    role: 'system', 
+                    content: 'You are a factual assistant that only reports information explicitly provided. Never make assumptions or add details not in the source data.' 
+                },
+                { 
+                    role: 'user', 
+                    content: prompt 
+                }
+            ],
             max_tokens: 150,
         });
-        return completion.choices[0]?.message?.content?.trim() || contextText;
+        
+        const aiResponse = completion.choices[0]?.message?.content?.trim();
+        
+        // If AI says it doesn't know, fall back to raw context
+        if (aiResponse && (
+            aiResponse.toLowerCase().includes("don't have") || 
+            aiResponse.toLowerCase().includes("no information") ||
+            aiResponse.toLowerCase().includes("not found")
+        )) {
+            return contextText; // Return raw data instead of "I don't know"
+        }
+        
+        return aiResponse || contextText;
     } catch (error) {
         console.error('Error generating AI response:', error);
         return contextText;
@@ -796,8 +884,11 @@ export const mentionApp = async ({
     }
 
     if (wantsAvailability) {
+        // Extract date from query (tomorrow, yesterday, etc.)
+        const queryDate = extractDateFromQuery(text);
+        
         for (const userId of mentionedUsers) {
-            const statusData = await describeMemberStatus(userId);
+            const statusData = await describeMemberStatus(userId, queryDate || undefined);
             statusResults.push(statusData);
             contexts.push(statusData.text);
         }
