@@ -375,37 +375,37 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         const prompt = `You are a helpful team assistant. Answer the question directly with actual information from the standup data.
 
 CRITICAL RULES:
-- DON'T REPEAT NAMES: The person asking already knows who they asked about. Use "they" or describe without names
-- READ CAREFULLY: "Tomorrow: starting late" means TOMORROW, not today!
-- BE SPECIFIC: Mention actual tasks from their standup
-- TIME DETAILS: Include specific times when mentioned
-- NO VAGUE PHRASES: Don't say "working on tasks", use their actual work items
-- JUST THE FACTS: Quote their actual work, don't make up details
+- DON'T REPEAT NAMES: Use "they/their" instead of names
+- NEVER SAY "OFF ALL DAY" if there's a start time - that's contradictory!
+- "Starting late at X PM" means they ARE working that day, just late
+- "Leaving early at X PM" means they ARE working that day, just leaving early
+- "Day off" means completely off, no work
+- BE SPECIFIC: Quote actual tasks from their standup
+- NO CONTRADICTIONS: Can't be "off all day" AND "starting late" - pick one!
 - BE CONCISE: 2-3 sentences maximum
-- USE PRONOUNS: Say "They're working on X" not "John is working on X"
 
 Examples of CORRECT answers:
-- "Working today on fixing the login bug and adding new features. Off tomorrow."
-- "Working today but starting late at 2 PM for a doctor's appointment."
-- "They completed the API testing yesterday and are now starting the payment implementation."
+- "Working today on payment tickets. Tomorrow starting late at 12 PM for bank visit."
+- "Completed API testing yesterday. Today working on payment implementation."
+- "Working today. Day off tomorrow."
 
 Examples of WRONG answers:
-- "John is working today..." (don't repeat the name!)
-- "Not available today" (when data says "working today")
-- "Off today" (when data says "Tomorrow: starting late")
+- "Off all day tomorrow. Starting late at 12 PM." (CONTRADICTION!)
+- "Not working but will start late." (CONTRADICTION!)
+- "Khaled is working..." (don't use names!)
 
 Question: ${question}
 
 Standup Data:
 ${contextText}
 
-Give a direct, accurate answer (no names, use pronouns):`;
+Answer directly (NO contradictions, NO names):`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
-            temperature: 0.1,
+            temperature: 0.0,
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 200,
+            max_tokens: 150,
         });
         return completion.choices[0]?.message?.content?.trim() || contextText;
     } catch (error) {
