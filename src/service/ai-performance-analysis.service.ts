@@ -4,8 +4,9 @@ import PerformanceMetrics from '../models/performanceMetrics';
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',

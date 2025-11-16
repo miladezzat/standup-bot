@@ -1,6 +1,6 @@
 import { CronJob } from 'cron';
 import {slackApp} from '../singleton'
-import { CHANNEL_ID } from '../config';
+import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 
 export const standupHuddleFollowUp= new CronJob(
  '0 10 * * 0-4',
@@ -17,6 +17,6 @@ export const standupHuddleFollowUp= new CronJob(
     }
   },
   null,
-  true,
-  'Africa/Cairo'
+  false,
+  APP_TIMEZONE
 );

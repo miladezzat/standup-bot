@@ -2,8 +2,9 @@ import { CronJob } from 'cron';
 import { postDailySummaryToSlack } from '../service/ai-summary.service';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 // Daily summary job - runs at 4:00 PM Cairo time Sun-Thu
 export const dailySummary = new CronJob(
@@ -20,6 +21,6 @@ export const dailySummary = new CronJob(
     }
   },
   null,
-  true,
+  false,
   TIMEZONE
 );

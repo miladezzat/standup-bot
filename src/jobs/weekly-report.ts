@@ -1,5 +1,6 @@
 import { CronJob } from 'cron';
 import { generateWeeklyReport } from '../service/weekly-report.service';
+import { APP_TIMEZONE } from '../config';
 
 // Weekly report job - runs every Thursday at 5:00 PM Cairo time
 export const weeklyReport = new CronJob(
@@ -13,6 +14,6 @@ export const weeklyReport = new CronJob(
     }
   },
   null,
-  true,
-  'Africa/Cairo'
+  false,
+  APP_TIMEZONE
 );

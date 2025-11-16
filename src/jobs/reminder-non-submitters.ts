@@ -1,6 +1,7 @@
 import { CronJob } from 'cron';
 import { slackApp } from '../singleton';
 import { getTeamMembersWhoHaventSubmitted } from '../service/team-members.service';
+import { APP_TIMEZONE } from '../config';
 
 // Reminder for non-submitters - runs at 10:30 AM Cairo time Sun-Thu
 export const reminderNonSubmitters = new CronJob(
@@ -68,6 +69,6 @@ export const reminderNonSubmitters = new CronJob(
     }
   },
   null,
-  true,
-  'Africa/Cairo'
+  false,
+  APP_TIMEZONE
 );

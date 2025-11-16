@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import standupThread from '../models/standupThread';
 import StandupEntry from '../models/standupEntry';
 import { getUserName } from '../helper';
+import { APP_TIMEZONE } from '../config';
 import {
     formatIssueSummary,
     getActiveIssuesForUser,
@@ -16,7 +17,7 @@ import {
     testLinearConnection,
 } from './linear.service';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 const openaiClient = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 dotenv.config();
 const timeStringToMinutes = (time?: string | null) => {
@@ -127,20 +128,20 @@ const describeMemberStatus = async (userId: string) => {
             }
         }
         
-        const reason = nextEntry.dayOffReason || 'No details provided';
+        const reason = nextEntry.dayOffReason || '';
         const startTime = nextEntry.dayOffStartTime;
         const endTime = nextEntry.dayOffEndTime;
         
         let scheduleInfo;
         if (startTime && startTime !== '00:00') {
-            scheduleInfo = `Starting late at ${formatTimeDisplay(startTime)}`;
+            scheduleInfo = `Starting late at ${formatTimeDisplay(startTime)}${reason ? ` (${reason})` : ''}`;
         } else if (endTime && endTime !== '23:59') {
-            scheduleInfo = `Leaving early at ${formatTimeDisplay(endTime)}`;
+            scheduleInfo = `Leaving early at ${formatTimeDisplay(endTime)}${reason ? ` (${reason})` : ''}`;
         } else {
-            scheduleInfo = `Day off`;
+            scheduleInfo = `Day off${reason ? ` (${reason})` : ''}`;
         }
         
-        upcomingLine = ` ${whenPrefix}${scheduleInfo}. Reason: ${reason}.`;
+        upcomingLine = ` ${whenPrefix}${scheduleInfo}.`;
     }
 
     return {
@@ -372,38 +373,18 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         return contextText;
     }
     try {
-        const prompt = `You are a helpful team assistant. Answer the question directly with actual information from the standup data.
-
-CRITICAL RULES:
-- DON'T REPEAT NAMES: Use "they/their" instead of names
-- NEVER SAY "OFF ALL DAY" if there's a start time - that's contradictory!
-- "Starting late at X PM" means they ARE working that day, just late
-- "Leaving early at X PM" means they ARE working that day, just leaving early
-- "Day off" means completely off, no work
-- BE SPECIFIC: Quote actual tasks from their standup
-- NO CONTRADICTIONS: Can't be "off all day" AND "starting late" - pick one!
-- BE CONCISE: 2-3 sentences maximum
-
-Examples of CORRECT answers:
-- "Working today on payment tickets. Tomorrow starting late at 12 PM for bank visit."
-- "Completed API testing yesterday. Today working on payment implementation."
-- "Working today. Day off tomorrow."
-
-Examples of WRONG answers:
-- "Off all day tomorrow. Starting late at 12 PM." (CONTRADICTION!)
-- "Not working but will start late." (CONTRADICTION!)
-- "Khaled is working..." (don't use names!)
+        const prompt = `Answer this question about a team member based on the information provided. Be natural and conversational.
 
 Question: ${question}
 
-Standup Data:
+Information:
 ${contextText}
 
-Answer directly (NO contradictions, NO names):`;
+Give a brief, natural answer in 2-3 sentences:`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
-            temperature: 0.0,
+            temperature: 0.3,
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 150,
         });

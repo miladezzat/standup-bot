@@ -1,5 +1,6 @@
 import { CronJob } from 'cron';
 import { generateMonthlyReport } from '../service/monthly-report.service';
+import { APP_TIMEZONE } from '../config';
 
 // Monthly report job - runs on the 1st of each month at 9:00 AM Cairo time
 export const monthlyReport = new CronJob(
@@ -13,7 +14,6 @@ export const monthlyReport = new CronJob(
     }
   },
   null,
-  true,
-  'Africa/Cairo'
+  false,
+  APP_TIMEZONE
 );
-

@@ -1,10 +1,11 @@
 import { CronJob } from "cron";
 import { slackApp } from '../singleton'
-import { CHANNEL_ID } from "../config";
+import { CHANNEL_ID, APP_TIMEZONE } from "../config";
 import StandupThread from '../models/standupThread';
 import { format } from "date-fns";
 
 let currentStandupThreadTs: string | null = null;
+const TIMEZONE = APP_TIMEZONE;
 
 export const standupReminder = new CronJob(
     process.env.DAILY_REMINDER_CRON || '0 9 * * 0-4', // Default: 9 AM Sun-Thu
@@ -69,6 +70,6 @@ export const standupReminder = new CronJob(
         }
     },
     null,
-    true,
-    'Africa/Cairo'
+    false,
+    TIMEZONE
 );

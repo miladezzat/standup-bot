@@ -6,8 +6,9 @@ import Achievement from '../models/achievements';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 /**
  * Export Service - Generate CSV/JSON exports of performance data

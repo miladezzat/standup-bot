@@ -18,8 +18,8 @@ import { getTeamAnalyticsDashboard } from './service/team-analytics-dashboard.se
 import { exportStandupsCSV, exportPerformanceMetricsCSV, exportAlertsCSV, exportAchievementsCSV, exportUserReportCSV } from './service/export.service';
 import { apiLimiter } from './middleware/security.middleware';
 import { checkAuth } from './middleware/clerk-auth.middleware';
-import { logger, logInfo, logError } from './utils/logger';
-import { CLERK_SIGN_IN_URL } from './config';
+import { logger, logInfo, logError, logWarn } from './utils/logger';
+import { CLERK_SIGN_IN_URL, ALLOW_PUBLIC_DASHBOARD, ENABLE_TEST_ROUTES, APP_TIMEZONE } from './config';
 
 // ============================================
 // 🔒 SECURITY MIDDLEWARE
@@ -61,6 +61,7 @@ export const requiredEnvVars = [
     'SLACK_SIGNING_SECRET',
     'SLACK_APP_TOKEN',
     'CHANNEL_ID',
+    'MONGODB_URI',
 ];
 
 // Clerk is optional - if provided, authentication is enabled
@@ -78,16 +79,11 @@ export const hasClerk = hasValidClerkKeys;
 if (hasClerk) {
     logInfo('🔐 Clerk authentication enabled');
     console.log('\n✅ Clerk Authentication Active');
+} else if (!ALLOW_PUBLIC_DASHBOARD) {
+    logError('Clerk authentication is required unless ALLOW_PUBLIC_DASHBOARD=true');
+    throw new Error('Clerk not configured. Set CLERK_PUBLISHABLE_KEY/CLERK_SECRET_KEY or explicitly opt into public dashboards by setting ALLOW_PUBLIC_DASHBOARD=true.');
 } else {
-    logError('⚠️ WARNING: Clerk not configured - dashboards are PUBLIC!');
-    console.log('\n⚠️  SECURITY WARNING ⚠️');
-    console.log('Clerk authentication is not configured.');
-    console.log('Your dashboards are publicly accessible!');
-    console.log('\nTo enable authentication:');
-    console.log('1. Create account at https://clerk.com');
-    console.log('2. Add to .env:');
-    console.log('   CLERK_PUBLISHABLE_KEY=pk_...');
-    console.log('   CLERK_SECRET_KEY=sk_...\n');
+    logWarn('Clerk not configured - dashboards will be public because ALLOW_PUBLIC_DASHBOARD=true');
 }
 
 for (const key of requiredEnvVars) {
@@ -368,70 +364,73 @@ expressApp.get('/export/user/:userId', authMiddleware, exportUserReportCSV); // 
 // ============================================
 // 🧪 TEST ENDPOINTS (Remove in production)
 // ============================================
-
-// Test trigger - Send standup reminder now
-expressApp.get('/trigger/standup-reminder', async (_, res) => {
-    try {
-        await slackApp.client.chat.postMessage({
-            channel: process.env.CHANNEL_ID!,
-            text: `Good morning, team! :sunny:\n\nIt's time for our daily standup. Please submit your standup using the /standup command.`,
-            blocks: [
-                {
-                    type: "section",
-                    text: {
-                        type: "mrkdwn",
-                        text: ":wave: *Good morning, team!*\n\nIt's time for our daily standup."
-                    }
-                },
-                {
-                    type: "section",
-                    text: {
-                        type: "mrkdwn",
-                        text: "Please submit your standup by typing `/standup` in any channel or DM with the bot."
-                    }
-                },
-                {
-                    type: "section",
-                    text: {
-                        type: "mrkdwn",
-                        text: "You'll be asked to share:\n• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*\n• *Any notes or context for the team?*"
-                    }
-                },
-                {
-                    type: "context",
-                    elements: [
-                        {
+if (ENABLE_TEST_ROUTES) {
+    // Test trigger - Send standup reminder now
+    expressApp.get('/trigger/standup-reminder', async (_, res) => {
+        try {
+            await slackApp.client.chat.postMessage({
+                channel: process.env.CHANNEL_ID!,
+                text: `Good morning, team! :sunny:\n\nIt's time for our daily standup. Please submit your standup using the /standup command.`,
+                blocks: [
+                    {
+                        type: "section",
+                        text: {
                             type: "mrkdwn",
-                            text: "Thank you for keeping us all aligned! :rocket:"
+                            text: ":wave: *Good morning, team!*\n\nIt's time for our daily standup."
                         }
-                    ]
-                }
-            ]
-        });
-        res.send(`✅ <b>Standup reminder sent successfully!</b><br><br>Check your Slack channel now.<br><br><a href="/submissions">View Submissions Dashboard</a>`);
-    } catch (error) {
-        console.error('Error sending test reminder:', error);
-        res.status(500).send(`❌ Error: ${error}`);
-    }
-});
+                    },
+                    {
+                        type: "section",
+                        text: {
+                            type: "mrkdwn",
+                            text: "Please submit your standup by typing `/standup` in any channel or DM with the bot."
+                        }
+                    },
+                    {
+                        type: "section",
+                        text: {
+                            type: "mrkdwn",
+                            text: "You'll be asked to share:\n• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*\n• *Any notes or context for the team?*"
+                        }
+                    },
+                    {
+                        type: "context",
+                        elements: [
+                            {
+                                type: "mrkdwn",
+                                text: "Thank you for keeping us all aligned! :rocket:"
+                            }
+                        ]
+                    }
+                ]
+            });
+            res.send(`✅ <b>Standup reminder sent successfully!</b><br><br>Check your Slack channel now.<br><br><a href="/submissions">View Submissions Dashboard</a>`);
+        } catch (error) {
+            console.error('Error sending test reminder:', error);
+            res.status(500).send(`❌ Error: ${error}`);
+        }
+    });
 
-// Test trigger - Generate daily summary now
-expressApp.get('/trigger/daily-summary', async (req, res) => {
-    try {
-        const { postDailySummaryToSlack } = await import('./service/ai-summary.service');
-        const { format } = await import('date-fns');
-        const { toZonedTime } = await import('date-fns-tz');
-        
-        const dateParam = req.query.date as string;
-        const date = dateParam || format(toZonedTime(new Date(), 'Africa/Cairo'), 'yyyy-MM-dd');
-        
-        await postDailySummaryToSlack(date);
-        res.send(`✅ <b>Daily summary generated for ${date}!</b><br><br>Check your Slack channel now.<br><br><a href="/submissions">View Dashboard</a>`);
-    } catch (error) {
-        console.error('Error triggering daily summary:', error);
-        res.status(500).send(`❌ Error: ${error}`);
-    }
-});
+    // Test trigger - Generate daily summary now
+    expressApp.get('/trigger/daily-summary', async (req, res) => {
+        try {
+            const { postDailySummaryToSlack } = await import('./service/ai-summary.service');
+            const { format } = await import('date-fns');
+            const { toZonedTime } = await import('date-fns-tz');
+            
+            const dateParam = req.query.date as string;
+            const date = dateParam || format(toZonedTime(new Date(), APP_TIMEZONE), 'yyyy-MM-dd');
+            
+            await postDailySummaryToSlack(date);
+            res.send(`✅ <b>Daily summary generated for ${date}!</b><br><br>Check your Slack channel now.<br><br><a href="/submissions">View Dashboard</a>`);
+        } catch (error) {
+            console.error('Error triggering daily summary:', error);
+            res.status(500).send(`❌ Error: ${error}`);
+        }
+    });
+} else {
+    logInfo('Test trigger routes are disabled. Set ENABLE_TEST_ROUTES=true to expose them.');
+}
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -455,13 +454,17 @@ const PORT = Number(process.env.PORT) || 3001;
         await expressApp.listen(PORT, () => {
             logInfo(`🌐 Express server running on http://localhost:${PORT}`);
             
-            if (!hasClerk) {
-                console.log('\n⚠️  Dashboards are PUBLIC - anyone can access!');
+            if (!hasClerk && ALLOW_PUBLIC_DASHBOARD) {
+                console.log('\n⚠️  Dashboards are PUBLIC - ALLOW_PUBLIC_DASHBOARD=true. Use Clerk for production.');
                 console.log(`   Dashboard: http://localhost:${PORT}`);
-            } else {
+            } else if (hasClerk) {
                 console.log(`\n🔐 Authentication enabled via Clerk`);
                 console.log(`   Dashboard: http://localhost:${PORT}`);
                 console.log(`   Sign in: http://localhost:${PORT}/auth/sign-in`);
+            }
+
+            if (!hasClerk && !ALLOW_PUBLIC_DASHBOARD) {
+                console.log('\n❌ Application misconfiguration detected - server should have exited earlier.');
             }
             
             console.log(`\n✅ Standup Bot ready!\n`);

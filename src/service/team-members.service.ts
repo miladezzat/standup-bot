@@ -1,10 +1,10 @@
 import { slackWebClient } from '../singleton';
-import { CHANNEL_ID } from '../config';
+import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import StandupEntry from '../models/standupEntry';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 interface TeamMember {
   id: string;
@@ -86,4 +86,3 @@ export async function invalidateTeamMembersCache() {
   teamMembersCache = null;
   cacheTimestamp = 0;
 }
-

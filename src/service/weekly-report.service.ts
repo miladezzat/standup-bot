@@ -1,10 +1,10 @@
 import StandupEntry from '../models/standupEntry';
 import { slackApp } from '../singleton';
-import { CHANNEL_ID } from '../config';
+import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { format, subDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 export const generateWeeklyReport = async () => {
   try {

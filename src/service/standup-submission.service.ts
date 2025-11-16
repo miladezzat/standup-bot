@@ -3,10 +3,10 @@ import { format, parseISO, isValid, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { estimateStandupTime } from './ai-time-estimation.service';
 import { generateStandupSummary } from './ai-summary.service';
-import { CHANNEL_ID } from '../config';
+import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { slackWebClient } from '../singleton';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 const DAY_OFF_STATUS_EMOJI = ':palm_tree:';
 
 const DEFAULT_DAY_OFF_MESSAGE = 'Taking time off';

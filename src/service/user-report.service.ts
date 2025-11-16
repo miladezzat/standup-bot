@@ -8,8 +8,9 @@ import { getUserContributions, getUserStreak, generateContributionGraphHTML, get
 import { hasClerk } from '../index';
 import { generatePerformanceInsights } from './ai-performance-analysis.service';
 import { escapeHtml } from '../middleware/security.middleware';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 export const getUserReport = async (req: Request, res: Response) => {
     try {

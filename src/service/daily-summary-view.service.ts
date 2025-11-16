@@ -3,8 +3,9 @@ import StandupEntry from '../models/standupEntry';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { generateDailyTeamSummary } from './ai-summary.service';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 export const getDailySummaryView = async (req: Request, res: Response) => {
     try {
@@ -331,4 +332,3 @@ function escapeHtml(text: string): string {
     };
     return text.replace(/[&<>"']/g, m => map[m]);
 }
-

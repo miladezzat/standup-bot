@@ -1,8 +1,9 @@
 import StandupEntry from '../models/standupEntry';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 /**
  * Generate contribution graph data for a user
@@ -480,4 +481,3 @@ export interface StreakInfo {
   longest: number;
   total: number;
 }
-

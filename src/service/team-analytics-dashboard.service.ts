@@ -5,8 +5,9 @@ import { format, subDays, eachDayOfInterval } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
 import { escapeHtml } from '../middleware/security.middleware';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 /**
  * Team Analytics Dashboard - Velocity, Trends, Charts
@@ -539,4 +540,3 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
     res.status(500).send('Error generating analytics');
   }
 };
-

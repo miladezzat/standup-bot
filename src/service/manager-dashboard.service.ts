@@ -7,8 +7,9 @@ import { toZonedTime } from 'date-fns-tz';
 import { assessRiskLevel, generatePerformanceInsights } from './ai-performance-analysis.service';
 import { logger } from '../utils/logger';
 import { escapeHtml } from '../middleware/security.middleware';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 /**
  * Manager Dashboard - Team Health & Insights
@@ -656,4 +657,3 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
     res.status(500).send('Error generating dashboard');
   }
 };
-

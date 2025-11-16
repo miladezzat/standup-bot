@@ -5,8 +5,9 @@ import { toZonedTime } from 'date-fns-tz';
 import { getTeamMembers } from './team-members.service';
 import { logger } from '../utils/logger';
 import { hasClerk } from '../index';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 export const getSubmissionsDashboard = async (req: Request, res: Response) => {
     try {

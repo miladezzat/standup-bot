@@ -1,6 +1,6 @@
 import { CronJob } from 'cron';
 import { slackApp } from '../singleton';
-import { CHANNEL_ID } from '../config';
+import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 
 export const endWeek = new CronJob(
   '0 17 * * 4', // Every Thursday at 17:00 (5:00 PM) Cairo time
@@ -18,6 +18,6 @@ export const endWeek = new CronJob(
     }
   },
   null,
-  true,
-  'Africa/Cairo'
+  false,
+  APP_TIMEZONE
 );

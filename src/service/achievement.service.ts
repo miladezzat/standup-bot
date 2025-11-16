@@ -4,8 +4,9 @@ import { format, subDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getUserStreak } from './contribution-graph.service';
 import { logger } from '../utils/logger';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 /**
  * Achievement Service - Award badges for various accomplishments

@@ -1,8 +1,9 @@
 import { CronJob } from 'cron';
 import { calculateTeamMetrics } from '../service/ai-performance-analysis.service';
 import { logger } from '../utils/logger';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 /**
  * Daily job to calculate performance metrics for all team members
@@ -41,7 +42,6 @@ export const calculateMetricsJob = new CronJob(
     }
   },
   null,
-  true,
+  false,
   TIMEZONE
 );
-

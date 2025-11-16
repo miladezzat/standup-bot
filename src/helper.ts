@@ -3,11 +3,11 @@ import dotenv from 'dotenv';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { slackWebClient } from './singleton';
-import { CHANNEL_ID } from './config';
+import { CHANNEL_ID, APP_TIMEZONE } from './config';
 import { SlackMessage } from './service/standup-history.service';
 import StandupEntry from './models/standupEntry';
 
-const timeZone = 'Africa/Cairo';
+const timeZone = APP_TIMEZONE;
 
 dotenv.config();
 
@@ -103,21 +103,21 @@ export function formatStandupHTML(input: string): string {
 export function parseSlackFormatting(text: string) {
     if (!text) return '';
 
-    // Handle user mentions: <@U123ABC> to @username
-    let formatted = text.replace(/<@([A-Z0-9]+)>/g, '@user');
+    let formatted = text;
 
-    // Handle links: <https://example.com|Example> to <a href="https://example.com">Example</a>
-    formatted = formatted.replace(/<(https?:\/\/[^|>]+)\|([^>]+)>/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #2980b9; text-decoration: none; border-bottom: 1px dotted #2980b9; transition: color 0.2s ease;">$2</a>');
+    // Handle user mentions: <@U123ABC> to @U123ABC placeholder
+    formatted = formatted.replace(/<@([A-Z0-9]+)>/g, '@$1');
 
-    // Handle plain links: <https://example.com> to <a href="https://example.com">https://example.com</a>
-    formatted = formatted.replace(/<(https?:\/\/[^>]+)>/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #2980b9; text-decoration: none; border-bottom: 1px dotted #2980b9; transition: color 0.2s ease;">$1</a>');
+    // Handle links with labels: <https://example.com|Example> -> Example (https://example.com)
+    formatted = formatted.replace(/<(https?:\/\/[^|>]+)\|([^>]+)>/g, '$2 ($1)');
 
-    // Handle channel mentions: <#C123ABC|channel-name> to #channel-name
-    formatted = formatted.replace(/<#([A-Z0-9]+)\|([^>]+)>/g, '<span style="color: #2980b9; font-weight: 500;">#$2</span>');
+    // Handle plain links: <https://example.com> -> https://example.com
+    formatted = formatted.replace(/<(https?:\/\/[^>]+)>/g, '$1');
 
-    // Handle emojis: :smile: (leave as is for now, could replace with actual emojis)
+    // Handle channel mentions: <#C123ABC|channel-name> -> #channel-name
+    formatted = formatted.replace(/<#([A-Z0-9]+)\|([^>]+)>/g, '#$2');
 
-    return formatted;
+    return escapeHtml(formatted);
 }
 
 

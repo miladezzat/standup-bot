@@ -1,8 +1,9 @@
 import { CronJob } from 'cron';
 import { runAlertChecks } from '../service/alert-engine.service';
 import { logger } from '../utils/logger';
+import { APP_TIMEZONE } from '../config';
 
-const TIMEZONE = 'Africa/Cairo';
+const TIMEZONE = APP_TIMEZONE;
 
 /**
  * Daily job to run alert engine checks
@@ -25,7 +26,6 @@ export const runAlertChecksJob = new CronJob(
     }
   },
   null,
-  true,
+  false,
   TIMEZONE
 );
-
