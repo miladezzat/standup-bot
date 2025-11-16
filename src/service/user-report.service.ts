@@ -674,6 +674,7 @@ export const getUserReport = async (req: Request, res: Response) => {
             const submittedAt = format(new Date(standup.createdAt), 'h:mm a');
             const hasBlocker = standup.blockers && standup.blockers.trim() && 
                                !standup.blockers.toLowerCase().includes('none');
+            const hasNotes = standup.notes && standup.notes.trim();
 
             html += `
         <div class="standup-card ${hasBlocker ? 'has-blocker' : ''}">
@@ -701,6 +702,13 @@ export const getUserReport = async (req: Request, res: Response) => {
                 <div class="section-content" style="background: #fff5f5; border-left: 3px solid #e74c3c;">${escapeHtml(standup.blockers)}</div>
             </div>
             ` : ''}
+
+            ${hasNotes ? `
+            <div class="section">
+                <div class="section-label">📝 Notes</div>
+                <div class="section-content" style="background: #f8fafc; border-left: 3px solid #3b82f6;">${escapeHtml(standup.notes || '')}</div>
+            </div>
+            ` : ''}
         </div>
 `;
         }
@@ -718,4 +726,3 @@ export const getUserReport = async (req: Request, res: Response) => {
         res.status(500).send('Error generating report');
     }
 };
-

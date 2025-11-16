@@ -83,6 +83,10 @@ export const generateWeeklyReport = async () => {
           standupText += `\n• *Blockers:* ${entry.blockers}`;
         }
 
+        if (entry.notes && entry.notes.trim()) {
+          standupText += `\n• *Notes:* ${entry.notes}`;
+        }
+
         reportBlocks.push({
           type: 'section',
           text: {
@@ -98,7 +102,7 @@ export const generateWeeklyReport = async () => {
     }
 
     // Calculate missing submissions (optional - requires knowing expected team members)
-    const daysInWeek = 5; // Mon-Fri
+    const daysInWeek = 5; // Sun-Thu
     const totalPossibleSubmissions = userStandups.size * daysInWeek;
     const actualSubmissions = standups.length;
     const missedSubmissions = totalPossibleSubmissions - actualSubmissions;
@@ -128,4 +132,3 @@ export const generateWeeklyReport = async () => {
     console.error('❌ Error generating weekly report:', error);
   }
 };
-

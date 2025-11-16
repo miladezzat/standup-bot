@@ -1085,6 +1085,7 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
 
                 for (const entry of entries) {
                     const hasBlocker = entry.blockers && entry.blockers.trim();
+                    const hasNotes = entry.notes && entry.notes.trim();
                     const submittedAt = format(new Date(entry.createdAt), 'h:mm a');
                     const hasTimeEstimates = entry.yesterdayHoursEstimate || entry.todayHoursEstimate;
 
@@ -1146,6 +1147,16 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                         <div class="section-content">${escapeHtml(entry.blockers)}</div>
                     </div>
                     ` : ''}
+
+                    ${hasNotes ? `
+                    <div class="standup-section">
+                        <div class="section-label">
+                            <span>📝</span>
+                            <span>Notes</span>
+                        </div>
+                        <div class="section-content">${escapeHtml(entry.notes || '')}</div>
+                    </div>
+                    ` : ''}
                 </div>
 `;
                 }
@@ -1180,4 +1191,3 @@ function escapeHtml(text: string): string {
     };
     return text.replace(/[&<>"']/g, m => map[m]);
 }
-

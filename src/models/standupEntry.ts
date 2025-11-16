@@ -8,6 +8,7 @@ export interface IStandupEntry extends Document {
   yesterday: string;          // What did you do yesterday?
   today: string;              // What will you do today?
   blockers: string;           // Any blockers? (can be empty)
+  notes: string;              // Additional notes or context (optional)
   source: 'slash_command' | 'modal' | 'dm'; // How it was submitted
   workspaceId: string;        // Slack workspace/team ID
   // AI Time Estimates (optional)
@@ -48,6 +49,10 @@ const StandupEntrySchema: Schema = new Schema(
     blockers: { 
       type: String, 
       default: '' 
+    },
+    notes: {
+      type: String,
+      default: ''
     },
     source: { 
       type: String, 
@@ -93,4 +98,3 @@ StandupEntrySchema.index({ slackUserId: 1, createdAt: -1 }); // User history
 
 // Create and export the model
 export default mongoose.model<IStandupEntry>('StandupEntry', StandupEntrySchema);
-

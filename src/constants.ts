@@ -17,7 +17,7 @@ export const MESSAGE_BLOCKS = [
         type: "section",
         text: {
             type: "mrkdwn",
-            text: "• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*"
+            text: "• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*\n• *Any notes or context for the team?*"
         }
     },
     {

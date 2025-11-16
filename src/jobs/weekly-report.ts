@@ -1,9 +1,9 @@
 import { CronJob } from 'cron';
 import { generateWeeklyReport } from '../service/weekly-report.service';
 
-// Weekly report job - runs every Friday at 5:00 PM Cairo time
+// Weekly report job - runs every Thursday at 5:00 PM Cairo time
 export const weeklyReport = new CronJob(
-  process.env.WEEKLY_REPORT_CRON || '0 17 * * 5', // Default: Every Friday at 5:00 PM
+  process.env.WEEKLY_REPORT_CRON || '0 17 * * 4', // Default: Every Thursday at 5:00 PM
   async () => {
     try {
       console.log('📊 Running weekly report generation...');
@@ -16,4 +16,3 @@ export const weeklyReport = new CronJob(
   true,
   'Africa/Cairo'
 );
-

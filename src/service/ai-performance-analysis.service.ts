@@ -137,7 +137,7 @@ export async function assessRiskLevel(
   const recentTexts = recentStandups.slice(0, 5);
   if (recentTexts.length >= 3) {
     const sentiments = await Promise.all(
-      recentTexts.map(s => analyzeSentiment(`${s.yesterday} ${s.today} ${s.blockers}`))
+      recentTexts.map(s => analyzeSentiment(`${s.yesterday} ${s.today} ${s.blockers || ''} ${s.notes || ''}`))
     );
     const avgSentiment = sentiments.reduce((sum, s) => sum + s, 0) / sentiments.length;
     
@@ -290,7 +290,7 @@ export async function calculatePerformanceMetrics(
   // Get sentiment trend
   const recentSentiments = await Promise.all(
     standups.slice(0, Math.min(10, standups.length))
-      .map(s => analyzeSentiment(`${s.yesterday} ${s.today} ${s.blockers}`))
+      .map(s => analyzeSentiment(`${s.yesterday} ${s.today} ${s.blockers || ''} ${s.notes || ''}`))
   );
   const avgSentiment = recentSentiments.reduce((sum, s) => sum + s, 0) / recentSentiments.length;
 
@@ -467,4 +467,3 @@ Be specific, professional, and actionable. Reference actual work patterns.`;
     return { strengths: [], improvements: [], recommendations: [] };
   }
 }
-

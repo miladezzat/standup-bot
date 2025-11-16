@@ -394,7 +394,7 @@ expressApp.get('/trigger/standup-reminder', async (_, res) => {
                     type: "section",
                     text: {
                         type: "mrkdwn",
-                        text: "You'll be asked to share:\n• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*"
+                        text: "You'll be asked to share:\n• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*\n• *Any notes or context for the team?*"
                     }
                 },
                 {

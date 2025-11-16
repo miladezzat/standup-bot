@@ -44,11 +44,11 @@ export const generateMonthlyReport = async () => {
       return;
     }
 
-    // Calculate working days in the month (Mon-Fri)
+    // Calculate working days in the month (Sun-Thu)
     const allDaysInMonth = eachDayOfInterval({ start: lastMonthStart, end: lastMonthEnd });
     const workingDays = allDaysInMonth.filter(day => {
       const dayOfWeek = day.getDay();
-      return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday = 1, Friday = 5
+      return dayOfWeek <= 4; // Sunday = 0, Thursday = 4
     });
 
     // Group standups by user and calculate statistics
@@ -281,4 +281,3 @@ function generateProgressBar(percentage: number): string {
   const empty = 10 - filled;
   return '█'.repeat(filled) + '░'.repeat(empty);
 }
-

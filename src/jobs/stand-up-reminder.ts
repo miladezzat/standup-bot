@@ -7,7 +7,7 @@ import { format } from "date-fns";
 let currentStandupThreadTs: string | null = null;
 
 export const standupReminder = new CronJob(
-    process.env.DAILY_REMINDER_CRON || '0 9 * * 1-5', // Default: 9 AM Mon-Fri
+    process.env.DAILY_REMINDER_CRON || '0 9 * * 0-4', // Default: 9 AM Sun-Thu
     async () => {
         try {
             const result = await slackApp.client.chat.postMessage({
@@ -32,7 +32,7 @@ export const standupReminder = new CronJob(
                         type: "section",
                         text: {
                             type: "mrkdwn",
-                            text: "You'll be asked to share:\n• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*"
+                            text: "You'll be asked to share:\n• *What did you accomplish yesterday?*\n• *What are your plans for today?*\n• *Any blockers or challenges?*\n• *Any notes or context for the team?*"
                         }
                     },
                     {

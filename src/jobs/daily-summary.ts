@@ -5,9 +5,9 @@ import { toZonedTime } from 'date-fns-tz';
 
 const TIMEZONE = 'Africa/Cairo';
 
-// Daily summary job - runs at 4:00 PM Cairo time Mon-Fri
+// Daily summary job - runs at 4:00 PM Cairo time Sun-Thu
 export const dailySummary = new CronJob(
-  process.env.DAILY_SUMMARY_CRON || '0 16 * * 1-5', // Default: 4:00 PM Mon-Fri
+  process.env.DAILY_SUMMARY_CRON || '0 16 * * 0-4', // Default: 4:00 PM Sun-Thu
   async () => {
     try {
       const now = toZonedTime(new Date(), TIMEZONE);
@@ -23,4 +23,3 @@ export const dailySummary = new CronJob(
   true,
   TIMEZONE
 );
-

@@ -2,9 +2,9 @@ import { CronJob } from 'cron';
 import { slackApp } from '../singleton';
 import { getTeamMembersWhoHaventSubmitted } from '../service/team-members.service';
 
-// Reminder for non-submitters - runs at 10:30 AM Cairo time Mon-Fri
+// Reminder for non-submitters - runs at 10:30 AM Cairo time Sun-Thu
 export const reminderNonSubmitters = new CronJob(
-  process.env.NON_SUBMITTER_REMINDER_CRON || '30 10 * * 1-5', // Default: 10:30 AM Mon-Fri
+  process.env.NON_SUBMITTER_REMINDER_CRON || '30 10 * * 0-4', // Default: 10:30 AM Sun-Thu
   async () => {
     try {
       console.log('🔔 Checking for team members who haven\'t submitted...');
@@ -71,4 +71,3 @@ export const reminderNonSubmitters = new CronJob(
   true,
   'Africa/Cairo'
 );
-

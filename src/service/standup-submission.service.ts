@@ -101,6 +101,25 @@ export const openStandupModal = async ({ client, body }: any) => {
               text: '🚧 Any blockers?'
             },
             optional: true
+          },
+          {
+            type: 'input',
+            block_id: 'notes_block',
+            element: {
+              type: 'plain_text_input',
+              action_id: 'notes_input',
+              multiline: true,
+              placeholder: {
+                type: 'plain_text',
+                text: 'Anything else the team should know? (optional)'
+              },
+              initial_value: existingEntry?.notes || ''
+            },
+            label: {
+              type: 'plain_text',
+              text: '📝 Additional notes'
+            },
+            optional: true
           }
         ]
       }
@@ -126,7 +145,8 @@ export const handleStandupSubmission = async (args: any) => {
     const values = view.state.values;
     const yesterday = values.yesterday_block.yesterday_input.value || '';
     const today_plan = values.today_block.today_input.value || '';
-    const blockers = values.blockers_block.blockers_input.value || '';
+    const blockers = values.blockers_block?.blockers_input?.value || '';
+    const notes = values.notes_block?.notes_input?.value || '';
 
     // Validate required fields
     if (!yesterday.trim() || !today_plan.trim()) {
@@ -150,7 +170,7 @@ export const handleStandupSubmission = async (args: any) => {
         console.log(`⏱️ Estimated ${yesterdayHours}h yesterday, ${todayHours}h today for ${userName}`);
 
         // Generate AI summary
-        aiSummary = await generateStandupSummary(userName, yesterday, today_plan, blockers);
+        aiSummary = await generateStandupSummary(userName, yesterday, today_plan, blockers, notes);
         if (aiSummary) {
           console.log(`📝 Generated summary for ${userName}`);
         }
@@ -172,6 +192,7 @@ export const handleStandupSubmission = async (args: any) => {
         yesterday: yesterday,
         today: today_plan,
         blockers: blockers,
+        notes: notes,
         source: 'modal',
         workspaceId: workspaceId,
         yesterdayHoursEstimate: yesterdayHours,
@@ -256,4 +277,3 @@ export const handleStandupSubmission = async (args: any) => {
     }
   }
 };
-

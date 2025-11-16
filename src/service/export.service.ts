@@ -97,6 +97,7 @@ export const exportStandupsCSV = async (req: Request, res: Response) => {
       yesterday: s.yesterday,
       today: s.today,
       blockers: s.blockers || '',
+      notes: s.notes || '',
       yesterdayHours: s.yesterdayHoursEstimate || 0,
       todayHours: s.todayHoursEstimate || 0,
       totalHours: (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0),
@@ -111,6 +112,7 @@ export const exportStandupsCSV = async (req: Request, res: Response) => {
       'yesterday',
       'today',
       'blockers',
+      'notes',
       'yesterdayHours',
       'todayHours',
       'totalHours',
@@ -387,10 +389,10 @@ export const exportUserReportCSV = async (req: Request, res: Response) => {
 
     // Section 2: Recent Standups
     reportSections.push('=== RECENT STANDUPS ===');
-    reportSections.push('Date,Yesterday,Today,Blockers,Hours');
+    reportSections.push('Date,Yesterday,Today,Blockers,Notes,Hours');
     standups.slice(0, 30).forEach(s => {
       const totalHours = (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0);
-      reportSections.push(`${s.date},"${s.yesterday.replace(/"/g, '""')}","${s.today.replace(/"/g, '""')}","${(s.blockers || '').replace(/"/g, '""')}",${totalHours}`);
+      reportSections.push(`${s.date},"${s.yesterday.replace(/"/g, '""')}","${s.today.replace(/"/g, '""')}","${(s.blockers || '').replace(/"/g, '""')}","${(s.notes || '').replace(/"/g, '""')}",${totalHours}`);
     });
     reportSections.push('');
 
@@ -435,4 +437,3 @@ export const exportUserReportCSV = async (req: Request, res: Response) => {
     res.status(500).send('Error exporting report');
   }
 };
-

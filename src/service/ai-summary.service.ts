@@ -15,7 +15,8 @@ export async function generateStandupSummary(
   userName: string,
   yesterday: string,
   today: string,
-  blockers: string
+  blockers: string,
+  notes: string
 ): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     return ''; // No AI configured
@@ -35,6 +36,9 @@ ${today}
 Blockers:
 ${blockers || 'None'}
 
+Notes:
+${notes || 'None'}
+
 Write a 2-3 sentence summary that is:
 - HONEST and REALISTIC (don't exaggerate or minimize)
 - PROFESSIONAL (third person, clear language)
@@ -45,6 +49,7 @@ Focus on:
 1. Concrete accomplishments (what was delivered)
 2. Current work (what's being built)
 3. Real blockers (what's preventing progress)
+4. Important notes or context to share with the team
 
 Example GOOD summary:
 "${userName} completed the payment gateway integration (50% done) and fixed three production bugs yesterday. Today, they're continuing the gateway work, researching email service options, and setting up the mobile development environment. They're blocked by a critical memory leak requiring senior developer assistance and an unstable app affecting users."
@@ -98,6 +103,7 @@ ${standup.slackUserName} (Est: ${standup.yesterdayHoursEstimate || 0}h yesterday
 Yesterday: ${standup.yesterday}
 Today: ${standup.today}
 Blockers: ${standup.blockers || 'None'}
+Notes: ${standup.notes || 'None'}
 ---
 `;
     }
@@ -236,14 +242,15 @@ export async function generateAndSaveSummary(
   userName: string,
   yesterday: string,
   today: string,
-  blockers: string
+  blockers: string,
+  notes: string
 ): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     return '';
   }
 
   try {
-    const summary = await generateStandupSummary(userName, yesterday, today, blockers);
+    const summary = await generateStandupSummary(userName, yesterday, today, blockers, notes);
     
     if (summary) {
       // Update the standup entry with the summary
@@ -260,4 +267,3 @@ export async function generateAndSaveSummary(
     return '';
   }
 }
-

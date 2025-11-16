@@ -297,7 +297,7 @@ export async function checkConsistencyAchievements(userId: string, workspaceId: 
 
     const userName = standups[0].slackUserName;
 
-    // Expected workdays (Mon-Fri): ~22 days per month
+    // Expected workdays (Sun-Thu): ~22 days per month
     const expectedDays = 22;
     const submissionRate = (standups.length / expectedDays) * 100;
 
@@ -433,4 +433,3 @@ export async function getUserBadges(userId: string) {
     return [];
   }
 }
-
