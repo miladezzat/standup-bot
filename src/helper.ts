@@ -5,12 +5,31 @@ import { toZonedTime } from 'date-fns-tz';
 import { slackWebClient } from './singleton';
 import { CHANNEL_ID } from './config';
 import { SlackMessage } from './service/standup-history.service';
+import StandupEntry from './models/standupEntry';
 
 const timeZone = 'Africa/Cairo';
 
 dotenv.config();
 
 const userCache = new Map<string, any>();
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (ch) => {
+    switch (ch) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case '\'':
+        return '&#39;';
+      default:
+        return ch;
+    }
+  });
 
 const token = process.env.SLACK_BOT_TOKEN; // Ensure this has the necessary scopes
 const web = new WebClient(token);
@@ -351,42 +370,66 @@ export async function generateDateAnalytics(thread: any) {
             }
         }
 
-        // Generate team members table - DYNAMICALLY from actual participants
+        const standupsForDate = await StandupEntry.find({ date: thread.date }).lean();
+        const standupByUser = new Map<string, (typeof standupsForDate)[number]>();
+        standupsForDate.forEach(entry => {
+            standupByUser.set(entry.slackUserId, entry);
+        });
 
-        // Process all participants
+        const teamMemberIds = new Set<string>(participants as Set<string>);
+        for (const entry of standupsForDate) {
+            teamMemberIds.add(entry.slackUserId);
+        }
+
+        const countTasksFromText = (text?: string) => {
+            if (!text) return 0;
+            const matches = text.match(/[•\-–]|\d+\./g);
+            if (matches && matches.length > 0) return matches.length;
+            return text.trim().length > 0 ? 1 : 0;
+        };
+
+        // Generate team members table - DYNAMICALLY from actual participants and standup submissions
         let teamMembersHTML = '';
-        for (const userId of participants) {
+        for (const userId of teamMemberIds) {
             const { name, avatarUrl } = await getUserName(userId as string);
-            const taskCount = userTaskCounts.get(userId) || 0;
+            const standupEntry = standupByUser.get(userId as string);
             const hasBlocker = userBlockers.has(userId);
+            const isDayOff = Boolean(standupEntry?.isDayOff);
+            const dayOffReason = standupEntry?.dayOffReason ? escapeHtml(standupEntry.dayOffReason) : '';
+            const entryTaskCount = !isDayOff && standupEntry
+                ? countTasksFromText(standupEntry.yesterday) + countTasksFromText(standupEntry.today)
+                : 0;
+            const taskCount = userTaskCounts.get(userId) ?? entryTaskCount;
+            const statusBadge = isDayOff
+                ? '<span class="status-badge status-dayoff">OOO</span>'
+                : '<span class="status-badge status-submitted">submitted</span>';
 
             teamMembersHTML += `
-            <div class="team-member-card">
+            <div class="team-member-card ${isDayOff ? 'team-member-dayoff' : ''}">
                 <div class="team-user">
                     <img src="${avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=2980b9&color=fff'}" alt="${name}" class="team-avatar">
-                    <div class="team-name">${name}</div>
+                    <div class="team-name">${name}${isDayOff ? ' <span class="team-dayoff-label">🛫 OOO</span>' : ''}</div>
                 </div>
                 <div class="team-member-details">
                     <div class="team-member-item">
                         <div class="team-member-label">Status</div>
-                        <span class="status-badge status-submitted">submitted</span>
+                        ${statusBadge}
                     </div>
                     <div class="team-member-item">
                         <div class="team-member-label">Tasks</div>
-                        <div class="team-member-value">${taskCount}</div>
+                        <div class="team-member-value">${taskCount || 0}</div>
                     </div>
                     <div class="team-member-item">
                         <div class="team-member-label">Blockers</div>
                         <div class="team-member-value">${hasBlocker ? '<span class="blocker-badge">Yes</span>' : 'None'}</div>
                     </div>
                 </div>
+                ${isDayOff && dayOffReason ? `<div class="dayoff-note">${dayOffReason}</div>` : ''}
             </div>
             `;
         }
 
-        // Remove the hardcoded team member (Carol Davis)
-        // Instead, calculate the actual number of participants for display
-        const actualTeamSize = participants.size;
+        const actualTeamSize = teamMemberIds.size;
 
         // Format the date for display
         const formattedDate = new Date(thread.date).toLocaleDateString('en-US', {

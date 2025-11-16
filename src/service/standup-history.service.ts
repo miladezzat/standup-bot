@@ -360,6 +360,10 @@ export const getStandupHistory =  async (req: Request, res: Response) => {
           box-shadow: 0 4px 12px rgba(0,0,0,0.08);
           transform: translateY(-2px);
         }
+        .team-member-card.team-member-dayoff {
+          border-left-color: #f39c12;
+          background: linear-gradient(90deg, rgba(243, 156, 18, 0.08), #fdf6e3);
+        }
         .team-user {
           display: flex;
           align-items: center;
@@ -375,6 +379,12 @@ export const getStandupHistory =  async (req: Request, res: Response) => {
           font-weight: 600;
           color: #2c3e50;
           font-size: 1rem;
+        }
+        .team-dayoff-label {
+          font-size: 0.85rem;
+          color: #b9770e;
+          font-weight: 600;
+          margin-left: 6px;
         }
         .team-member-details {
           display: flex;
@@ -411,6 +421,18 @@ export const getStandupHistory =  async (req: Request, res: Response) => {
         .status-pending {
           background: #fef9e7;
           color: #f39c12;
+        }
+        .status-dayoff {
+          background: #fef3c7;
+          color: #b45309;
+        }
+        .dayoff-note {
+          margin-top: 10px;
+          font-size: 0.85rem;
+          color: #b9770e;
+          background: rgba(243, 156, 18, 0.15);
+          padding: 8px 10px;
+          border-radius: 6px;
         }
         .blocker-badge {
           display: inline-block;

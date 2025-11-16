@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, startOfYear, parseISO, isValid } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getUserName } from '../helper';
 import { getUserContributions, getUserStreak, generateContributionGraphHTML, getContributionGraphCSS } from './contribution-graph.service';
@@ -134,6 +134,116 @@ export const getUserReport = async (req: Request, res: Response) => {
         } catch (error) {
             console.error('Error fetching performance data:', error);
         }
+
+        const requestedOooRange = (req.query.oooRange as string) || 'month';
+        const customOooStart = (req.query.oooStart as string) || '';
+        const customOooEnd = (req.query.oooEnd as string) || '';
+        const todayStr = format(now, 'yyyy-MM-dd');
+        let effectiveOooRange = requestedOooRange || 'month';
+        let oooStartStr = todayStr;
+        let oooEndStr = todayStr;
+
+        const setDefaultMonthRange = () => {
+            effectiveOooRange = 'month';
+            oooStartStr = format(startOfMonth(now), 'yyyy-MM-dd');
+            oooEndStr = todayStr;
+        };
+
+        switch (requestedOooRange) {
+            case 'today':
+                oooStartStr = todayStr;
+                oooEndStr = todayStr;
+                break;
+            case 'year':
+                oooStartStr = format(startOfYear(now), 'yyyy-MM-dd');
+                oooEndStr = todayStr;
+                break;
+            case 'custom': {
+                const parsedStart = customOooStart ? parseISO(customOooStart) : null;
+                const parsedEnd = customOooEnd ? parseISO(customOooEnd) : null;
+                if (parsedStart && isValid(parsedStart) && parsedEnd && isValid(parsedEnd) && parsedStart <= parsedEnd) {
+                    oooStartStr = format(parsedStart, 'yyyy-MM-dd');
+                    oooEndStr = format(parsedEnd, 'yyyy-MM-dd');
+                } else {
+                    setDefaultMonthRange();
+                }
+                break;
+            }
+            case 'month':
+            default:
+                setDefaultMonthRange();
+                break;
+        }
+
+        const dayOffEntries = await StandupEntry.find({
+            slackUserId: userId,
+            isDayOff: true,
+            date: { $gte: oooStartStr, $lte: oooEndStr }
+        }).sort({ date: -1 }).lean();
+
+        const buildOooUrl = (range: string) => {
+            const params = new URLSearchParams();
+            params.set('period', period);
+            params.set('oooRange', range);
+            return `/user/${userId}?${params.toString()}`;
+        };
+
+        const oooFilters = [
+            { label: 'Today', value: 'today' },
+            { label: 'This Month', value: 'month' },
+            { label: 'This Year', value: 'year' }
+        ];
+
+        const oooFilterButtonsHTML = oooFilters
+            .map(filter => `
+                <a href="${buildOooUrl(filter.value)}" class="ooo-filter-btn ${effectiveOooRange === filter.value ? 'active' : ''}">${filter.label}</a>
+            `)
+            .join('');
+
+        const customFormClass = effectiveOooRange === 'custom' ? 'ooo-custom-range active' : 'ooo-custom-range';
+        const customStartValue = effectiveOooRange === 'custom' ? oooStartStr : customOooStart;
+        const customEndValue = effectiveOooRange === 'custom' ? oooEndStr : customOooEnd;
+
+        const dayOffEntriesHTML = dayOffEntries.length > 0
+            ? dayOffEntries.map(entry => `
+                <div class="ooo-entry">
+                    <div class="ooo-entry-date">${format(new Date(entry.date), 'EEEE, MMM d, yyyy')}</div>
+                    <div class="ooo-entry-reason">${escapeHtml(entry.dayOffReason || 'No reason provided')}</div>
+                </div>
+            `).join('')
+            : '<div class="ooo-empty">No days off in this range.</div>';
+
+        const oooRangeLabels: Record<string, string> = {
+            today: 'Today',
+            month: 'This Month',
+            year: 'This Year',
+            custom: 'Custom Range'
+        };
+        const oooRangeLabel = oooRangeLabels[effectiveOooRange] || 'This Month';
+
+        const oooSectionHTML = `
+        <div class="ooo-section">
+            <div class="ooo-section-header">
+                <div>
+                    <div class="ooo-title">🛫 Days Off (${dayOffEntries.length})</div>
+                    <div class="ooo-subtitle">${oooRangeLabel}</div>
+                </div>
+                <div class="ooo-filter-buttons">
+                    ${oooFilterButtonsHTML}
+                </div>
+            </div>
+            <form class="${customFormClass}" method="get">
+                <input type="hidden" name="period" value="${period}">
+                <input type="hidden" name="oooRange" value="custom">
+                <label>From <input type="date" name="oooStart" value="${customStartValue || ''}" required></label>
+                <label>To <input type="date" name="oooEnd" value="${customEndValue || ''}" required></label>
+                <button type="submit">Apply</button>
+            </form>
+            <div class="ooo-list">
+                ${dayOffEntriesHTML}
+            </div>
+        </div>
+        `;
 
         // Generate HTML
         let html = `
@@ -354,6 +464,116 @@ export const getUserReport = async (req: Request, res: Response) => {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
             border-color: transparent;
+        }
+
+        /* DAYS OFF PANEL */
+        .ooo-section {
+            background: white;
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+        .ooo-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .ooo-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+        .ooo-subtitle {
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+        .ooo-filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .ooo-filter-btn {
+            padding: 0.4rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid var(--gray-200);
+            background: var(--gray-50);
+            color: var(--gray-700);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .ooo-filter-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: transparent;
+        }
+        .ooo-custom-range {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border-radius: 10px;
+            border: 1px dashed var(--gray-200);
+            background: var(--gray-50);
+        }
+        .ooo-custom-range.active {
+            border-color: var(--primary);
+            background: rgba(102, 126, 234, 0.08);
+        }
+        .ooo-custom-range label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+        .ooo-custom-range input[type="date"] {
+            padding: 0.45rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+            font-family: inherit;
+        }
+        .ooo-custom-range button {
+            padding: 0.45rem 1rem;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .ooo-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .ooo-entry {
+            border: 1px solid var(--gray-200);
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            background: var(--gray-50);
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .ooo-entry-date {
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+        .ooo-entry-reason {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+        }
+        .ooo-empty {
+            text-align: center;
+            padding: 1rem;
+            color: var(--gray-600);
+            border: 1px dashed var(--gray-300);
+            border-radius: 10px;
         }
         
         /* CONTENT WRAPPER */
@@ -602,6 +822,8 @@ export const getUserReport = async (req: Request, res: Response) => {
                 </div>
             </div>
         </div>
+        
+        ${oooSectionHTML}
         
         ${contributionGraphHTML}
         
