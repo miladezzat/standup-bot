@@ -15,6 +15,7 @@ interface DayOffCommandParseResult {
   targetDate: string;
   reason: string;
   isToday: boolean;
+  timeRange?: { start: string; end: string };
 }
 
 export const handleStandupSlashCommand = async ({ ack, body, client, respond }: any) => {
@@ -193,12 +194,70 @@ export const openStandupModal = async ({ client, body }: any) => {
   }
 };
 
+const normalizeReasonForSlack = (reason: string) => reason.replace(/[<>]/g, '').trim();
+
+const parseTimeStringToMinutes = (input: string): number | null => {
+  const trimmed = input.trim().toLowerCase();
+  const match = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const meridiem = match[3];
+  if (hours > 23 || minutes > 59) return null;
+  if (meridiem) {
+    if (hours === 12) {
+      hours = meridiem === 'am' ? 0 : 12;
+    } else if (meridiem === 'pm') {
+      hours += 12;
+    }
+  }
+  return hours * 60 + minutes;
+};
+
+const formatMinutesToTimeString = (minutes: number): string => {
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+
+const extractTimeRange = (text: string): { cleanedText: string; range?: { start: string; end: string } } => {
+  const regex = /(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i;
+  const match = text.match(regex);
+  if (!match) {
+    return { cleanedText: text };
+  }
+  const startMinutes = parseTimeStringToMinutes(match[1]);
+  const endMinutes = parseTimeStringToMinutes(match[2]);
+  if (
+    startMinutes === null ||
+    endMinutes === null ||
+    endMinutes <= startMinutes
+  ) {
+    return { cleanedText: text };
+  }
+  const range = {
+    start: formatMinutesToTimeString(startMinutes),
+    end: formatMinutesToTimeString(endMinutes)
+  };
+  const cleanedText = (text.slice(0, match.index) + text.slice((match.index || 0) + match[0].length)).trim();
+  return { cleanedText, range };
+};
+
 const parseDayOffCommand = (text: string): DayOffCommandParseResult => {
   const remainder = text.replace(/^ooo\s*/i, '').trim();
   const now = toZonedTime(new Date(), TIMEZONE);
   const today = format(now, 'yyyy-MM-dd');
   let targetDate = today;
   let reason = remainder;
+  let timeRange: { start: string; end: string } | undefined;
+
+  if (remainder) {
+    const { cleanedText, range } = extractTimeRange(remainder);
+    if (range) {
+      timeRange = range;
+      reason = cleanedText;
+    }
+  }
 
   if (remainder) {
     const firstToken = remainder.split(/\s+/)[0];
@@ -223,22 +282,24 @@ const parseDayOffCommand = (text: string): DayOffCommandParseResult => {
     }
   }
 
+  const finalReason = reason || DEFAULT_DAY_OFF_MESSAGE;
   return {
     targetDate,
-    reason: reason || DEFAULT_DAY_OFF_MESSAGE,
-    isToday: targetDate === today
+    reason: finalReason,
+    isToday: targetDate === today,
+    timeRange
   };
 };
-
-const normalizeReasonForSlack = (reason: string) => reason.replace(/[<>]/g, '').trim();
 
 const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) => {
   try {
     const userId = body.user_id;
     const userName = body.user_name || 'Unknown';
     const workspaceId = body.team_id || '';
-    const { targetDate, reason, isToday } = parseDayOffCommand(text);
-    const reasonForSlack = normalizeReasonForSlack(reason);
+    const { targetDate, reason, isToday, timeRange } = parseDayOffCommand(text);
+    const baseReason = normalizeReasonForSlack(reason);
+    const timeText = timeRange ? ` (${timeRange.start}-${timeRange.end})` : '';
+    const reasonForSlack = `${baseReason}${timeText}`.trim();
 
     await StandupEntry.findOneAndUpdate(
       {
@@ -268,7 +329,7 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
       }
     );
 
-    await applyDayOffStatus(userId, targetDate, reasonForSlack);
+    await applyDayOffStatus(userId, targetDate, baseReason, timeRange);
 
     const targetDateObj = toZonedTime(parseISO(targetDate), TIMEZONE);
     const displayDate = format(targetDateObj, 'EEEE, MMM d');
@@ -526,13 +587,23 @@ const clearSlackStatus = async (userId: string) => {
   }
 };
 
-const computeDayOffExpiration = (dateStr: string) => {
-  const endOfDay = toZonedTime(new Date(`${dateStr}T23:59:59`), TIMEZONE);
-  return Math.floor(endOfDay.getTime() / 1000);
+const computeDayOffExpiration = (dateStr: string, endTime?: string) => {
+  let isoString = `${dateStr}T23:59:59`;
+  if (endTime) {
+    isoString = `${dateStr}T${endTime}:00`;
+  }
+  const end = toZonedTime(new Date(isoString), TIMEZONE);
+  return Math.floor(end.getTime() / 1000);
 };
 
-const applyDayOffStatus = async (userId: string, targetDate: string, reason: string) => {
-  const expiration = computeDayOffExpiration(targetDate);
-  const text = reason ? `OOO – ${reason}` : 'Out of office';
-  await setSlackStatus(userId, text, DAY_OFF_STATUS_EMOJI, expiration);
+const applyDayOffStatus = async (
+  userId: string,
+  targetDate: string,
+  reason: string,
+  timeRange?: { start: string; end: string }
+) => {
+  const expiration = computeDayOffExpiration(targetDate, timeRange?.end);
+  const timeSuffix = timeRange ? ` (${timeRange.start}-${timeRange.end})` : '';
+  const text = reason ? `OOO – ${reason}${timeSuffix}` : `Out of office${timeSuffix}`;
+  await setSlackStatus(userId, text.trim(), DAY_OFF_STATUS_EMOJI, expiration);
 };
