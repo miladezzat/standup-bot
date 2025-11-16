@@ -133,11 +133,11 @@ const describeMemberStatus = async (userId: string) => {
         
         let scheduleInfo;
         if (startTime && startTime !== '00:00') {
-            scheduleInfo = `starting late at ${formatTimeDisplay(startTime)}`;
+            scheduleInfo = `Starting late at ${formatTimeDisplay(startTime)}`;
         } else if (endTime && endTime !== '23:59') {
-            scheduleInfo = `leaving early at ${formatTimeDisplay(endTime)}`;
+            scheduleInfo = `Leaving early at ${formatTimeDisplay(endTime)}`;
         } else {
-            scheduleInfo = 'all day off';
+            scheduleInfo = `Day off`;
         }
         
         upcomingLine = ` ${whenPrefix}${scheduleInfo}. Reason: ${reason}.`;
