@@ -316,6 +316,8 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
         notes: `OOO: ${reasonForSlack}`,
         isDayOff: true,
         dayOffReason: reasonForSlack,
+        dayOffStartTime: timeRange?.start || '00:00',
+        dayOffEndTime: timeRange?.end || '23:59',
         source: 'slash_command',
         workspaceId,
         yesterdayHoursEstimate: 0,
@@ -399,6 +401,8 @@ export const handleStandupSubmission = async (args: any) => {
     const isDayOff = Boolean(values.dayoff_toggle_block?.dayoff_toggle?.selected_options?.length);
     const rawDayOffReason = values.dayoff_reason_block?.dayoff_reason_input?.value || '';
     const dayOffReason = isDayOff ? rawDayOffReason : '';
+    const dayOffStartTime = isDayOff ? '00:00' : '';
+    const dayOffEndTime = isDayOff ? '23:59' : '';
     const yesterday = isDayOff && !yesterdayRaw.trim() ? 'Day off' : yesterdayRaw;
     const today_plan = isDayOff && !todayRaw.trim() ? 'Day off' : todayRaw;
 
@@ -449,6 +453,8 @@ export const handleStandupSubmission = async (args: any) => {
         notes: notes,
         isDayOff: isDayOff,
         dayOffReason: dayOffReason,
+        dayOffStartTime,
+        dayOffEndTime,
         source: 'modal',
         workspaceId: workspaceId,
         yesterdayHoursEstimate: yesterdayHours,

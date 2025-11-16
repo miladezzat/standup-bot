@@ -11,6 +11,8 @@ export interface IStandupEntry extends Document {
   notes: string;              // Additional notes or context (optional)
   isDayOff: boolean;          // Indicates if user is out of office
   dayOffReason: string;       // Optional explanation for day off
+  dayOffStartTime?: string;   // Optional start time (HH:mm) for day off
+  dayOffEndTime?: string;     // Optional end time (HH:mm) for day off
   source: 'slash_command' | 'modal' | 'dm'; // How it was submitted
   workspaceId: string;        // Slack workspace/team ID
   // AI Time Estimates (optional)
@@ -61,6 +63,14 @@ const StandupEntrySchema: Schema = new Schema(
       default: false
     },
     dayOffReason: {
+      type: String,
+      default: ''
+    },
+    dayOffStartTime: {
+      type: String,
+      default: ''
+    },
+    dayOffEndTime: {
       type: String,
       default: ''
     },
