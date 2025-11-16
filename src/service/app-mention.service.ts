@@ -106,7 +106,23 @@ const describeMemberStatus = async (userId: string) => {
     }).sort({ date: 1 }).lean();
 
     if (nextEntry) {
-        const dateLabel = format(new Date(`${nextEntry.date}T00:00:00`), 'EEEE, MMM d');
+        const nextDate = new Date(`${nextEntry.date}T00:00:00`);
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
+        
+        let dateLabel;
+        if (nextEntry.date === tomorrowStr) {
+            dateLabel = 'tomorrow';
+        } else {
+            const daysDiff = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysDiff <= 7) {
+                dateLabel = format(nextDate, 'EEEE'); // "Monday", "Tuesday", etc.
+            } else {
+                dateLabel = format(nextDate, 'EEEE, MMM d'); // "Monday, Nov 17"
+            }
+        }
+        
         const reason = nextEntry.dayOffReason || 'No details provided';
         const rangeText = describeDayOffRange(nextEntry);
         upcomingLine = ` Next day off: ${dateLabel} (${rangeText}). Reason: ${reason}.`;
@@ -143,12 +159,12 @@ const getTodayStandupContent = async (userId: string) => {
         
         let timeInfo = '';
         if (startTime && startTime !== '00:00') {
-            timeInfo = ` (starting late at ${formatTimeDisplay(startTime)})`;
+            timeInfo = ` starting late at ${formatTimeDisplay(startTime)}`;
         } else if (endTime && endTime !== '23:59') {
-            timeInfo = ` (leaving early at ${formatTimeDisplay(endTime)})`;
+            timeInfo = ` leaving early at ${formatTimeDisplay(endTime)}`;
         }
         
-        return `${displayName} - Day off${timeInfo}: ${reason}`;
+        return `${displayName} - Day off today${timeInfo}. Reason: ${reason}`;
     }
     
     const parts = [];
@@ -344,28 +360,35 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         const prompt = `You are a helpful team assistant. Answer the question directly with actual information from the standup data.
 
 CRITICAL RULES:
-- BE SPECIFIC: Mention actual tasks, features, tickets, and work items from their standup
-- PRIORITIZE STANDUP CONTENT: If they wrote what they're working on today, USE THAT
-- PAY ATTENTION TO TIME DETAILS: If they say "starting late", "leaving early", include the time
-- NO VAGUE PHRASES: Don't say "working on tasks", "making progress", "staying busy"
-- NO CORPORATE SPEAK: Don't sound like a manager giving a performance review
-- NO GENERIC PRAISE: Don't say "great work", "solid progress", "doing well" unless specific
-- JUST THE FACTS: Quote their actual work items, don't summarize vaguely
-- BE CONCISE: 2-3 sentences with real information
-- If someone has a day off with start/end times, mention the specific schedule
+- READ CAREFULLY: "Next day off: Monday" means FUTURE, not today!
+- TODAY vs FUTURE: If it says "working today" and "Next day off: Monday", they ARE WORKING TODAY
+- BE SPECIFIC: Mention actual tasks from their standup
+- TIME DETAILS: If "starting late at 12 PM", include that detail
+- NO VAGUE PHRASES: Don't say "working on tasks", use their actual work items
+- NO MISINTERPRETATION: Don't confuse future plans with current status
+- JUST THE FACTS: Quote their actual work, don't make up details
+- BE CONCISE: 2-3 sentences maximum
+
+Examples of CORRECT answers:
+- "John is working today on fixing the login bug and adding new features. He'll be off tomorrow."
+- "Sarah is working today but starting late at 2 PM for a doctor's appointment."
+
+Examples of WRONG answers:
+- "John is not available" (when data says "working today")
+- "Sarah is off today" (when data says "Next day off: Friday")
 
 Question: ${question}
 
 Standup Data:
 ${contextText}
 
-Give a direct, informative answer with specifics from their standup:`;
+Give a direct, accurate answer (don't confuse today with future):`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
-            temperature: 0.3,
+            temperature: 0.1,
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 250,
+            max_tokens: 200,
         });
         return completion.choices[0]?.message?.content?.trim() || contextText;
     } catch (error) {
