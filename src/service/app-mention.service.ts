@@ -5,6 +5,13 @@ import { toZonedTime } from 'date-fns-tz';
 import standupThread from '../models/standupThread';
 import StandupEntry from '../models/standupEntry';
 import { getUserName } from '../helper';
+import {
+    formatIssueSummary,
+    getActiveIssuesForUser,
+    getIssueByIdentifier,
+    getLinearUserByEmail,
+    isLinearEnabled,
+} from './linear.service';
 
 const TIMEZONE = 'Africa/Cairo';
 
@@ -42,18 +49,19 @@ const describeMemberStatus = async (userId: string) => {
 
     const todayEntry = await StandupEntry.findOne({
         slackUserId: userId,
-        date: todayStr,
-        isDayOff: true
+        date: todayStr
     }).lean();
+
+    const dayOffEntry = todayEntry?.isDayOff ? todayEntry : null;
 
     let statusLine = `${displayName} is working today.`;
     let upcomingLine = '';
 
-    if (todayEntry) {
-        const startMinutes = timeStringToMinutes(todayEntry.dayOffStartTime) ?? 0;
-        const endMinutes = timeStringToMinutes(todayEntry.dayOffEndTime) ?? (24 * 60 - 1);
-        const reason = todayEntry.dayOffReason || 'No details provided';
-        const rangeText = describeDayOffRange(todayEntry);
+    if (dayOffEntry) {
+        const startMinutes = timeStringToMinutes(dayOffEntry.dayOffStartTime) ?? 0;
+        const endMinutes = timeStringToMinutes(dayOffEntry.dayOffEndTime) ?? (24 * 60 - 1);
+        const reason = dayOffEntry.dayOffReason || 'No details provided';
+        const rangeText = describeDayOffRange(dayOffEntry);
 
         if (nowMinutes >= startMinutes && nowMinutes <= endMinutes) {
             statusLine = `${displayName} is out of the office right now (${rangeText}).`;
@@ -64,9 +72,20 @@ const describeMemberStatus = async (userId: string) => {
         }
 
         statusLine += ` Reason: ${reason}.`;
+    } else if (todayEntry) {
+        statusLine = `${displayName} submitted a standup today and is working.`;
+    } else {
+        statusLine = `${displayName} hasn't submitted a standup yet today.`;
+        const lastEntry = await StandupEntry.findOne({
+            slackUserId: userId,
+            date: { $lt: todayStr }
+        }).sort({ date: -1 }).lean();
 
-        if (nowMinutes < startMinutes) {
-            upcomingLine = '';
+        if (lastEntry) {
+            const lastLabel = format(new Date(`${lastEntry.date}T00:00:00`), 'EEEE, MMM d');
+            statusLine += ` Last update was ${lastLabel}.`;
+        } else {
+            statusLine += ` No historical standups found.`;
         }
     }
 
@@ -84,6 +103,45 @@ const describeMemberStatus = async (userId: string) => {
     }
 
     return `${statusLine}${upcomingLine}`.trim();
+};
+
+const describeWorkForMember = async (userId: string) => {
+    if (!isLinearEnabled()) {
+        return 'Linear integration is not configured yet.';
+    }
+
+    const { name, email } = await getUserName(userId);
+    const displayName = name ? `<@${userId}> (${name})` : `<@${userId}>`;
+
+    if (!email) {
+        return `${displayName}: Slack profile is missing an email, so I can't look them up in Linear.`;
+    }
+
+    const linearUser = await getLinearUserByEmail(email);
+    if (!linearUser) {
+        return `${displayName}: I couldn't find a Linear user with the email ${email}.`;
+    }
+
+    const issues = await getActiveIssuesForUser(linearUser.id);
+    if (!issues.length) {
+        return `${displayName} has no active Linear issues assigned right now.`;
+    }
+
+    const lines = issues.slice(0, 5).map((issue) => `• ${formatIssueSummary(issue)}`);
+    return `Here’s what ${displayName} is working on:\n${lines.join('\n')}`;
+};
+
+const describeIssueStatus = async (identifier: string) => {
+    if (!isLinearEnabled()) {
+        return 'Linear integration is not configured yet.';
+    }
+
+    const issue = await getIssueByIdentifier(identifier.toUpperCase());
+    if (!issue) {
+        return `I couldn't find the Linear issue ${identifier.toUpperCase()}.`;
+    }
+
+    return formatIssueSummary(issue);
 };
 
 const handleStandupSummaryRequest = async ({
@@ -157,39 +215,71 @@ export const mentionApp = async ({
         return;
     }
 
-    if (normalized.includes('where') || normalized.includes('status') || normalized.includes('ooo')) {
-        let botUserId: string | null = null;
+    let botUserId: string | null = null;
+    let mentionedUsers: string[] = [];
+    if (text.includes('<@')) {
         try {
             const auth = await client.auth.test();
             botUserId = auth.user_id || null;
         } catch (err) {
             console.error('Error fetching bot user id:', err);
         }
+        mentionedUsers = extractMentionedUsers(text, botUserId);
+    }
 
-        const mentionedUsers = extractMentionedUsers(text, botUserId);
-        if (mentionedUsers.length === 0) {
-            await say({
-                thread_ts: event.ts,
-                text: `Please mention who you're asking about, e.g. \`where is @username?\``,
-            });
-            return;
-        }
+    const hasMentions = mentionedUsers.length > 0;
+    const mentionsRequired = (normalized.includes('where') || normalized.includes('ooo') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
+    if (mentionsRequired && !hasMentions) {
+        await say({
+            thread_ts: event.ts,
+            text: `Please mention who you're asking about, e.g. \`where is @username?\` or \`what is @username working on?\``,
+        });
+        return;
+    }
 
-        const responses: string[] = [];
+    const hasTicketKeyword = normalized.includes('ticket') || normalized.includes('issue');
+    const issueMatches = text.match(/\b[A-Z][A-Z0-9]+-\d+\b/gi) || [];
+    const wantsTicketStatus = hasTicketKeyword || issueMatches.length > 0;
+    const wantsAvailability = hasMentions && (normalized.includes('where') || normalized.includes('ooo') || (normalized.includes('status') && !hasTicketKeyword));
+    const wantsWorkSummary = hasMentions && (normalized.includes('working on') || normalized.includes('working') || normalized.includes('doing') || normalized.includes('up to'));
+
+    const responses: string[] = [];
+
+    if (wantsAvailability) {
         for (const userId of mentionedUsers) {
             const statusText = await describeMemberStatus(userId);
             responses.push(statusText);
         }
+    }
 
+    if (wantsWorkSummary) {
+        for (const userId of mentionedUsers) {
+            const workText = await describeWorkForMember(userId);
+            responses.push(workText);
+        }
+    }
+
+    if (wantsTicketStatus) {
+        if (issueMatches.length === 0) {
+            responses.push('Please include a ticket identifier like `ABC-123` so I know which Linear issue to look up.');
+        } else {
+            for (const rawId of issueMatches) {
+                const summary = await describeIssueStatus(rawId);
+                responses.push(summary);
+            }
+        }
+    }
+
+    if (responses.length > 0) {
         await say({
             thread_ts: event.ts,
-            text: responses.join('\n'),
+            text: responses.join('\n\n'),
         });
         return;
     }
 
     await say({
         thread_ts: event.ts,
-        text: `Hi <@${event.user}>, mention me with \`standup\` in a standup thread for summaries, or ask \"where is @username?\" to check OOO status.`,
+        text: `Hi <@${event.user}>, mention me with \`standup\` in a standup thread for summaries, ask \"where is @username?\" for OOO info, \"what is @username working on?\" for Linear status, or include a ticket ID (e.g. ABC-123) to get its status.`,
     });
 };

@@ -121,28 +121,30 @@ export function parseSlackFormatting(text: string) {
 }
 
 
-export async function getUserName(userId?: string): Promise<{ name: string, avatarUrl?: string }> {
+export async function getUserName(userId?: string): Promise<{ name: string, avatarUrl?: string, email?: string }> {
     if (!userId) return {
         name: 'Unknown',
         avatarUrl: undefined,
+        email: undefined,
     };
 
     if (userCache.has(userId)) return userCache.get(userId)!;
     try {
         const result = await web.users.info({ user: userId });
         const avatarUrl = result.user?.profile?.image_72;
+        const email = result.user?.profile?.email;
 
         const name =
             result.user?.profile?.real_name ||
             result.user?.name ||
             `@${userId}`;
 
-        userCache.set(userId, { name, avatarUrl });
+        userCache.set(userId, { name, avatarUrl, email });
 
-        return { name, avatarUrl };
+        return { name, avatarUrl, email };
     } catch (err) {
         console.error(`Error fetching user ${userId}:`, err);
-        return { name: `@${userId}`, avatarUrl: undefined };
+        return { name: `@${userId}`, avatarUrl: undefined, email: undefined };
     }
 }
 
