@@ -1,5 +1,9 @@
 import { logger } from '../utils/logger';
 
+// import node env to load the API key
+import dotenv from 'dotenv';
+dotenv.config(); // Load env first!
+
 const LINEAR_API_URL = 'https://api.linear.app/graphql';
 const API_KEY = process.env.LINEAR_API_KEY;
 

@@ -305,10 +305,14 @@ export const mentionApp = async ({
     }
 
     if (contexts.length > 0) {
+        let combined = contexts.join('\n\n');
         const aiAnswer = await generateAIResponse(text, contexts);
+        if (aiAnswer && !/i\s+don't\s+know/i.test(aiAnswer.trim())) {
+            combined = aiAnswer;
+        }
         await say({
             thread_ts: event.ts,
-            text: aiAnswer,
+            text: combined,
         });
         return;
     }
