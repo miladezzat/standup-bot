@@ -112,20 +112,35 @@ const describeMemberStatus = async (userId: string) => {
         const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
         
         let dateLabel;
+        let whenPrefix = '';
         if (nextEntry.date === tomorrowStr) {
             dateLabel = 'tomorrow';
+            whenPrefix = 'Tomorrow: ';
         } else {
             const daysDiff = Math.floor((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             if (daysDiff <= 7) {
                 dateLabel = format(nextDate, 'EEEE'); // "Monday", "Tuesday", etc.
+                whenPrefix = `${dateLabel}: `;
             } else {
                 dateLabel = format(nextDate, 'EEEE, MMM d'); // "Monday, Nov 17"
+                whenPrefix = `${dateLabel}: `;
             }
         }
         
         const reason = nextEntry.dayOffReason || 'No details provided';
-        const rangeText = describeDayOffRange(nextEntry);
-        upcomingLine = ` Next day off: ${dateLabel} (${rangeText}). Reason: ${reason}.`;
+        const startTime = nextEntry.dayOffStartTime;
+        const endTime = nextEntry.dayOffEndTime;
+        
+        let scheduleInfo;
+        if (startTime && startTime !== '00:00') {
+            scheduleInfo = `starting late at ${formatTimeDisplay(startTime)}`;
+        } else if (endTime && endTime !== '23:59') {
+            scheduleInfo = `leaving early at ${formatTimeDisplay(endTime)}`;
+        } else {
+            scheduleInfo = 'all day off';
+        }
+        
+        upcomingLine = ` ${whenPrefix}${scheduleInfo}. Reason: ${reason}.`;
     }
 
     return {
@@ -360,29 +375,31 @@ const generateAIResponse = async (question: string, contexts: string[]): Promise
         const prompt = `You are a helpful team assistant. Answer the question directly with actual information from the standup data.
 
 CRITICAL RULES:
-- READ CAREFULLY: "Next day off: Monday" means FUTURE, not today!
-- TODAY vs FUTURE: If it says "working today" and "Next day off: Monday", they ARE WORKING TODAY
+- DON'T REPEAT NAMES: The person asking already knows who they asked about. Use "they" or describe without names
+- READ CAREFULLY: "Tomorrow: starting late" means TOMORROW, not today!
 - BE SPECIFIC: Mention actual tasks from their standup
-- TIME DETAILS: If "starting late at 12 PM", include that detail
+- TIME DETAILS: Include specific times when mentioned
 - NO VAGUE PHRASES: Don't say "working on tasks", use their actual work items
-- NO MISINTERPRETATION: Don't confuse future plans with current status
 - JUST THE FACTS: Quote their actual work, don't make up details
 - BE CONCISE: 2-3 sentences maximum
+- USE PRONOUNS: Say "They're working on X" not "John is working on X"
 
 Examples of CORRECT answers:
-- "John is working today on fixing the login bug and adding new features. He'll be off tomorrow."
-- "Sarah is working today but starting late at 2 PM for a doctor's appointment."
+- "Working today on fixing the login bug and adding new features. Off tomorrow."
+- "Working today but starting late at 2 PM for a doctor's appointment."
+- "They completed the API testing yesterday and are now starting the payment implementation."
 
 Examples of WRONG answers:
-- "John is not available" (when data says "working today")
-- "Sarah is off today" (when data says "Next day off: Friday")
+- "John is working today..." (don't repeat the name!)
+- "Not available today" (when data says "working today")
+- "Off today" (when data says "Tomorrow: starting late")
 
 Question: ${question}
 
 Standup Data:
 ${contextText}
 
-Give a direct, accurate answer (don't confuse today with future):`;
+Give a direct, accurate answer (no names, use pronouns):`;
         
         const completion = await openaiClient.chat.completions.create({
             model: 'gpt-4o-mini',
