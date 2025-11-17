@@ -8,7 +8,7 @@ let currentStandupThreadTs: string | null = null;
 const TIMEZONE = APP_TIMEZONE;
 
 export const standupReminder = new CronJob(
-    process.env.DAILY_REMINDER_CRON || '0 9 * * 0-4', // Default: 9 AM Sun-Thu
+    process.env.DAILY_REMINDER_CRON || '0 9 * * 0-4', // Default: 9:00 AM Sun-Thu
     async () => {
         try {
             const result = await slackApp.client.chat.postMessage({

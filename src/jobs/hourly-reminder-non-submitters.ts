@@ -3,12 +3,12 @@ import { slackApp } from '../singleton';
 import { getTeamMembersWhoHaventSubmitted } from '../service/team-members.service';
 import { APP_TIMEZONE } from '../config';
 
-// Reminder for non-submitters - runs at 10:05 AM Cairo time Sun-Thu (10 mins before standup)
-export const reminderNonSubmitters = new CronJob(
-  process.env.NON_SUBMITTER_REMINDER_CRON || '5 10 * * 0-4', // Default: 10:05 AM Sun-Thu
+// Hourly reminder for non-submitters - runs every hour from 11 AM to 5 PM
+export const hourlyReminderNonSubmitters = new CronJob(
+  process.env.HOURLY_REMINDER_CRON || '0 11-17 * * 0-4', // Default: Every hour from 11 AM to 5 PM Sun-Thu
   async () => {
     try {
-      console.log('🔔 Checking for team members who haven\'t submitted...');
+      console.log('🔔 Hourly check for team members who haven\'t submitted...');
       
       const notSubmitted = await getTeamMembersWhoHaventSubmitted();
       
@@ -17,27 +17,27 @@ export const reminderNonSubmitters = new CronJob(
         return;
       }
 
-      console.log(`📤 Sending reminders to ${notSubmitted.length} team member(s)...`);
+      console.log(`📤 Sending hourly reminders to ${notSubmitted.length} team member(s)...`);
 
       // Send DM to each user who hasn't submitted
       for (const member of notSubmitted) {
         try {
           await slackApp.client.chat.postMessage({
             channel: member.id,
-            text: '👋 Friendly reminder: You haven\'t submitted your standup yet today!',
+            text: '⏰ Reminder: You still haven\'t submitted your standup today!',
             blocks: [
               {
                 type: 'section',
                 text: {
                   type: 'mrkdwn',
-                  text: `👋 Hi ${member.realName}! You haven't submitted your standup yet today.`
+                  text: `⏰ Hi ${member.realName}! You still haven't submitted your standup today.`
                 }
               },
               {
                 type: 'section',
                 text: {
                   type: 'mrkdwn',
-                  text: 'Please take a moment to share your updates with the team by typing `/standup` here or in any channel.'
+                  text: 'Please take a moment to share your updates with the team. It helps everyone stay aligned!'
                 }
               },
               {
@@ -47,25 +47,34 @@ export const reminderNonSubmitters = new CronJob(
                     type: 'button',
                     text: {
                       type: 'plain_text',
-                      text: '📝 Submit Standup'
+                      text: '📝 Submit Now'
                     },
                     action_id: 'open_standup_modal',
                     style: 'primary'
+                  }
+                ]
+              },
+              {
+                type: 'context',
+                elements: [
+                  {
+                    type: 'mrkdwn',
+                    text: 'Type `/standup` to submit your notes'
                   }
                 ]
               }
             ]
           });
           
-          console.log(`✅ Sent reminder to ${member.realName} (${member.id})`);
+          console.log(`✅ Sent hourly reminder to ${member.realName} (${member.id})`);
         } catch (error) {
-          console.error(`❌ Error sending reminder to ${member.id}:`, error);
+          console.error(`❌ Error sending hourly reminder to ${member.id}:`, error);
         }
       }
 
-      console.log('✅ Finished sending reminders');
+      console.log('✅ Finished sending hourly reminders');
     } catch (err) {
-      console.error('❌ Error in reminderNonSubmitters job:', err);
+      console.error('❌ Error in hourlyReminderNonSubmitters job:', err);
     }
   },
   null,

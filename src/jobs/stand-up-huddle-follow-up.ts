@@ -3,7 +3,7 @@ import {slackApp} from '../singleton'
 import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 
 export const standupHuddleFollowUp= new CronJob(
- '0 10 * * 0-4',
+ process.env.STANDUP_HUDDLE_CRON || '0 10 * * 0-4', // Default: 10:00 AM Sun-Thu
   async () => {
     try {
       await slackApp.client.chat.postMessage({
