@@ -620,6 +620,174 @@ export const mentionApp = async ({
 
     const threadTs = standupThreads?.threadTs || event.thread_ts || event.ts;
 
+    // Handle help command
+    if (normalized.includes('--help') || normalized.includes('-h') || (normalized.includes('help') && !normalized.includes('can you help'))) {
+        await say({
+            thread_ts: event.ts,
+            blocks: [
+                {
+                    type: 'header',
+                    text: {
+                        type: 'plain_text',
+                        text: '📚 Standup Bot - Complete User Guide',
+                        emoji: true
+                    }
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: `Hi <@${event.user}>! Here's your complete guide to using Standup Bot with all features and examples.`
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🚀 1. Submit Your Daily Standup*\n\n*Basic Command:*\n`/standup`\nType this in any channel or DM to open the submission modal.\n\n*What to Share:*\n• ✅ What you accomplished yesterday\n• 📝 What you plan to do today\n• 🚧 Any blockers or challenges\n• 💬 Additional notes or context\n\n*When to Submit:*\nSubmit anytime, but daily reminders are sent at 9 AM Cairo time.'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*✈️ 2. Mark Out of Office (OOO)*\n\n*Quick OOO Today:*\n`/standup ooo <reason>`\n📌 *Example:* `/standup ooo taking my kid to the doctor`\n\n*Schedule Full Day Ahead:*\n`/standup ooo YYYY-MM-DD <reason>`\n📌 *Example:* `/standup ooo 2025-12-25 Christmas holiday`\n\n*Partial Day (Time Window):*\n`/standup ooo [date] HH:MM-HH:MM <reason>`\n📌 *Examples:*\n  • `/standup ooo today 1pm-3pm home repair`\n  • `/standup ooo 2025-11-20 13:00-15:00 dentist appointment`\n\n*Via Modal:*\nRun `/standup`, check "Out of office today?", set times & reason.\n\n*What Happens:*\n• 📢 Channel alert notifies your team\n• ✈️ Dashboard shows OOO badge\n• 💌 You receive DM confirmation\n• 📊 Profile tracks all your days off'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*💬 3. Ask the Bot - Availability & Status*\n\n*Check Who\'s Available:*\n• `@Standup where is @user?`\n• `@Standup is @user available?`\n• `@Standup @user\'s status`\n• `@Standup who\'s working today?`\n• `@Standup who is OOO today?`\n\n📌 *Try:* `@Standup where is @john tomorrow?`'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🎯 4. Check Current Work & Tasks*\n\n*What Someone\'s Doing:*\n• `@Standup what is @user doing?`\n• `@Standup what is @user working on?`\n• `@Standup @user\'s current work`\n• `@Standup show me @user\'s tasks`\n• `@Standup what has @user been working on?`\n\n📌 *Try:* `@Standup what is @sarah working on today?`'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🔧 5. Linear Integration (Ticket Status)*\n\n*Check Ticket Status:*\n• `@Standup status of ABC-123`\n• `@Standup check ticket SAK-456`\n• `@Standup what\'s the status of PROJ-789?`\n\n*Test Integration:*\n• `@Standup test linear`\n• `@Standup check linear`\n\n📌 *Try:* `@Standup status of SAK-123`\n\n*Shows:* Title, status, assignee, priority, state'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*📊 6. Performance Metrics & Stats*\n\n*Performance Queries:*\n• `@Standup how is @user performing?`\n• `@Standup @user\'s performance`\n• `@Standup @user stats`\n• `@Standup report on @user`\n\n*Full Profile (Everything):*\n• `@Standup profile of @user`\n• `@Standup tell me about @user`\n• `@Standup everything about @user`\n\n📌 *Try:* `@Standup profile of @mike`\n\n*Profile Includes:*\n• 🎯 Current availability & status\n• 📈 Performance scores (0-100)\n• 🔥 Current submission streak\n• 🏆 Earned badges & achievements\n• ⚠️ Active alerts & warnings\n• 📊 Weekly/monthly velocity\n• 💡 AI-generated insights'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🏆 7. Achievements & Badges System*\n\n*Streak Badges:*\n• 🔥 Week Warrior - 7 day streak\n• 🔥🔥 Month Master - 30 day streak\n• 🔥🔥🔥 Quarter Champion - 90 day streak\n• 🔥🔥🔥🔥 Consistency Legend - 180 day streak\n\n*Velocity Badges:*\n• ⚡ Speed Demon - 3+ tasks/day average\n• ⚡⚡ Productivity Pro - 5+ tasks/day\n• ⚡⚡⚡ Velocity Master - 8+ tasks/day\n\n*Early Bird Badges:*\n• 🌅 Morning Person - 50% submitted before 9 AM\n• 🌅🌅 Early Bird - 75% before 9 AM\n• 🌅🌅🌅 Dawn Warrior - 90% before 9 AM\n\n*Consistency Badges:*\n• 📊 Reliable Reporter - 80% submission rate\n• 📊📊 Consistency King - 90% submission rate\n• 📊📊📊 Perfect Attendance - 95% submission rate\n\n📌 *View yours:* `@Standup profile of @me`'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🔔 8. Automatic Reminders & Schedule*\n\n*Daily Schedule (Cairo Time):*\n• *9:00 AM* 📢 Channel reminder\n• *10:00 AM* 📢 Huddle notification (15 mins warning)\n• *10:05 AM* 💌 DM to non-submitters\n• *11 AM-5 PM* 🔁 Hourly DM reminders (until you submit)\n\n*Weekly Schedule:*\n• *Monday 9 AM* - Week start message\n• *Thursday 5 PM* - Weekly report\n• *Friday 5 PM* - Week wrap-up\n\n*Monthly Schedule:*\n• *1st of month, 9 AM* - Monthly report\n\n*Other Jobs:*\n• *10 PM daily* - Alert checks & risk analysis\n• *11:30 PM daily* - Calculate performance metrics'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*📋 9. Standup Thread Summaries*\n\n*Get AI Summary:*\nIn any standup thread, mention:\n`@Standup standup`\n\n*You\'ll Get:*\n• 🤖 AI-powered summary of all submissions\n• 📊 Team status overview\n• ✨ Key highlights & progress\n• 🚧 Team blockers & challenges\n• 📝 Automatic categorization\n\n📌 *Try it in today\'s standup thread!*'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🌐 10. Web Dashboards*\n\nVisit these dashboards in your browser:\n\n*Main Dashboards:*\n• `/` - Today\'s submissions overview\n• `/user/:userId` - Individual user report\n• `/daily-summary` - AI-powered daily summary\n• `/manager` - Manager insights & alerts\n• `/analytics` - Team analytics with charts\n• `/history` - Historical thread view\n\n*Export Data (CSV):*\n• `/export/standups` - All submissions\n• `/export/metrics` - Performance metrics\n• `/export/alerts` - Alerts & warnings\n• `/export/achievements` - Badges earned\n• `/export/user/:userId` - Full user report\n\n🔒 *Note:* Requires authentication (Clerk)'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🚨 11. Alerts & Risk Detection*\n\nThe bot automatically monitors:\n\n*Performance Alerts:*\n• 📉 Declining performance trends\n• 🔄 Recurring blockers\n• 😟 Negative sentiment patterns\n• 📊 Consistency drops\n• 🎯 Goal misalignment\n\n*Alert Levels:*\n• 🟢 Low - Minor concern\n• 🟡 Medium - Needs attention\n• 🔴 High - Immediate action needed\n\nManagers see these in the Manager Dashboard.'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*💡 12. Pro Tips & Best Practices*\n\n• 🗣️ *Ask naturally* - I understand conversational language!\n• 🔗 *Combine questions:* "Where is @user and what are they working on?"\n• ⏰ *Submit early* to avoid hourly reminders\n• 🎫 *Use ticket IDs* (ABC-123) for automatic Linear tracking\n• 📊 *Check dashboards* for trends and analytics\n• ⏱️ *Set partial OOO* for appointments (not full day off)\n• 🏆 *Build streaks* to earn achievement badges\n• 📈 *Review your profile* weekly to track improvement\n• 🤖 *Ask me anything* about your team - I\'m AI-powered!'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'section',
+                    text: {
+                        type: 'mrkdwn',
+                        text: '*🔗 Quick Command Examples*\n\n```bash\n# Submit standup\n/standup\n/standup ooo sick day\n/standup ooo 2025-12-25 holiday\n/standup ooo today 2pm-4pm doctor\n\n# Ask the bot\n@Standup where is @john?\n@Standup what is @sarah working on?\n@Standup profile of @mike\n@Standup status of SAK-123\n@Standup how is @jane performing?\n@Standup who\'s working today?\n@Standup test linear\n@Standup help\n```'
+                    }
+                },
+                {
+                    type: 'divider'
+                },
+                {
+                    type: 'context',
+                    elements: [
+                        {
+                            type: 'mrkdwn',
+                            text: '🤖 Powered by OpenAI • 📊 Integrated with Linear • 🔒 Secured by Clerk • 💬 Always Learning!'
+                        }
+                    ]
+                }
+            ],
+            text: 'Standup Bot Help - Complete guide to all features, commands, and examples'
+        });
+        return;
+    }
+
     if (normalized.includes('standup')) {
         await handleStandupSummaryRequest({ event, client, say, threadTs });
         return;
