@@ -238,6 +238,7 @@ const getTodayStandupContent = async (userId: string) => {
 
 const describeWorkForMember = async (userId: string) => {
     if (!isLinearEnabled()) {
+        console.log('[Linear] Linear integration is not enabled - LINEAR_API_KEY not configured');
         return ''; // Silently skip if Linear is not configured
     }
 
@@ -250,13 +251,17 @@ const describeWorkForMember = async (userId: string) => {
         return '';
     }
 
+    console.log(`[Linear] Looking up Linear user for ${displayName} (${email})`);
     const linearUser = await getLinearUserByEmail(email);
     if (!linearUser) {
         console.log(`[Linear] Skipping work summary for ${displayName} - no Linear user found for ${email}`);
         return ''; // Silently skip if not in Linear
     }
 
+    console.log(`[Linear] Fetching issues for ${displayName} (Linear ID: ${linearUser.id})`);
     const issues = await getActiveIssuesForUser(linearUser.id);
+    console.log(`[Linear] Found ${issues.length} issues for ${displayName}`);
+    
     if (!issues.length) {
         return `${displayName} has no active Linear issues assigned right now.`;
     }
@@ -1150,10 +1155,13 @@ export const mentionApp = async ({
     }
 
     if (contexts.length > 0) {
+        // Check if we have Linear work data (contains grouped status formatting)
+        const hasLinearData = contexts.some(c => c.includes('Linear Issues for') || c.includes('📋') || c.includes('📝') || c.includes('🔄'));
+        
         // Generate AI response for more natural language
         const aiAnswer = await generateAIResponse(text, contexts);
         console.log(`[DEBUG] AI Answer: "${aiAnswer}"`);
-        const useAI = aiAnswer && !/i\s+don't\s+know/i.test(aiAnswer.trim());
+        const useAI = aiAnswer && !/i\s+don't\s+know/i.test(aiAnswer.trim()) && !hasLinearData;
         console.log(`[DEBUG] Use AI: ${useAI}`);
         
         // If we have structured status results, use Block Kit formatting with AI enhancement
@@ -1210,6 +1218,42 @@ export const mentionApp = async ({
         if (useAI) {
             combined = aiAnswer;
         }
+        
+        // If we have Linear data with formatting, preserve it by using blocks
+        if (hasLinearData) {
+            const blocks: any[] = [];
+            
+            // Split contexts to separate standup content from Linear data
+            contexts.forEach(context => {
+                if (context.includes('Linear Issues for')) {
+                    // This is Linear data - preserve formatting
+                    blocks.push({
+                        type: 'section',
+                        text: {
+                            type: 'mrkdwn',
+                            text: context
+                        }
+                    });
+                } else {
+                    // This is standup or other content
+                    blocks.push({
+                        type: 'section',
+                        text: {
+                            type: 'mrkdwn',
+                            text: context
+                        }
+                    });
+                }
+            });
+            
+            await say({
+                thread_ts: event.ts,
+                blocks: blocks,
+                text: combined // Fallback text
+            });
+            return;
+        }
+        
         await say({
             thread_ts: event.ts,
             text: combined,
