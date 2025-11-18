@@ -101,7 +101,7 @@ export const getActiveIssuesForUser = async (userId: string): Promise<LinearIssu
       filter: { 
         assignee: { id: { eq: userId } }
       },
-      first: 5
+      first: 20
     });
 
     const issueNodes = await issues.nodes;

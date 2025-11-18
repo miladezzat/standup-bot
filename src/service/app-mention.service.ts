@@ -261,8 +261,54 @@ const describeWorkForMember = async (userId: string) => {
         return `${displayName} has no active Linear issues assigned right now.`;
     }
 
-    const lines = issues.slice(0, 5).map((issue) => `• ${formatIssueSummary(issue)}`);
-    return `Here's what ${displayName} is working on:\n${lines.join('\n')}`;
+    // Group issues by status
+    const grouped = new Map<string, typeof issues>();
+    issues.forEach(issue => {
+        const status = issue.state?.name || 'Unknown';
+        if (!grouped.has(status)) {
+            grouped.set(status, []);
+        }
+        grouped.get(status)!.push(issue);
+    });
+
+    // Define status order and icons
+    const statusOrder = ['Backlog', 'Todo', 'In Progress', 'In Review', 'In Testing', 'Done', 'Canceled'];
+    const statusIcons: Record<string, string> = {
+        'Backlog': '📋',
+        'Todo': '📝',
+        'In Progress': '🔄',
+        'In Review': '👀',
+        'In Testing': '🧪',
+        'Done': '✅',
+        'Canceled': '❌'
+    };
+
+    const lines: string[] = [`*Linear Issues for ${displayName}:*\n`];
+    
+    // Sort statuses by defined order
+    const sortedStatuses = Array.from(grouped.keys()).sort((a, b) => {
+        const aIndex = statusOrder.findIndex(s => a.toLowerCase().includes(s.toLowerCase()));
+        const bIndex = statusOrder.findIndex(s => b.toLowerCase().includes(s.toLowerCase()));
+        if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+    });
+
+    sortedStatuses.forEach(status => {
+        const statusIssues = grouped.get(status)!;
+        const icon = statusIcons[status] || Object.keys(statusIcons).find(k => status.toLowerCase().includes(k.toLowerCase())) 
+            ? statusIcons[Object.keys(statusIcons).find(k => status.toLowerCase().includes(k.toLowerCase()))!] 
+            : '📌';
+        
+        lines.push(`\n${icon} *${status}* (${statusIssues.length})`);
+        statusIssues.forEach(issue => {
+            const priority = issue.priorityLabel ? ` [${issue.priorityLabel}]` : '';
+            lines.push(`  • ${issue.identifier}: ${issue.title}${priority}`);
+        });
+    });
+
+    return lines.join('\n');
 };
 
 const describeIssueStatus = async (identifier: string) => {
