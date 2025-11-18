@@ -67,18 +67,51 @@ export const getLinearUserByEmail = async (email: string): Promise<LinearUser | 
 
   try {
     console.log(`[Linear] Searching for user with email: ${email}`);
-    const users = await linearClient.users({
+    
+    // Try exact match first
+    let users = await linearClient.users({
       filter: { email: { eq: email } }
     });
     
-    const userNodes = await users.nodes;
+    let userNodes = await users.nodes;
+    
+    // If no exact match, try finding by name part (before @)
     if (userNodes.length === 0) {
-      console.log(`[Linear] No user found with email: ${email}`);
-      return null;
+      const emailPrefix = email.split('@')[0]; // e.g., "khaled.elkhoreby" from "khaled.elkhoreby@sakneen.com"
+      const domain = email.split('@')[1]; // e.g., "sakneen.com"
+      
+      console.log(`[Linear] No exact match, trying to find users from domain: ${domain}`);
+      
+      // Get all users and filter by domain
+      const allUsers = await linearClient.users();
+      const allUserNodes = await allUsers.nodes;
+      
+      // Find users with same domain
+      userNodes = allUserNodes.filter(u => u.email && u.email.endsWith(`@${domain}`));
+      
+      console.log(`[Linear] Found ${userNodes.length} users with domain ${domain}`);
+      
+      // Try to match by name similarity (first name match)
+      const firstName = emailPrefix.split('.')[0].toLowerCase(); // "khaled"
+      const matchedUser = userNodes.find(u => 
+        u.email && (
+          u.email.toLowerCase().includes(emailPrefix.toLowerCase()) ||
+          u.email.toLowerCase().startsWith(firstName) ||
+          u.name.toLowerCase().includes(firstName)
+        )
+      );
+      
+      if (matchedUser) {
+        console.log(`[Linear] Found similar user: ${matchedUser.name} (${matchedUser.email})`);
+        userNodes = [matchedUser];
+      } else {
+        console.log(`[Linear] No user found with email: ${email} or similar`);
+        return null;
+      }
     }
 
     const user = userNodes[0];
-    console.log(`[Linear] Found user: ${user.name} (${user.id})`);
+    console.log(`[Linear] Found user: ${user.name} (${user.id}) - ${user.email}`);
     return {
       id: user.id,
       name: user.name,

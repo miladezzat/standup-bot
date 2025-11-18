@@ -254,8 +254,8 @@ const describeWorkForMember = async (userId: string) => {
     console.log(`[Linear] Looking up Linear user for ${displayName} (${email})`);
     const linearUser = await getLinearUserByEmail(email);
     if (!linearUser) {
-        console.log(`[Linear] Skipping work summary for ${displayName} - no Linear user found for ${email}`);
-        return ''; // Silently skip if not in Linear
+        console.log(`[Linear] No Linear user found for ${displayName} with email: ${email}`);
+        return `\n\n_Note: ${displayName} doesn't have a Linear account linked with email ${email}, or Linear integration needs to be configured._`; // Show helpful message
     }
 
     console.log(`[Linear] Fetching issues for ${displayName} (Linear ID: ${linearUser.id})`);
