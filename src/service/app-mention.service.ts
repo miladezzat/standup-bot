@@ -1178,7 +1178,7 @@ export const mentionApp = async ({
                 type: 'header',
                 text: {
                     type: 'plain_text',
-                    text: '👋 Standup Bot - Your Team Intelligence Assistant',
+                    text: '👋 Hi! I\'m Standup Bot',
                     emoji: true
                 }
             },
@@ -1186,7 +1186,7 @@ export const mentionApp = async ({
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `Hi <@${event.user}>! I can help you understand your team better. Here's what I can do:`
+                    text: `Hi <@${event.user}>! I'm your AI-powered team intelligence assistant. I can help you with standups, team status, performance tracking, and much more!`
                 }
             },
             {
@@ -1196,28 +1196,21 @@ export const mentionApp = async ({
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*🔍 Quick Status Checks:*\n• \`@Standup where is @username?\` - Check availability & OOO status\n• \`@Standup what is @username doing?\` - Current work & today's standup\n• \`@Standup status of SAK-123\` - Linear ticket status & details`
+                    text: `*🚀 Quick Start:*\n\n• Type \`/standup\` to submit your daily standup\n• Type \`@Standup help\` to see the complete guide\n• Ask me naturally: "Where is @user?" or "What is @user working on?"`
                 }
             },
             {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*📊 Performance & Insights:*\n• \`@Standup how is @username performing?\` - Performance metrics & scores\n• \`@Standup @username's stats\` - Weekly/monthly statistics\n• \`@Standup profile of @username\` - Full detailed profile with achievements\n• \`@Standup report on @username\` - Comprehensive performance report`
+                    text: `*🔍 Popular Commands:*\n• \`@Standup where is @user?\` - Check availability\n• \`@Standup profile of @user\` - Full profile & badges\n• \`@Standup status of ABC-123\` - Linear ticket status\n• \`@Standup who\'s working today?\` - Team overview`
                 }
             },
             {
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*💬 Natural Questions:*\n• \`@Standup what has @username been working on?\` - Recent activity & history\n• \`@Standup show me @username's progress\` - Work summary & velocity\n• \`@Standup what blockers did @username face?\` - Recent blockers & issues\n• \`@Standup who's working today?\` - Team overview & availability`
-                }
-            },
-            {
-                type: 'section',
-                text: {
-                    type: 'mrkdwn',
-                    text: `*📋 Summaries:*\n• Mention me with \`standup\` in a standup thread for instant summaries\n• \`@Standup test linear\` - Check Linear integration status`
+                    text: `*✈️ Mark Out of Office:*\n• \`/standup ooo sick day\`\n• \`/standup ooo 2025-12-25 holiday\`\n• \`/standup ooo today 2pm-4pm doctor\``
                 }
             },
             {
@@ -1227,7 +1220,14 @@ export const mentionApp = async ({
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*📈 What You'll See in Profiles:*\n• 🔥 Performance scores & consistency ratings\n• 📊 Weekly/monthly velocity & task completion\n• 🏆 Achievements & badges earned\n• ⚠️ Active alerts & risk levels\n• 🎯 Current Linear issues & assignments\n• 📅 Streak tracking & submission patterns\n• 💡 AI-generated insights & recommendations`
+                    text: `*💡 What I Can Do:*\n• 📊 Track performance & streaks\n• 🏆 Award achievement badges\n• 🔔 Send smart reminders\n• 🤖 Generate AI summaries\n• 📈 Analyze team trends\n• ⚠️ Detect risks & blockers\n• 🎯 Integrate with Linear`
+                }
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: `*📚 Need More Info?*\n\nType \`@Standup help\` or \`@Standup --help\` to see:\n• Complete feature list with examples\n• All achievement badges\n• Reminder schedule\n• Web dashboard links\n• Pro tips & best practices`
                 }
             },
             {
@@ -1235,11 +1235,11 @@ export const mentionApp = async ({
                 elements: [
                     {
                         type: 'mrkdwn',
-                        text: '🤖 Powered by AI - Just ask naturally and I\'ll understand! | 💡 Try: "Tell me everything about @username"'
+                        text: '🤖 I understand natural language - just ask! | 💬 Powered by AI | 📊 Integrated with Linear'
                     }
                 ]
             }
         ],
-        text: `Hi! I can help you check team member availability, work status, performance metrics, achievements, and answer questions about your team.`,
+        text: `Hi! I'm Standup Bot. Type @Standup help for the complete guide, or ask me anything about your team!`,
     });
 };
