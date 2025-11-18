@@ -237,17 +237,23 @@ const getTodayStandupContent = async (userId: string) => {
 };
 
 const describeWorkForMember = async (userId: string) => {
+    console.log(`[Linear] === describeWorkForMember called for userId: ${userId} ===`);
+    
     if (!isLinearEnabled()) {
         console.log('[Linear] Linear integration is not enabled - LINEAR_API_KEY not configured');
         return ''; // Silently skip if Linear is not configured
     }
+    
+    console.log('[Linear] Linear is enabled, fetching user info...');
 
     const { name, email } = await getUserName(userId);
     const displayName = name || `User ${userId}`;
+    
+    console.log(`[Linear] User info - Name: ${displayName}, Email: ${email || 'NO EMAIL'}`);
 
     if (!email) {
         // Silently skip if no email - availability info is enough
-        console.log(`[Linear] Skipping work summary for ${displayName} - no email in Slack profile`);
+        console.log(`[Linear] ❌ Skipping work summary for ${displayName} - no email in Slack profile`);
         return '';
     }
 
@@ -1114,17 +1120,28 @@ export const mentionApp = async ({
     }
 
     if (wantsWorkSummary) {
+        console.log(`[DEBUG] wantsWorkSummary = true, processing ${mentionedUsers.length} users`);
         for (const userId of mentionedUsers) {
+            console.log(`[DEBUG] Processing work summary for userId: ${userId}`);
+            
             // First priority: Get actual standup content (what they wrote today)
             const standupContent = await getTodayStandupContent(userId);
             if (standupContent) {
+                console.log(`[DEBUG] Got standup content, length: ${standupContent.length}`);
                 contexts.push(standupContent);
+            } else {
+                console.log(`[DEBUG] No standup content found`);
             }
             
             // Second priority: Add Linear issues if available
+            console.log(`[DEBUG] Calling describeWorkForMember for userId: ${userId}`);
             const workText = await describeWorkForMember(userId);
+            console.log(`[DEBUG] describeWorkForMember returned: ${workText ? `"${workText.substring(0, 100)}..."` : 'EMPTY/NULL'}`);
             if (workText) {
                 contexts.push(workText);
+                console.log(`[DEBUG] Added Linear work text to contexts`);
+            } else {
+                console.log(`[DEBUG] ❌ workText is empty, not adding to contexts`);
             }
         }
     }
