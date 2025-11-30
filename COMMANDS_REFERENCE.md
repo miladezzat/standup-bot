@@ -27,6 +27,52 @@ Comprehensive guide to all available commands, actions, web routes, and automate
 
 ---
 
+### `/standup ooo` - Mark Out of Office
+**Usage:** Type `/standup ooo` followed by time window and/or reason
+
+**What it does:**
+- Quickly mark yourself as out of office without opening the modal
+- Supports full day, partial day, or specific time windows
+- Notifies team in channel and updates your status
+- Tracks time off in your profile
+
+**Examples:**
+
+**Quick OOO Today:**
+```
+/standup ooo taking my kid to the doctor
+/standup ooo sick day
+/standup ooo lunch break
+```
+
+**Schedule Full Day Ahead:**
+```
+/standup ooo 2025-12-25 Christmas holiday
+/standup ooo 2025-11-30 vacation
+```
+
+**Partial Day (Time Window):**
+```
+/standup ooo today 1pm-3pm home repair
+/standup ooo today 12:00-12:30 eating lunch
+/standup ooo 2025-11-20 13:00-15:00 dentist appointment
+```
+
+**What Happens:**
+- 📢 Channel alert notifies your team
+- ✈️ Dashboard shows OOO badge
+- 💌 You receive DM confirmation
+- 📊 Profile tracks all your days off
+- 🔕 Reminders won't be sent during OOO period
+
+**Notes:**
+- Time format: `HH:MM` (24-hour) or `HHam/pm` (12-hour)
+- Date format: `YYYY-MM-DD` or `today`
+- Can be used for short breaks (eating, meetings, appointments)
+- Alternative: Use `/standup` modal and check "Out of office today?"
+
+---
+
 ## 🎯 Slack Interactive Actions
 
 ### `open_standup_modal` - Button Click Handler
