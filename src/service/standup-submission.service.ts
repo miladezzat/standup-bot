@@ -298,8 +298,8 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
     const workspaceId = body.team_id || '';
     const { targetDate, reason, isToday, timeRange } = parseDayOffCommand(text);
     const baseReason = normalizeReasonForSlack(reason);
-    const timeText = timeRange ? ` (${timeRange.start}-${timeRange.end})` : '';
-    const reasonForSlack = `${baseReason}${timeText}`.trim();
+    const timeText = timeRange ? `${timeRange.start}-${timeRange.end}` : '';
+    const reasonForSlack = timeText ? `${timeText} ${baseReason}`.trim() : baseReason;
 
     await StandupEntry.findOneAndUpdate(
       {
