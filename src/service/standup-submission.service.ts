@@ -298,7 +298,17 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
     const workspaceId = body.team_id || '';
     const { targetDate, reason, isToday, timeRange } = parseDayOffCommand(text);
     const baseReason = normalizeReasonForSlack(reason);
-    const timeText = timeRange ? `${timeRange.start}-${timeRange.end}` : '';
+    
+    // Calculate if this is a full day (8+ hours or no time range specified)
+    let isFullDay = !timeRange;
+    if (timeRange) {
+      const [startHour, startMin] = timeRange.start.split(':').map(Number);
+      const [endHour, endMin] = timeRange.end.split(':').map(Number);
+      const durationHours = (endHour * 60 + endMin - startHour * 60 - startMin) / 60;
+      isFullDay = durationHours >= 8;
+    }
+    
+    const timeText = timeRange && !isFullDay ? `${timeRange.start}-${timeRange.end}` : '';
     const reasonForSlack = timeText ? `${timeText} ${baseReason}`.trim() : baseReason;
 
     await StandupEntry.findOneAndUpdate(
