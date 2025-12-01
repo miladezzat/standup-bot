@@ -18,6 +18,7 @@ import { getManagerDashboard } from './service/manager-dashboard.service';
 import { getTeamAnalyticsDashboard } from './service/team-analytics-dashboard.service';
 import { getBreaksDashboard } from './service/breaks-dashboard.service';
 import { serveWorkflowDashboard } from './service/workflow.service';
+import { serveLinearNotes } from './service/linear-notes.service';
 import { exportStandupsCSV, exportPerformanceMetricsCSV, exportAlertsCSV, exportAchievementsCSV, exportUserReportCSV } from './service/export.service';
 import { apiLimiter } from './middleware/security.middleware';
 import { checkAuth } from './middleware/clerk-auth.middleware';
@@ -365,6 +366,7 @@ expressApp.get('/manager', authMiddleware, getManagerDashboard); // Manager insi
 expressApp.get('/analytics', authMiddleware, getTeamAnalyticsDashboard); // Team analytics with charts
 expressApp.get('/breaks', authMiddleware, getBreaksDashboard); // Breaks tracking dashboard
 expressApp.get('/workflow', authMiddleware, serveWorkflowDashboard); // Task workflow visualization
+expressApp.get('/linear-notes', authMiddleware, serveLinearNotes); // Linear notes dashboard
 
 // Export routes
 expressApp.get('/export/standups', authMiddleware, exportStandupsCSV); // Export standups to CSV

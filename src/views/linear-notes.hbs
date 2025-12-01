@@ -1,0 +1,562 @@
+{{!-- Linear Notes Dashboard --}}
+
+<div class="page-header animate-fade-in-up">
+    <h1>📋 Linear Notes</h1>
+    <p>Team activity based on Linear tickets for today and yesterday</p>
+</div>
+
+{{#if linearEnabled}}
+
+{{> stats-grid stats=stats}}
+
+<div class="notes-header card animate-fade-in-up">
+    <div class="notes-header-content">
+        <div>
+            <strong>📅 Today:</strong> {{today}} &nbsp;|&nbsp; <strong>📆 Yesterday:</strong> {{yesterday}}
+        </div>
+        <button class="btn btn-primary refresh-btn" id="refreshBtn">
+            <span class="btn-text">🔄 Refresh</span>
+            <span class="btn-loading" style="display: none;">
+                <span class="spinner"></span> Loading...
+            </span>
+        </button>
+    </div>
+</div>
+
+{{#if teamNotes.length}}
+<div class="team-notes-grid">
+    {{#each teamNotes}}
+    <div class="card member-card animate-fade-in-up">
+        <div class="member-header">
+            <div class="member-avatar">
+                {{this.userInitial}}
+            </div>
+            <div class="member-info">
+                <h3>{{this.userName}}</h3>
+                <p class="member-email">{{this.email}}</p>
+            </div>
+            <div class="member-badges">
+                {{#if this.summary.completedToday}}
+                <span class="badge badge-success">✅ {{this.summary.completedToday}} completed</span>
+                {{/if}}
+                {{#if this.summary.inProgressToday}}
+                <span class="badge badge-info">🔄 {{this.summary.inProgressToday}} in progress</span>
+                {{/if}}
+                <span class="badge badge-primary">📊 {{this.summary.todayCount}} today</span>
+            </div>
+        </div>
+        
+        <div class="member-body">
+            {{!-- Today's Issues --}}
+            <div class="day-section">
+                <div class="day-header">
+                    <span>📅</span>
+                    <h4>Today</h4>
+                    <span class="count-badge">{{this.summary.todayCount}} issues</span>
+                </div>
+                
+                {{#if this.todayIssues.length}}
+                <div class="issues-list">
+                    {{#each this.todayIssues}}
+                    <div class="issue-card {{#if this.isCompleted}}completed{{/if}} {{#if this.isInProgress}}in-progress{{/if}} {{#if this.isNew}}new-issue{{/if}}">
+                        <div class="issue-state-badge" style="background-color: {{this.stateColor}}">
+                            {{this.state}}
+                        </div>
+                        <div class="issue-content">
+                            <p class="issue-title">
+                                <a href="{{this.url}}" target="_blank" rel="noopener">
+                                    <strong>{{this.identifier}}</strong> {{this.title}}
+                                </a>
+                                {{#if this.isNew}}<span class="new-badge">NEW</span>{{/if}}
+                            </p>
+                            <div class="issue-meta">
+                                <span>🏷️ {{this.priority}}</span>
+                                <span>🕐 Updated {{this.updatedAt}}</span>
+                                {{#if this.isNew}}<span>✨ Created {{this.createdAt}}</span>{{/if}}
+                            </div>
+                            
+                            {{#if this.comments.length}}
+                            <div class="issue-comments">
+                                <div class="comments-header">💬 Recent Comments:</div>
+                                {{#each this.comments}}
+                                <div class="comment-item">
+                                    <span class="comment-author">{{this.userName}}</span>
+                                    <span class="comment-time">{{this.createdAt}}</span>
+                                    <p class="comment-body">{{this.body}}</p>
+                                </div>
+                                {{/each}}
+                            </div>
+                            {{/if}}
+                        </div>
+                    </div>
+                    {{/each}}
+                </div>
+                {{else}}
+                <div class="empty-state mini">
+                    <span class="empty-icon">📭</span>
+                    <p>No issues updated today</p>
+                </div>
+                {{/if}}
+            </div>
+            
+            {{!-- Yesterday's Issues --}}
+            <div class="day-section">
+                <div class="day-header">
+                    <span>📆</span>
+                    <h4>Yesterday</h4>
+                    <span class="count-badge">{{this.summary.yesterdayCount}} issues</span>
+                </div>
+                
+                {{#if this.yesterdayIssues.length}}
+                <div class="issues-list">
+                    {{#each this.yesterdayIssues}}
+                    <div class="issue-card {{#if this.isCompleted}}completed{{/if}} {{#if this.isInProgress}}in-progress{{/if}}">
+                        <div class="issue-state-badge" style="background-color: {{this.stateColor}}">
+                            {{this.state}}
+                        </div>
+                        <div class="issue-content">
+                            <p class="issue-title">
+                                <a href="{{this.url}}" target="_blank" rel="noopener">
+                                    <strong>{{this.identifier}}</strong> {{this.title}}
+                                </a>
+                            </p>
+                            <div class="issue-meta">
+                                <span>🏷️ {{this.priority}}</span>
+                                <span>🕐 Updated {{this.updatedAt}}</span>
+                            </div>
+                            
+                            {{#if this.comments.length}}
+                            <div class="issue-comments">
+                                <div class="comments-header">💬 Recent Comments:</div>
+                                {{#each this.comments}}
+                                <div class="comment-item">
+                                    <span class="comment-author">{{this.userName}}</span>
+                                    <span class="comment-time">{{this.createdAt}}</span>
+                                    <p class="comment-body">{{this.body}}</p>
+                                </div>
+                                {{/each}}
+                            </div>
+                            {{/if}}
+                        </div>
+                    </div>
+                    {{/each}}
+                </div>
+                {{else}}
+                <div class="empty-state mini">
+                    <span class="empty-icon">📭</span>
+                    <p>No issues updated yesterday</p>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+    </div>
+    {{/each}}
+</div>
+{{else}}
+<div class="card empty-state-card animate-fade-in-up">
+    <div class="empty-state">
+        <span class="empty-icon">📭</span>
+        <h3>No Activity Found</h3>
+        <p>No team members had Linear activity in the last two days.</p>
+    </div>
+</div>
+{{/if}}
+
+{{else}}
+<div class="card linear-disabled animate-fade-in-up">
+    <div class="empty-state">
+        <span class="empty-icon">⚠️</span>
+        <h3>Linear Integration Not Configured</h3>
+        <p>Please set the <code>LINEAR_API_KEY</code> environment variable to enable this feature.</p>
+    </div>
+</div>
+{{/if}}
+
+<style>
+/* Linear Notes Specific Styles */
+.notes-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.team-notes-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.member-card {
+    overflow: hidden;
+}
+
+.member-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    border-bottom: 1px solid var(--gray-200);
+    flex-wrap: wrap;
+}
+
+.member-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.member-info {
+    flex: 1;
+    min-width: 150px;
+}
+
+.member-info h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.member-email {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.member-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+}
+
+.badge-info {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+}
+
+.badge-primary {
+    background: rgba(102, 126, 234, 0.15);
+    color: var(--primary);
+}
+
+.member-body {
+    padding: 1.25rem;
+}
+
+.day-section {
+    margin-bottom: 1.5rem;
+}
+
+.day-section:last-child {
+    margin-bottom: 0;
+}
+
+.day-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.day-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.count-badge {
+    margin-left: auto;
+    background: var(--gray-100);
+    padding: 0.25rem 0.75rem;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--gray-600);
+}
+
+.issues-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.issue-card {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    border-left: 4px solid var(--gray-300);
+    transition: var(--transition);
+}
+
+.issue-card:hover {
+    background: white;
+    box-shadow: var(--shadow);
+}
+
+.issue-card.completed {
+    border-left-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.issue-card.in-progress {
+    border-left-color: var(--info);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.issue-card.new-issue {
+    border-left-color: var(--warning);
+}
+
+.issue-state-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    height: fit-content;
+}
+
+.issue-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.issue-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.issue-title a {
+    color: var(--gray-800);
+    text-decoration: none;
+}
+
+.issue-title a:hover {
+    color: var(--primary);
+}
+
+.issue-title strong {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.new-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.4rem;
+    background: var(--warning);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    vertical-align: middle;
+}
+
+.issue-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: var(--gray-600);
+}
+
+.issue-comments {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--gray-200);
+}
+
+.comments-header {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    margin-bottom: 0.5rem;
+}
+
+.comment-item {
+    padding: 0.5rem;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.comment-item:last-child {
+    margin-bottom: 0;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.comment-time {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-left: 0.5rem;
+}
+
+.comment-body {
+    margin: 0.25rem 0 0;
+    color: var(--gray-700);
+}
+
+.empty-state.mini {
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.empty-state.mini .empty-icon {
+    font-size: 2rem;
+}
+
+.empty-state.mini p {
+    margin: 0.5rem 0 0;
+    color: var(--gray-500);
+}
+
+.empty-state-card {
+    text-align: center;
+    padding: 3rem;
+}
+
+.empty-state .empty-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    margin: 0 0 0.5rem;
+    color: var(--gray-700);
+}
+
+.empty-state p {
+    color: var(--gray-500);
+    margin: 0;
+}
+
+.linear-disabled code {
+    background: var(--gray-100);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .member-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .member-badges {
+        width: 100%;
+    }
+    
+    .issue-card {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .issue-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+/* Refresh Button Loading State */
+.refresh-btn {
+    position: relative;
+    min-width: 120px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.refresh-btn.loading {
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.refresh-btn .btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const refreshBtn = document.getElementById('refreshBtn');
+    
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const btn = this;
+            const btnText = btn.querySelector('.btn-text');
+            const btnLoading = btn.querySelector('.btn-loading');
+            
+            // Show loading state
+            btn.classList.add('loading');
+            if (btnText) btnText.style.display = 'none';
+            if (btnLoading) btnLoading.style.display = 'inline-flex';
+            
+            // Reload after a tiny delay to show the loading state
+            setTimeout(function() {
+                window.location.reload();
+            }, 150);
+        });
+    }
+});
+</script>
