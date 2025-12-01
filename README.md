@@ -265,10 +265,8 @@ npm run dev    # Live reload with nodemon + ts-node
 
 ## 📚 Additional Documentation
 
-- [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) – Clerk configuration
 - [COMMANDS_REFERENCE.md](COMMANDS_REFERENCE.md) – Complete command guide
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) – Quick lookup cheat sheet
-- [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) – AI features documentation
 
 ## 🛠️ Tech Stack
 
