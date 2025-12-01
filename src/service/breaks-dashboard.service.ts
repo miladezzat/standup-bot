@@ -146,6 +146,45 @@ const pageStyles = `
 `;
 
 /**
+ * Calculate actual break minutes accounting for overlaps
+ * @param breaks Array of breaks with startTime and endTime in HH:mm format
+ * @returns Total minutes excluding overlapping time
+ */
+function calculateActualBreakMinutes(breaks: { startTime: string; endTime: string }[]): number {
+  if (breaks.length === 0) return 0;
+  
+  // Convert time strings to minutes since midnight
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+  
+  // Create intervals as [start, end] in minutes
+  const intervals = breaks.map(b => ({
+    start: timeToMinutes(b.startTime),
+    end: timeToMinutes(b.endTime)
+  }));
+  
+  // Sort by start time
+  intervals.sort((a, b) => a.start - b.start);
+  
+  // Merge overlapping intervals
+  const merged: { start: number; end: number }[] = [];
+  for (const interval of intervals) {
+    if (merged.length === 0 || merged[merged.length - 1].end < interval.start) {
+      // No overlap, add new interval
+      merged.push({ ...interval });
+    } else {
+      // Overlap, extend the previous interval
+      merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, interval.end);
+    }
+  }
+  
+  // Calculate total minutes from merged intervals
+  return merged.reduce((sum, interval) => sum + (interval.end - interval.start), 0);
+}
+
+/**
  * Get breaks dashboard view
  */
 export async function getBreaksDashboard(req: Request, res: Response) {
@@ -164,23 +203,39 @@ export async function getBreaksDashboard(req: Request, res: Response) {
       date: { $gte: weekStart, $lte: weekEnd }
     });
     
-    // Calculate stats
+    // Calculate stats - use actual minutes accounting for overlaps
     const totalBreaksToday = breaks.length;
-    const totalMinutesToday = breaks.reduce((sum, b) => sum + b.durationMinutes, 0);
+    const breaksWithTimes = breaks.filter(b => b.startTime && b.endTime).map(b => ({
+      startTime: b.startTime!,
+      endTime: b.endTime!
+    }));
+    const totalMinutesToday = calculateActualBreakMinutes(breaksWithTimes);
     const uniqueUsersToday = new Set(breaks.map(b => b.slackUserId)).size;
     const totalBreaksWeek = weeklyBreaks.length;
     
-    // Group by user for today
-    const userBreaksMap: Record<string, { userName: string; breakCount: number; totalMinutes: number }> = {};
+    // Group by user for today - calculate actual minutes per user
+    const userBreaksMap: Record<string, { 
+      userName: string; 
+      breakCount: number; 
+      breaks: { startTime: string; endTime: string }[] 
+    }> = {};
+    
     breaks.forEach(b => {
       if (!userBreaksMap[b.slackUserId]) {
-        userBreaksMap[b.slackUserId] = { userName: b.slackUserName, breakCount: 0, totalMinutes: 0 };
+        userBreaksMap[b.slackUserId] = { userName: b.slackUserName, breakCount: 0, breaks: [] };
       }
       userBreaksMap[b.slackUserId].breakCount++;
-      userBreaksMap[b.slackUserId].totalMinutes += b.durationMinutes;
+      if (b.startTime && b.endTime) {
+        userBreaksMap[b.slackUserId].breaks.push({ startTime: b.startTime, endTime: b.endTime });
+      }
     });
     
-    const userBreaks = Object.values(userBreaksMap);
+    // Calculate actual minutes for each user (accounting for overlaps)
+    const userBreaks = Object.values(userBreaksMap).map(user => ({
+      userName: user.userName,
+      breakCount: user.breakCount,
+      totalMinutes: calculateActualBreakMinutes(user.breaks)
+    }));
     
     // Stats for template
     const stats = [

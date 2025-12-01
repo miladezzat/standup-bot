@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import StandupEntry from '../models/standupEntry';
 import { slackWebClient } from '../singleton';
@@ -10,6 +10,17 @@ import { hasClerk } from '../index';
 
 const TIMEZONE = APP_TIMEZONE;
 
+interface DayData {
+  date: string;
+  dayName: string;
+  dayShort: string;
+  completedTasks: string[];
+  plannedTasks: string[];
+  blockers: string;
+  hasBlocker: boolean;
+  hasSubmission: boolean;
+}
+
 interface WorkflowUser {
   userId: string;
   userName: string;
@@ -17,6 +28,13 @@ interface WorkflowUser {
   todayTasks: string[];
   blockers: string;
   hasBlocker: boolean;
+  weekData?: DayData[];
+  weeklyStats?: {
+    totalCompleted: number;
+    totalPlanned: number;
+    blockerDays: number;
+    submissionDays: number;
+  };
 }
 
 interface TopContributor {
@@ -152,6 +170,77 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
         blockers: entry.blockers || '',
         hasBlocker
       });
+    }
+    
+    // Fetch weekly data for all users
+    const currentDate = parseISO(queryDate);
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }); // Sunday
+    const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
+    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    
+    // Get all entries for the week for all users
+    const weekDates = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+    const weeklyEntries = await StandupEntry.find({
+      date: { $in: weekDates },
+      slackUserId: { $in: userIds }
+    });
+    
+    // Group weekly entries by user and date
+    const weeklyEntriesMap = new Map<string, Map<string, typeof weeklyEntries[0]>>();
+    for (const entry of weeklyEntries) {
+      if (!weeklyEntriesMap.has(entry.slackUserId)) {
+        weeklyEntriesMap.set(entry.slackUserId, new Map());
+      }
+      const userMap = weeklyEntriesMap.get(entry.slackUserId)!;
+      if (!userMap.has(entry.date)) {
+        userMap.set(entry.date, entry);
+      }
+    }
+    
+    // Add weekly data to each user
+    for (const user of users) {
+      const userWeeklyMap = weeklyEntriesMap.get(user.userId) || new Map();
+      const weekData: DayData[] = [];
+      let totalCompleted = 0;
+      let totalPlanned = 0;
+      let blockerDays = 0;
+      let submissionDays = 0;
+      
+      for (const day of weekDays) {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const entry = userWeeklyMap.get(dateStr);
+        
+        const completedTasks = entry ? parseTasks(entry.yesterday || '') : [];
+        const plannedTasks = entry ? parseTasks(entry.today || '') : [];
+        const blockers = entry?.blockers || '';
+        const hasBlockerDay = !!(blockers && blockers.trim() && blockers.toLowerCase() !== 'none' && blockers.toLowerCase() !== 'no' && blockers.toLowerCase() !== 'n/a');
+        
+        if (entry) {
+          submissionDays++;
+          totalCompleted += completedTasks.length;
+          totalPlanned += plannedTasks.length;
+          if (hasBlockerDay) blockerDays++;
+        }
+        
+        weekData.push({
+          date: dateStr,
+          dayName: format(day, 'EEEE'),
+          dayShort: format(day, 'EEE'),
+          completedTasks,
+          plannedTasks,
+          blockers,
+          hasBlocker: hasBlockerDay,
+          hasSubmission: !!entry
+        });
+      }
+      
+      user.weekData = weekData;
+      user.weeklyStats = {
+        totalCompleted,
+        totalPlanned,
+        blockerDays,
+        submissionDays
+      };
     }
     
     // Sort users by total task count (most active first)

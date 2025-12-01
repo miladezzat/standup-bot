@@ -3,8 +3,6 @@
 {{!-- Include workflow-specific styles --}}
 {{> workflow-styles}}
 
-{{!-- Back Link --}}
-<a href="/submissions" class="back-link">← Back to Dashboard</a>
 
 {{!-- Page Header --}}
 <div class="page-header">
@@ -12,173 +10,297 @@
     <p>Visualize your team's task flow and connections</p>
 </div>
 
-{{!-- Date Filter --}}
-<div class="date-filter">
-    <strong>📅 View date:</strong>
-    <input type="date" id="datePicker" value="{{date}}">
-    <button onclick="window.location.href='/workflow?date=' + document.getElementById('datePicker').value" class="filter-btn">Go</button>
-    <button onclick="window.location.href='/workflow?date=today'" class="filter-btn secondary">Today</button>
+{{!-- Controls Bar --}}
+<div class="workflow-controls">
+    <div class="date-filter">
+        <strong>📅</strong>
+        <input type="date" id="datePicker" value="{{date}}">
+        <button onclick="window.location.href='/workflow?date=' + document.getElementById('datePicker').value" class="filter-btn">Go</button>
+        <button onclick="window.location.href='/workflow?date=today'" class="filter-btn secondary">Today</button>
+    </div>
+    <div class="view-toggle">
+        <button class="view-btn active" data-view="graph" onclick="toggleView('graph')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><line x1="7.5" y1="7.5" x2="10.5" y2="15.5"/><line x1="16.5" y1="7.5" x2="13.5" y2="15.5"/></svg>
+            Graph
+        </button>
+        <button class="view-btn" data-view="timeline" onclick="toggleView('timeline')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            Timeline
+        </button>
+    </div>
 </div>
 
 {{!-- Stats Overview --}}
 <div class="workflow-stats">
-    <div class="stat-pill">
-        <span class="stat-icon">👥</span>
-        <span class="stat-value">{{teamMembers}}</span>
-        <span class="stat-label">Contributors</span>
+    <div class="stat-card glass">
+        <div class="stat-icon-wrap blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-value">{{teamMembers}}</span>
+            <span class="stat-label">Contributors</span>
+        </div>
     </div>
-    <div class="stat-pill">
-        <span class="stat-icon">✅</span>
-        <span class="stat-value">{{completedTasks}}</span>
-        <span class="stat-label">Completed</span>
+    <div class="stat-card glass">
+        <div class="stat-icon-wrap green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-value">{{completedTasks}}</span>
+            <span class="stat-label">Completed</span>
+        </div>
     </div>
-    <div class="stat-pill">
-        <span class="stat-icon">🎯</span>
-        <span class="stat-value">{{plannedTasks}}</span>
-        <span class="stat-label">Planned</span>
+    <div class="stat-card glass">
+        <div class="stat-icon-wrap purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-value">{{plannedTasks}}</span>
+            <span class="stat-label">Planned</span>
+        </div>
     </div>
-    <div class="stat-pill warning">
-        <span class="stat-icon">🚧</span>
-        <span class="stat-value">{{blockerCount}}</span>
-        <span class="stat-label">Blockers</span>
+    {{#if (gt blockerCount 0)}}
+    <div class="stat-card glass warning">
+        <div class="stat-icon-wrap orange">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="stat-info">
+            <span class="stat-value">{{blockerCount}}</span>
+            <span class="stat-label">Blockers</span>
+        </div>
     </div>
+    {{/if}}
 </div>
 
-{{!-- Workflow Canvas --}}
-<div class="workflow-container">
-    <div class="workflow-canvas" id="workflowCanvas">
-        {{!-- User Workflow Nodes --}}
-        {{#each users}}
-            <div class="workflow-user-group" data-user-id="{{this.userId}}" style="--user-index: {{@index}};">
-                <div class="user-node">
-                    <div class="user-avatar">{{userInitial this.userName}}</div>
-                    <div class="user-name">{{this.userName}}</div>
+{{!-- Graph View --}}
+<div class="workflow-view graph-view active" id="graphView">
+    {{!-- Zoom Controls --}}
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomInBtn" type="button" title="Zoom In">+</button>
+        <span class="zoom-level" id="zoomLevel">100%</span>
+        <button class="zoom-btn" id="zoomOutBtn" type="button" title="Zoom Out">−</button>
+        <button class="zoom-btn" id="resetZoomBtn" type="button" title="Reset">⟲</button>
+        <button class="zoom-btn" id="fullscreenBtn" type="button" title="Fullscreen">⛶</button>
+    </div>
+    
+    <div class="graph-container" id="graphContainer">
+        <div class="graph-canvas" id="graphCanvas">
+            {{!-- SVG Layer for Connections --}}
+            <svg class="connections-layer" id="connectionsLayer"></svg>
+            
+            {{!-- Central Hub Node --}}
+            <div class="hub-node" id="hubNode">
+            <div class="hub-inner">
+                <span class="hub-icon">📅</span>
+                <span class="hub-date">{{formatDate date}}</span>
+                <span class="hub-label">Daily Standup</span>
+            </div>
+            <div class="hub-pulse"></div>
+        </div>
+        
+        {{!-- User Nodes in Orbital Layout --}}
+        <div class="orbital-users" id="orbitalUsers">
+            {{#each users}}
+            <div class="orbital-user-node" data-user-id="{{this.userId}}" data-user-name="{{this.userName}}" data-index="{{@index}}" data-total="{{../users.length}}" style="--node-index: {{@index}}; --total-nodes: {{../users.length}};">
+                <div class="user-node-card {{#if this.hasBlocker}}has-blocker{{/if}}">
+                    <div class="node-connector-point left"></div>
+                    <div class="user-avatar-node">{{userInitial this.userName}}</div>
+                    <div class="user-node-info">
+                        <span class="user-node-name">{{this.userName}}</span>
+                        <span class="user-node-stats">
+                            <span class="stat done">✓{{this.yesterdayTasks.length}}</span>
+                            <span class="stat todo">◎{{this.todayTasks.length}}</span>
+                        </span>
+                    </div>
                     {{#if this.hasBlocker}}
-                        <span class="node-badge blocker">⚠️</span>
+                    <div class="blocker-indicator" title="Has blocker">⚠️</div>
                     {{/if}}
+                    <div class="node-connector-point right"></div>
                 </div>
                 
-                <div class="task-flow">
-                    {{!-- Yesterday Tasks (Completed) --}}
-                    <div class="task-column completed">
-                        <div class="column-header">
-                            <span class="column-icon">✅</span>
-                            <span>Completed</span>
-                        </div>
-                        <div class="task-nodes">
-                            {{#each this.yesterdayTasks}}
-                                <div class="task-node completed" data-task="{{this}}">
-                                    <div class="task-content">{{this}}</div>
-                                    <div class="task-connector"></div>
-                                </div>
-                            {{/each}}
-                            {{#unless this.yesterdayTasks.length}}
-                                <div class="task-node empty">No tasks reported</div>
-                            {{/unless}}
-                        </div>
+                {{!-- Task Nodes --}}
+                <div class="task-orbit">
+                    {{#each this.yesterdayTasks}}
+                    <div class="task-node-orbital completed" data-task-index="{{@index}}" title="{{this}}">
+                        <div class="task-dot"></div>
+                        <div class="task-tooltip">{{this}}</div>
                     </div>
-                    
-                    {{!-- Flow Arrow --}}
-                    <div class="flow-arrow">
-                        <svg viewBox="0 0 50 20" class="arrow-svg">
-                            <defs>
-                                <linearGradient id="arrowGradient{{@index}}" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
-                                    <stop offset="100%" style="stop-color:#667eea;stop-opacity:1" />
-                                </linearGradient>
-                            </defs>
-                            <line x1="0" y1="10" x2="40" y2="10" stroke="url(#arrowGradient{{@index}})" stroke-width="3" stroke-linecap="round"/>
-                            <polygon points="40,5 50,10 40,15" fill="#667eea"/>
-                        </svg>
+                    {{/each}}
+                    {{#each this.todayTasks}}
+                    <div class="task-node-orbital planned" data-task-index="{{@index}}" title="{{this}}">
+                        <div class="task-dot"></div>
+                        <div class="task-tooltip">{{this}}</div>
                     </div>
-                    
-                    {{!-- Today Tasks (Planned) --}}
-                    <div class="task-column planned">
-                        <div class="column-header">
-                            <span class="column-icon">🎯</span>
-                            <span>Planned</span>
-                        </div>
-                        <div class="task-nodes">
-                            {{#each this.todayTasks}}
-                                <div class="task-node planned" data-task="{{this}}">
-                                    <div class="task-content">{{this}}</div>
-                                </div>
-                            {{/each}}
-                            {{#unless this.todayTasks.length}}
-                                <div class="task-node empty">No tasks planned</div>
-                            {{/unless}}
-                        </div>
-                    </div>
-                    
-                    {{!-- Blocker Node --}}
-                    {{#if this.hasBlocker}}
-                        <div class="blocker-node">
-                            <div class="blocker-header">
-                                <span>🚧</span>
-                                <span>Blocker</span>
-                            </div>
-                            <div class="blocker-content">{{this.blockers}}</div>
-                        </div>
-                    {{/if}}
+                    {{/each}}
                 </div>
             </div>
-        {{/each}}
+            {{/each}}
+        </div>
         
         {{#unless users.length}}
-            <div class="empty-workflow">
-                <div class="empty-icon">📋</div>
-                <h3>No Workflow Data</h3>
-                <p>No standup submissions found for this date.</p>
-            </div>
+        <div class="empty-workflow">
+            <div class="empty-icon">📋</div>
+            <h3>No Workflow Data</h3>
+            <p>No standup submissions found for this date.</p>
+        </div>
         {{/unless}}
+        </div>
     </div>
 </div>
 
-{{!-- Team Task Flow Summary --}}
-{{#if (gt users.length 0)}}
-<div class="flow-summary">
-    <h3>📊 Task Flow Summary</h3>
-    <div class="summary-grid">
-        <div class="summary-card">
-            <div class="summary-header">Most Active</div>
-            <div class="summary-content">
-                {{#each topContributors}}
-                    <div class="contributor-row">
-                        <span class="contributor-avatar">{{userInitial this.userName}}</span>
-                        <span class="contributor-name">{{this.userName}}</span>
-                        <span class="contributor-tasks">{{this.taskCount}} tasks</span>
+{{!-- Timeline View --}}
+<div class="workflow-view timeline-view" id="timelineView">
+    {{#each users}}
+    <div class="timeline-user-row" style="--row-index: {{@index}};">
+        <div class="timeline-user-info clickable-user" data-user-id="{{this.userId}}" data-user-name="{{this.userName}}" data-index="{{@index}}">
+            <div class="user-avatar-sm">{{userInitial this.userName}}</div>
+            <span class="user-name-sm">{{this.userName}}</span>
+            {{#if this.hasBlocker}}
+            <span class="blocker-badge-sm">⚠️</span>
+            {{/if}}
+            <span class="click-hint">👁</span>
+        </div>
+        
+        <div class="timeline-flow">
+            {{!-- Completed Tasks --}}
+            <div class="timeline-section completed">
+                <div class="section-label">
+                    <span class="label-icon">✅</span>
+                    <span>Done</span>
+                </div>
+                <div class="task-chain">
+                    {{#each this.yesterdayTasks}}
+                    <div class="chain-node completed">
+                        <div class="node-dot"></div>
+                        <div class="node-content">{{this}}</div>
+                        {{#unless @last}}
+                        <svg class="chain-link" viewBox="0 0 30 10"><path d="M0,5 L30,5" stroke="#10b981" stroke-width="2" stroke-dasharray="4,2"/></svg>
+                        {{/unless}}
                     </div>
+                    {{/each}}
+                    {{#unless this.yesterdayTasks.length}}
+                    <div class="chain-empty">—</div>
+                    {{/unless}}
+                </div>
+            </div>
+            
+            {{!-- Flow Arrow --}}
+            <div class="timeline-arrow">
+                <svg viewBox="0 0 60 30" class="arrow-svg">
+                    <defs>
+                        <linearGradient id="timelineGrad{{@index}}" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#10b981"/>
+                            <stop offset="100%" style="stop-color:#8b5cf6"/>
+                        </linearGradient>
+                        <marker id="arrowHead{{@index}}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#8b5cf6"/>
+                        </marker>
+                    </defs>
+                    <path d="M5,15 C20,15 40,15 55,15" stroke="url(#timelineGrad{{@index}})" stroke-width="3" fill="none" marker-end="url(#arrowHead{{@index}})"/>
+                </svg>
+            </div>
+            
+            {{!-- Planned Tasks --}}
+            <div class="timeline-section planned">
+                <div class="section-label">
+                    <span class="label-icon">🎯</span>
+                    <span>Planned</span>
+                </div>
+                <div class="task-chain">
+                    {{#each this.todayTasks}}
+                    <div class="chain-node planned">
+                        <div class="node-dot"></div>
+                        <div class="node-content">{{this}}</div>
+                        {{#unless @last}}
+                        <svg class="chain-link" viewBox="0 0 30 10"><path d="M0,5 L30,5" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="4,2"/></svg>
+                        {{/unless}}
+                    </div>
+                    {{/each}}
+                    {{#unless this.todayTasks.length}}
+                    <div class="chain-empty">—</div>
+                    {{/unless}}
+                </div>
+            </div>
+            
+            {{!-- Blocker --}}
+            {{#if this.hasBlocker}}
+            <div class="timeline-blocker">
+                <div class="blocker-icon">🚧</div>
+                <div class="blocker-text">{{this.blockers}}</div>
+            </div>
+            {{/if}}
+        </div>
+    </div>
+    {{/each}}
+    
+    {{#unless users.length}}
+    <div class="empty-workflow">
+        <div class="empty-icon">📋</div>
+        <h3>No Workflow Data</h3>
+        <p>No standup submissions found for this date.</p>
+    </div>
+    {{/unless}}
+</div>
+
+{{!-- Team Summary Panel --}}
+{{#if (gt users.length 0)}}
+<div class="summary-panel">
+    <div class="panel-header">
+        <h3>📊 Team Overview</h3>
+    </div>
+    <div class="panel-grid">
+        {{!-- Top Contributors --}}
+        <div class="panel-card">
+            <div class="card-title">🏆 Top Contributors</div>
+            <div class="contributor-list">
+                {{#each topContributors}}
+                <div class="contributor-item">
+                    <span class="rank">{{add @index 1}}</span>
+                    <span class="avatar-mini">{{userInitial this.userName}}</span>
+                    <span class="name">{{this.userName}}</span>
+                    <span class="count">{{this.taskCount}} tasks</span>
+                </div>
                 {{/each}}
             </div>
         </div>
         
-        <div class="summary-card">
-            <div class="summary-header">Task Distribution</div>
-            <div class="summary-content">
-                <div class="task-bar">
-                    <div class="bar-segment completed" style="width: {{completedPercent}}%">
-                        <span>{{completedTasks}} Done</span>
-                    </div>
-                    <div class="bar-segment planned" style="width: {{plannedPercent}}%">
-                        <span>{{plannedTasks}} Planned</span>
+        {{!-- Progress Ring --}}
+        <div class="panel-card">
+            <div class="card-title">📈 Task Ratio</div>
+            <div class="progress-visual">
+                <div class="progress-ring-container">
+                    <svg class="progress-ring" viewBox="0 0 100 100">
+                        <circle class="ring-bg" cx="50" cy="50" r="40"/>
+                        <circle class="ring-progress completed" cx="50" cy="50" r="40" 
+                            style="stroke-dasharray: {{multiply completedPercent 2.51}} 251; stroke-dashoffset: 0;"/>
+                        <circle class="ring-progress planned" cx="50" cy="50" r="40"
+                            style="stroke-dasharray: {{multiply plannedPercent 2.51}} 251; stroke-dashoffset: -{{multiply completedPercent 2.51}};"/>
+                    </svg>
+                    <div class="ring-center">
+                        <span class="ring-total">{{add completedTasks plannedTasks}}</span>
+                        <span class="ring-label">tasks</span>
                     </div>
                 </div>
-                <div class="bar-legend">
-                    <span class="legend-item completed"><span class="dot"></span> Completed</span>
-                    <span class="legend-item planned"><span class="dot"></span> Planned</span>
+                <div class="progress-legend">
+                    <div class="legend-row"><span class="dot green"></span> Done: {{completedTasks}}</div>
+                    <div class="legend-row"><span class="dot purple"></span> Planned: {{plannedTasks}}</div>
                 </div>
             </div>
         </div>
         
+        {{!-- Active Blockers --}}
         {{#if (gt blockerCount 0)}}
-        <div class="summary-card blockers">
-            <div class="summary-header">⚠️ Active Blockers</div>
-            <div class="summary-content">
+        <div class="panel-card blockers">
+            <div class="card-title">⚠️ Active Blockers</div>
+            <div class="blocker-list">
                 {{#each blockerUsers}}
-                    <div class="blocker-row">
-                        <span class="blocker-user">{{this.userName}}</span>
-                        <span class="blocker-text">{{truncate this.blockers 50}}</span>
+                <div class="blocker-item">
+                    <span class="blocker-user-avatar">{{userInitial this.userName}}</span>
+                    <div class="blocker-detail">
+                        <span class="blocker-user-name">{{this.userName}}</span>
+                        <span class="blocker-desc">{{truncate this.blockers 60}}</span>
                     </div>
+                </div>
                 {{/each}}
             </div>
         </div>
@@ -186,3 +308,584 @@
     </div>
 </div>
 {{/if}}
+
+{{!-- User Week Modal --}}
+<div class="user-week-modal" id="userWeekModal">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-content">
+        <button class="modal-close" id="modalCloseBtn" type="button">×</button>
+        <div class="modal-header">
+            <div class="modal-user-avatar" id="modalUserAvatar">M</div>
+            <div class="modal-user-info">
+                <h2 id="modalUserName">User Name</h2>
+                <p>Weekly Task Flow</p>
+            </div>
+            <div class="modal-stats" id="modalStats">
+                <!-- Stats will be injected here -->
+            </div>
+        </div>
+        <div class="week-timeline" id="weekTimeline">
+            <!-- Week data will be injected here -->
+        </div>
+    </div>
+</div>
+
+{{!-- Store user data for JavaScript --}}
+<script id="usersData" type="application/json">
+{{{json users}}}
+</script>
+
+{{!-- Interactive Script --}}
+<script>
+// Parse user data
+const usersData = JSON.parse(document.getElementById('usersData').textContent || '[]');
+
+// Position nodes in a circle
+function positionNodesInCircle() {
+    const nodes = document.querySelectorAll('.orbital-user-node');
+    const total = nodes.length;
+    if (total === 0) return;
+    
+    const radius = Math.min(250, 180 + total * 15); // Dynamic radius based on count
+    
+    nodes.forEach((node, i) => {
+        // Calculate angle - start from top and go clockwise
+        const angle = (i / total) * 2 * Math.PI - Math.PI / 2;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        
+        node.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        node.style.opacity = '1';
+        node.style.animation = `nodeAppear 0.5s ease ${i * 0.1}s both`;
+    });
+}
+
+function toggleView(view) {
+    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[data-view="${view}"]`).classList.add('active');
+    
+    document.querySelectorAll('.workflow-view').forEach(v => v.classList.remove('active'));
+    document.getElementById(view + 'View').classList.add('active');
+    
+    if (view === 'graph') {
+        setTimeout(() => {
+            positionNodesInCircle();
+            drawConnections();
+        }, 100);
+    }
+}
+
+function drawConnections() {
+    const svg = document.getElementById('connectionsLayer');
+    const hub = document.getElementById('hubNode');
+    const users = document.querySelectorAll('.orbital-user-node');
+    const canvas = document.getElementById('graphCanvas');
+    
+    if (!svg || !hub || users.length === 0 || !canvas) return;
+    
+    // Temporarily reset zoom to get accurate positions
+    const savedZoom = currentZoom;
+    canvas.style.transform = 'scale(1)';
+    
+    // Wait a frame for the transform to apply
+    requestAnimationFrame(() => {
+        const canvasRect = canvas.getBoundingClientRect();
+        
+        // Clear SVG and set dimensions
+        svg.innerHTML = '';
+        svg.setAttribute('width', canvasRect.width);
+        svg.setAttribute('height', canvasRect.height);
+        svg.style.width = canvasRect.width + 'px';
+        svg.style.height = canvasRect.height + 'px';
+        
+        // Add gradient definition
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        defs.innerHTML = `
+            <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.6"/>
+                <stop offset="100%" style="stop-color:#10b981;stop-opacity:0.6"/>
+            </linearGradient>
+        `;
+        svg.appendChild(defs);
+        
+        // Get hub center position
+        const hubRect = hub.getBoundingClientRect();
+        const hubCenterX = hubRect.left - canvasRect.left + hubRect.width / 2;
+        const hubCenterY = hubRect.top - canvasRect.top + hubRect.height / 2;
+        
+        users.forEach((user, i) => {
+            const card = user.querySelector('.user-node-card');
+            if (!card) return;
+            
+            const cardRect = card.getBoundingClientRect();
+            const cardCenterX = cardRect.left - canvasRect.left + cardRect.width / 2;
+            const cardCenterY = cardRect.top - canvasRect.top + cardRect.height / 2;
+            
+            // Create curved path
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            
+            // Calculate control point for subtle curve
+            const dx = cardCenterX - hubCenterX;
+            const dy = cardCenterY - hubCenterY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            const curveAmount = Math.min(25, dist * 0.1);
+            const perpX = -dy / dist * curveAmount;
+            const perpY = dx / dist * curveAmount;
+            
+            const midX = (hubCenterX + cardCenterX) / 2 + perpX;
+            const midY = (hubCenterY + cardCenterY) / 2 + perpY;
+            
+            const d = `M ${hubCenterX} ${hubCenterY} Q ${midX} ${midY} ${cardCenterX} ${cardCenterY}`;
+            
+            path.setAttribute('d', d);
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', 'url(#connectionGradient)');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('stroke-dasharray', '6,4');
+            path.setAttribute('class', 'connection-line');
+            path.style.animationDelay = `${i * 0.1}s`;
+            
+            svg.appendChild(path);
+        });
+        
+        // Restore zoom
+        canvas.style.transform = `scale(${savedZoom})`;
+    });
+}
+
+function openUserWeekView(userId, userName, index) {
+    const user = usersData[index];
+    if (!user || !user.weekData) return;
+    
+    const modal = document.getElementById('userWeekModal');
+    const avatar = document.getElementById('modalUserAvatar');
+    const nameEl = document.getElementById('modalUserName');
+    const statsEl = document.getElementById('modalStats');
+    const timeline = document.getElementById('weekTimeline');
+    
+    // Set user info
+    avatar.textContent = userName.charAt(0).toUpperCase();
+    nameEl.textContent = userName;
+    
+    // Set stats
+    const stats = user.weeklyStats || { totalCompleted: 0, totalPlanned: 0, blockerDays: 0, submissionDays: 0 };
+    statsEl.innerHTML = `
+        <div class="modal-stat">
+            <span class="stat-num green">${stats.totalCompleted}</span>
+            <span class="stat-lbl">Completed</span>
+        </div>
+        <div class="modal-stat">
+            <span class="stat-num purple">${stats.totalPlanned}</span>
+            <span class="stat-lbl">Planned</span>
+        </div>
+        <div class="modal-stat">
+            <span class="stat-num blue">${stats.submissionDays}/7</span>
+            <span class="stat-lbl">Days Active</span>
+        </div>
+        ${stats.blockerDays > 0 ? `
+        <div class="modal-stat warning">
+            <span class="stat-num orange">${stats.blockerDays}</span>
+            <span class="stat-lbl">Blocker Days</span>
+        </div>
+        ` : ''}
+    `;
+    
+    // Build week timeline
+    let timelineHTML = '<div class="week-days">';
+    
+    user.weekData.forEach((day, dayIndex) => {
+        const isToday = day.date === '{{date}}';
+        const hasData = day.hasSubmission;
+        
+        timelineHTML += `
+            <div class="week-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : 'no-data'}" style="--day-index: ${dayIndex};">
+                <div class="day-header">
+                    <span class="day-name">${day.dayShort}</span>
+                    <span class="day-date">${day.date.split('-').slice(1).join('/')}</span>
+                    ${isToday ? '<span class="today-badge">Today</span>' : ''}
+                </div>
+                
+                ${hasData ? `
+                <div class="day-content">
+                    <div class="day-section completed">
+                        <div class="section-header">
+                            <span class="section-icon">✅</span>
+                            <span>Done (${day.completedTasks.length})</span>
+                        </div>
+                        <div class="task-list">
+                            ${day.completedTasks.length > 0 
+                                ? day.completedTasks.map(task => `<div class="task-item completed"><span class="task-bullet"></span>${escapeHtml(task)}</div>`).join('')
+                                : '<div class="no-tasks">No tasks</div>'
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="day-arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                    
+                    <div class="day-section planned">
+                        <div class="section-header">
+                            <span class="section-icon">🎯</span>
+                            <span>Planned (${day.plannedTasks.length})</span>
+                        </div>
+                        <div class="task-list">
+                            ${day.plannedTasks.length > 0 
+                                ? day.plannedTasks.map(task => `<div class="task-item planned"><span class="task-bullet"></span>${escapeHtml(task)}</div>`).join('')
+                                : '<div class="no-tasks">No tasks</div>'
+                            }
+                        </div>
+                    </div>
+                    
+                    ${day.hasBlocker ? `
+                    <div class="day-blocker">
+                        <span class="blocker-icon">🚧</span>
+                        <span class="blocker-text">${escapeHtml(day.blockers)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                ` : `
+                <div class="day-content empty">
+                    <div class="empty-day">
+                        <span class="empty-icon">📭</span>
+                        <span>No submission</span>
+                    </div>
+                </div>
+                `}
+                
+                ${dayIndex < 6 ? '<div class="day-connector"><div class="connector-line"></div></div>' : ''}
+            </div>
+        `;
+    });
+    
+    timelineHTML += '</div>';
+    timeline.innerHTML = timelineHTML;
+    
+    // Show modal
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeUserWeekView() {
+    const modal = document.getElementById('userWeekModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Zoom functionality
+let currentZoom = 1;
+const minZoom = 0.5;
+const maxZoom = 2;
+const zoomStep = 0.1;
+
+function zoomIn() {
+    if (currentZoom < maxZoom) {
+        currentZoom = Math.min(currentZoom + zoomStep, maxZoom);
+        applyZoom();
+    }
+}
+
+function zoomOut() {
+    if (currentZoom > minZoom) {
+        currentZoom = Math.max(currentZoom - zoomStep, minZoom);
+        applyZoom();
+    }
+}
+
+function resetZoom() {
+    currentZoom = 1;
+    panX = 0;
+    panY = 0;
+    applyTransform();
+}
+
+// Pan/drag state
+let panX = 0;
+let panY = 0;
+let isPanning = false;
+let startX = 0;
+let startY = 0;
+let hasMoved = false;
+let panStartX = 0;
+let panStartY = 0;
+
+function applyTransform() {
+    const canvas = document.getElementById('graphCanvas');
+    if (canvas) {
+        canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
+        canvas.style.transformOrigin = 'center center';
+    }
+    const zoomLevel = document.getElementById('zoomLevel');
+    if (zoomLevel) {
+        zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+    }
+}
+
+function applyZoom() {
+    applyTransform();
+}
+
+function startPan(e) {
+    // Only pan with left mouse button and not on interactive elements
+    if (e.button !== 0) return;
+    if (e.target.closest('.zoom-controls, button')) return;
+    
+    isPanning = true;
+    hasMoved = false;
+    startX = e.clientX - panX;
+    startY = e.clientY - panY;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    
+    const container = document.getElementById('graphContainer');
+    if (container) {
+        container.classList.add('panning');
+    }
+    
+    e.preventDefault();
+}
+
+function doPan(e) {
+    if (!isPanning) return;
+    
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+    
+    // Only consider it a move if we moved more than 5 pixels
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMoved = true;
+    }
+    
+    panX = e.clientX - startX;
+    panY = e.clientY - startY;
+    applyTransform();
+}
+
+function endPan() {
+    isPanning = false;
+    const container = document.getElementById('graphContainer');
+    if (container) {
+        container.classList.remove('panning');
+    }
+}
+
+function didPan() {
+    return hasMoved;
+}
+
+function fitToScreen() {
+    const container = document.getElementById('graphContainer');
+    const orbitalUsers = document.getElementById('orbitalUsers');
+    if (!container || !orbitalUsers) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const nodes = document.querySelectorAll('.orbital-user-node');
+    
+    if (nodes.length === 0) return;
+    
+    // Find the bounds of all nodes
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    
+    nodes.forEach(node => {
+        const rect = node.getBoundingClientRect();
+        const relX = rect.left - containerRect.left;
+        const relY = rect.top - containerRect.top;
+        minX = Math.min(minX, relX);
+        maxX = Math.max(maxX, relX + rect.width);
+        minY = Math.min(minY, relY);
+        maxY = Math.max(maxY, relY + rect.height);
+    });
+    
+    const contentWidth = (maxX - minX) / currentZoom;
+    const contentHeight = (maxY - minY) / currentZoom;
+    
+    // Calculate scale to fit with padding
+    const padding = 100;
+    const availableWidth = containerRect.width - padding;
+    const availableHeight = containerRect.height - padding;
+    
+    const scaleX = availableWidth / contentWidth;
+    const scaleY = availableHeight / contentHeight;
+    
+    currentZoom = Math.min(scaleX, scaleY, 1.5);
+    currentZoom = Math.max(currentZoom, minZoom);
+    applyZoom();
+}
+
+function toggleFullscreen() {
+    const graphView = document.getElementById('graphView');
+    if (!graphView) return;
+    
+    graphView.classList.toggle('fullscreen');
+    
+    if (graphView.classList.contains('fullscreen')) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+    
+    // Reposition nodes and redraw after fullscreen toggle
+    setTimeout(() => {
+        positionNodesInCircle();
+        drawConnections();
+    }, 300);
+}
+
+// Mouse wheel zoom
+function handleWheelZoom(e) {
+    // Always prevent default scroll behavior when over the graph
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Zoom based on scroll direction
+    if (e.deltaY < 0) {
+        zoomIn();
+    } else {
+        zoomOut();
+    }
+}
+
+// Close modal or exit fullscreen on escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('userWeekModal');
+        const graphView = document.getElementById('graphView');
+        
+        if (modal && modal.classList.contains('active')) {
+            closeUserWeekView();
+        } else if (graphView && graphView.classList.contains('fullscreen')) {
+            toggleFullscreen();
+        }
+    }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    // Position nodes first, then draw connections
+    positionNodesInCircle();
+    setTimeout(drawConnections, 300);
+    
+    window.addEventListener('resize', () => {
+        positionNodesInCircle();
+        drawConnections();
+    });
+    
+    // Add wheel zoom support and pan support
+    const graphContainer = document.getElementById('graphContainer');
+    if (graphContainer) {
+        graphContainer.addEventListener('wheel', handleWheelZoom, { passive: false });
+        
+        // Pan/drag support
+        graphContainer.style.cursor = 'grab';
+        graphContainer.addEventListener('mousedown', startPan);
+        graphContainer.addEventListener('mousemove', doPan);
+        graphContainer.addEventListener('mouseup', endPan);
+        graphContainer.addEventListener('mouseleave', endPan);
+        
+        // Touch support for mobile
+        graphContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                startPan({ clientX: touch.clientX, clientY: touch.clientY, button: 0, target: e.target, preventDefault: () => {} });
+            }
+        }, { passive: true });
+        
+        graphContainer.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && isPanning) {
+                const touch = e.touches[0];
+                doPan({ clientX: touch.clientX, clientY: touch.clientY });
+            }
+        }, { passive: true });
+        
+        graphContainer.addEventListener('touchend', endPan);
+    }
+    
+    // Add click handlers to user nodes
+    document.querySelectorAll('.orbital-user-node').forEach(node => {
+        node.addEventListener('click', function(e) {
+            // Don't open modal if we were panning
+            if (didPan()) {
+                hasMoved = false;
+                return;
+            }
+            
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            const index = parseInt(this.dataset.index, 10);
+            openUserWeekView(userId, userName, index);
+        });
+    });
+    
+    // Add click handlers for timeline user cards
+    document.querySelectorAll('.clickable-user').forEach(card => {
+        card.addEventListener('click', function(e) {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            const index = parseInt(this.dataset.index, 10);
+            openUserWeekView(userId, userName, index);
+        });
+    });
+    
+    // Modal close handlers
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeUserWeekView();
+        });
+    }
+    
+    if (modalBackdrop) {
+        modalBackdrop.addEventListener('click', function(e) {
+            closeUserWeekView();
+        });
+    }
+    
+    // Zoom control handlers
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const resetZoomBtn = document.getElementById('resetZoomBtn');
+    const fitScreenBtn = document.getElementById('fitScreenBtn');
+    
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            zoomIn();
+        });
+    }
+    
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            zoomOut();
+        });
+    }
+    
+    if (resetZoomBtn) {
+        resetZoomBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            resetZoom();
+        });
+    }
+    
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleFullscreen();
+        });
+    }
+});
+</script>

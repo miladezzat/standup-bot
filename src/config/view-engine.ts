@@ -45,11 +45,13 @@ export function configureViewEngine(app: Express): void {
       json: (context: any) => JSON.stringify(context),
       
       // Format date helper with date-fns
-      formatDate: (date: string | Date, formatStr: string) => {
+      formatDate: (date: string | Date, formatStr?: string) => {
         if (!date) return '';
         try {
           const d = typeof date === 'string' ? new Date(date) : date;
-          return format(d, formatStr);
+          // Default format if not provided
+          const fmt = formatStr && typeof formatStr === 'string' ? formatStr : 'MMM d, yyyy';
+          return format(d, fmt);
         } catch {
           return String(date);
         }
@@ -95,6 +97,12 @@ export function configureViewEngine(app: Express): void {
       
       // Math subtract helper
       subtract: (a: number, b: number) => (a || 0) - (b || 0),
+      
+      // Math multiply helper
+      multiply: (a: number, b: number) => (a || 0) * (b || 0),
+      
+      // Math divide helper
+      divide: (a: number, b: number) => b ? (a || 0) / b : 0,
       
       // Get user initial from name
       userInitial: (name: string) => {
