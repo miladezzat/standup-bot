@@ -1,15 +1,45 @@
 # Standup Bot
 
-Modern Slack standup workflow that stores submissions in MongoDB, powers AI summaries, and serves dashboards for managers.
+Modern Slack standup workflow that stores submissions in MongoDB, powers AI summaries, and serves beautiful dashboards for managers and teams.
 
-## Features
-- `/standup` slash command with reminders, OOO handling, break tracking, and AI-powered summaries/time estimates.
-- `/standup break <duration> [reason]` - Log break times (lunch, coffee, etc.)
-- Web dashboards for submissions, analytics, breaks, manager insights, exports, and historical thread views.
-- Scheduled jobs for reminders, reports, metric calculations, and alerting.
-- Optional integrations with OpenAI and Linear for richer insights.
+## ✨ Features
 
-## Slash Commands
+### Core Standup
+- 📝 `/standup` slash command with modal for structured submissions
+- 🏖️ Out-of-office (OOO) tracking with optional time ranges
+- ☕ Break tracking (lunch, coffee, appointments, etc.)
+- 🔔 Automated reminders for non-submitters
+- 💬 AI-powered standup summaries and time estimates
+
+### Web Dashboards
+- 📊 **Submissions** - View all standup submissions with Today/Yesterday/All filters
+- 📈 **Analytics** - Team performance charts and metrics visualization
+- 🔀 **Workflow** - Visual task flow showing completed → planned tasks per user
+- ☕ **Breaks** - Track team break patterns and daily totals
+- 👤 **User Reports** - Individual member detailed view with AI insights
+- 📅 **Daily Summary** - AI-generated team summary for the day
+- 🎯 **Manager Dashboard** - Alerts, achievements, and team health overview
+- 📜 **History** - Legacy thread-based standup view
+
+### AI-Powered Insights
+- 🤖 Natural language standup summaries
+- ⏱️ Automatic time estimation for tasks
+- 📊 Performance analysis and recommendations
+- 🚨 Smart alerting for blockers and patterns
+- 😊 Sentiment analysis and risk assessment
+
+### Data Export
+- Export standups, metrics, alerts, achievements to CSV
+- Per-user comprehensive report exports
+
+### Scheduled Jobs
+- Morning standup reminders
+- Hourly reminders for non-submitters
+- Weekly and monthly performance reports
+- Automatic metrics calculation
+- Alert engine checks
+
+## 🎮 Slash Commands
 
 | Command | Description | Example |
 | ------- | ----------- | ------- |
@@ -18,85 +48,240 @@ Modern Slack standup workflow that stores submissions in MongoDB, powers AI summ
 | `/standup break <duration> [for <reason>]` | Log a break | `/standup break 20mins for lunch` |
 
 ### Break Command Examples
-- `/standup break 20mins for lunch` - 20 minute lunch break
-- `/standup break 1hr doctor appointment` - 1 hour break
-- `/standup break 15m coffee` - 15 minute coffee break
-- `/standup break 30mins` - 30 minute break (no reason)
+```
+/standup break 20mins for lunch     # 20 minute lunch break
+/standup break 1hr doctor appointment   # 1 hour break
+/standup break 15m coffee           # 15 minute coffee break
+/standup break 30mins               # 30 minute break (no reason)
+```
 
-## Requirements
+## 🌐 Web Routes
+
+| Route | Description |
+| ----- | ----------- |
+| `/` | Submissions dashboard (default view: today) |
+| `/submissions` | Same as above |
+| `/submissions?range=today` | Today's submissions |
+| `/submissions?range=yesterday` | Yesterday's submissions |
+| `/submissions?range=all` | All submissions |
+| `/workflow` | Visual task flow visualization |
+| `/analytics` | Team analytics with charts |
+| `/breaks` | Breaks tracking dashboard |
+| `/manager` | Manager insights (alerts, achievements) |
+| `/daily-summary` | AI-powered daily summary view |
+| `/user/:userId` | Individual user report |
+| `/history` | Legacy thread-based view |
+
+### Export Routes
+| Route | Description |
+| ----- | ----------- |
+| `/export/standups` | Export standups to CSV |
+| `/export/metrics` | Export performance metrics to CSV |
+| `/export/alerts` | Export alerts to CSV |
+| `/export/achievements` | Export achievements to CSV |
+| `/export/user/:userId` | Export user report to CSV |
+
+## 📁 Project Structure
+
+```
+src/
+├── config.ts              # Environment configuration
+├── constants.ts           # App constants
+├── index.ts               # Main entry point
+├── helper.ts              # Utility helpers
+├── config/
+│   └── view-engine.ts     # Handlebars setup
+├── db/
+│   └── connection.ts      # MongoDB connection
+├── jobs/                  # Scheduled cron jobs
+│   ├── calculate-metrics.ts
+│   ├── daily-summary.ts
+│   ├── hourly-reminder-non-submitters.ts
+│   ├── monthly-report.ts
+│   ├── reminder-non-submitters.ts
+│   ├── run-alert-checks.ts
+│   ├── stand-up-huddle-follow-up.ts
+│   ├── stand-up-reminder.ts
+│   ├── start-week.ts
+│   ├── end-week.ts
+│   └── weekly-report.ts
+├── middleware/
+│   ├── clerk-auth.middleware.ts
+│   └── security.middleware.ts
+├── models/                # MongoDB schemas
+│   ├── achievements.ts
+│   ├── alerts.ts
+│   ├── break.ts
+│   ├── performanceMetrics.ts
+│   ├── standupEntry.ts
+│   ├── standupThread.ts
+│   └── teamGoals.ts
+├── service/               # Business logic
+│   ├── achievement.service.ts
+│   ├── ai-performance-analysis.service.ts
+│   ├── ai-recommendations.service.ts
+│   ├── ai-summary.service.ts
+│   ├── ai-time-estimation.service.ts
+│   ├── alert-engine.service.ts
+│   ├── app-mention.service.ts
+│   ├── break.service.ts
+│   ├── breaks-dashboard.service.ts
+│   ├── contribution-graph.service.ts
+│   ├── daily-summary-view.service.ts
+│   ├── export.service.ts
+│   ├── linear.service.ts
+│   ├── manager-dashboard.service.ts
+│   ├── monthly-report.service.ts
+│   ├── standup-history.service.ts
+│   ├── standup-submission.service.ts
+│   ├── submissions-dashboard.service.ts
+│   ├── team-analytics-dashboard.service.ts
+│   ├── team-members.service.ts
+│   ├── thanks-message.service.ts
+│   ├── user-report.service.ts
+│   ├── weekly-report.service.ts
+│   └── workflow.service.ts
+├── singleton/             # App singletons
+│   ├── express-app-singleton.ts
+│   ├── slack-app-singleton.ts
+│   └── slack-web-client-singleton.ts
+├── utils/
+│   └── logger.ts          # Winston logging
+└── views/                 # Handlebars templates
+    ├── layouts/
+    ├── partials/
+    ├── analytics.hbs
+    ├── breaks.hbs
+    ├── daily-summary.hbs
+    ├── manager.hbs
+    ├── submissions.hbs
+    ├── user-report.hbs
+    └── workflow.hbs
+```
+
+## 📊 Data Models
+
+| Model | Description |
+| ----- | ----------- |
+| `StandupEntry` | Individual standup submissions with AI estimates |
+| `Break` | Break time tracking (lunch, coffee, etc.) |
+| `PerformanceMetrics` | Aggregated weekly/monthly metrics |
+| `Achievement` | Badges earned (streak, velocity, helper, etc.) |
+| `Alert` | Smart alerts for managers (blocker, performance, etc.) |
+| `TeamGoals` | Team goals and commitments |
+| `StandupThread` | Legacy thread tracking |
+
+## 🔧 Requirements
 - Node.js 18+
 - npm 9+
 - MongoDB instance (Atlas or self-hosted)
-- A Slack app with Bot + App tokens (Socket Mode) and the appropriate scopes
+- Slack app with Bot + App tokens (Socket Mode)
 - Clerk account for authentication (recommended) or explicit opt-in to public dashboards
 
-## Environment Variables
-Copy `.env.example` to `.env` and fill the values.
+## ⚙️ Environment Variables
 
-Key variables:
+Copy `.env.example` to `.env` and configure:
 
-| Name | Required | Description |
-| ---- | -------- | ----------- |
-| `MONGODB_URI` | ✅ | MongoDB connection string |
-| `SLACK_BOT_TOKEN` | ✅ | Slack bot token (xoxb-) |
-| `SLACK_SIGNING_SECRET` | ✅ | Slack signing secret |
-| `SLACK_APP_TOKEN` | ✅ | Slack app token (xapp-) for Socket Mode |
-| `CHANNEL_ID` | ✅ | Default Slack channel where reminders are posted |
-| `SLACK_TEAM_ID` | ✅ | Workspace/team id used when calculating metrics |
-| `CLERK_PUBLISHABLE_KEY` | ✅ when auth enabled | Clerk publishable key |
-| `CLERK_SECRET_KEY` | ✅ when auth enabled | Clerk secret key |
-| `CLERK_SIGN_IN_URL` | optional | Override Clerk sign in URL |
-| `ALLOW_PUBLIC_DASHBOARD` | optional | Set to `true` only if you explicitly want unauthenticated dashboards |
-| `ENABLE_TEST_ROUTES` | optional | Set to `true` to expose `/trigger/*` endpoints in non-prod setups |
-| `APP_TIMEZONE` | optional | Time zone for cron jobs & UI (default `Africa/Cairo`) |
-| `OPENAI_API_KEY` | optional | Enables AI summaries, insights, and estimations |
-| `AI_MODEL` | optional | OpenAI model to use (default `gpt-3.5-turbo`) |
-| `AI_MAX_TOKENS` | optional | Max tokens for AI responses (default `150`) |
-| `LINEAR_API_KEY` | optional | Enables Linear issue lookups |
-| `API_RATE_LIMIT_MAX` | optional | Max API requests per window in production (default `100`) |
-| `MAX_BREAK_DURATION_MINUTES` | optional | Maximum break duration in minutes (default `480`) |
-| `BREAK_WARNING_THRESHOLD_MINUTES` | optional | Warn when daily breaks exceed this (default `120`) |
-| `DAILY_*_CRON` vars | optional | Override cron expressions, see `.env.example` |
+### Required
+| Name | Description |
+| ---- | ----------- |
+| `MONGODB_URI` | MongoDB connection string |
+| `SLACK_BOT_TOKEN` | Slack bot token (xoxb-) |
+| `SLACK_SIGNING_SECRET` | Slack signing secret |
+| `SLACK_APP_TOKEN` | Slack app token (xapp-) for Socket Mode |
+| `CHANNEL_ID` | Default Slack channel for reminders |
 
-See `AUTHENTICATION_SETUP.md` for Clerk and auth guidance.
+### Authentication (choose one)
+| Name | Description |
+| ---- | ----------- |
+| `CLERK_PUBLISHABLE_KEY` | Clerk publishable key (pk_...) |
+| `CLERK_SECRET_KEY` | Clerk secret key (sk_...) |
+| `ALLOW_PUBLIC_DASHBOARD` | Set to `true` for public access (no auth) |
 
-## Setup
-1. Install dependencies:
+### Optional Integrations
+| Name | Default | Description |
+| ---- | ------- | ----------- |
+| `OPENAI_API_KEY` | - | Enables AI summaries and insights |
+| `AI_MODEL` | `gpt-3.5-turbo` | OpenAI model |
+| `AI_MAX_TOKENS` | `150` | Max tokens for AI responses |
+| `LINEAR_API_KEY` | - | Enables Linear issue lookups |
+
+### Configuration
+| Name | Default | Description |
+| ---- | ------- | ----------- |
+| `APP_TIMEZONE` | `Africa/Cairo` | Timezone for cron jobs & UI |
+| `SLACK_TEAM_ID` | `default` | Workspace ID for metrics |
+| `API_RATE_LIMIT_MAX` | `100` | Max requests per 15min window |
+| `MAX_BREAK_DURATION_MINUTES` | `480` | Max break duration (8 hours) |
+| `BREAK_WARNING_THRESHOLD_MINUTES` | `120` | Warn when daily breaks exceed |
+| `ENABLE_TEST_ROUTES` | `false` | Expose `/trigger/*` test endpoints |
+
+## 🚀 Setup
+
+1. **Install dependencies:**
    ```bash
    npm install
    ```
-2. Create a Slack app, enable Socket Mode, add the slash command `/standup`, and install it to your workspace.
-3. Configure Clerk (recommended) and update the `.env` file with the issued keys. If you intentionally want public dashboards, set `ALLOW_PUBLIC_DASHBOARD=true`.
-4. Provide MongoDB and other integration credentials in `.env`.
-5. Build the TypeScript sources:
+
+2. **Create Slack app:**
+   - Enable Socket Mode
+   - Add `/standup` slash command
+   - Add bot scopes: `chat:write`, `commands`, `users:read`, `app_mentions:read`
+   - Install to workspace
+
+3. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your credentials
+   ```
+
+4. **Build and start:**
    ```bash
    npm run build
-   ```
-6. Start the bot:
-   ```bash
    npm start
    ```
 
-During development you can run:
+### Development
 ```bash
-npm run dev
+npm run dev    # Live reload with nodemon + ts-node
 ```
-which uses `nodemon` + `ts-node`.
 
-## Scripts
-- `npm run dev` – start the bot with live reload (development only)
-- `npm run build` – compile TypeScript to `dist/`
-- `npm run start` – run the compiled server from `dist/`
-- `npm run lint` – type-check the project (`tsc --noEmit`)
-- `npm test` – currently proxies to `npm run lint`
+## 📜 Scripts
 
-## Security Notes
-- Dashboards are protected by Clerk unless you explicitly set `ALLOW_PUBLIC_DASHBOARD=true`.
-- Test trigger routes are disabled by default; set `ENABLE_TEST_ROUTES=true` only in isolated environments.
-- Sensitive files such as `.env`, `logs`, `dist`, and `node_modules` are already excluded via `.gitignore`.
+| Script | Description |
+| ------ | ----------- |
+| `npm run dev` | Development with live reload |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm start` | Run production server |
+| `npm run lint` | Type-check with `tsc --noEmit` |
+| `npm test` | Run lint (alias) |
 
-## Additional docs
-- [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) – Clerk configuration & fallback options
-- [COMMANDS_REFERENCE.md](COMMANDS_REFERENCE.md) – Complete guide to all commands, routes, and actions
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) – One-page cheat sheet for quick lookup
-- [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) – New AI-powered profile and analytics features
+## 🔒 Security
+
+- **Authentication:** Dashboards protected by Clerk unless `ALLOW_PUBLIC_DASHBOARD=true`
+- **Rate Limiting:** API endpoints rate-limited (default 100 req/15min)
+- **Security Headers:** Helmet.js for secure HTTP headers
+- **Test Routes:** Disabled by default (`ENABLE_TEST_ROUTES=false`)
+
+## 📚 Additional Documentation
+
+- [AUTHENTICATION_SETUP.md](AUTHENTICATION_SETUP.md) – Clerk configuration
+- [COMMANDS_REFERENCE.md](COMMANDS_REFERENCE.md) – Complete command guide
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) – Quick lookup cheat sheet
+- [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md) – AI features documentation
+
+## 🛠️ Tech Stack
+
+- **Runtime:** Node.js + TypeScript
+- **Slack:** @slack/bolt (Socket Mode)
+- **Database:** MongoDB + Mongoose
+- **Web Server:** Express.js
+- **Templates:** Handlebars (express-handlebars)
+- **Auth:** Clerk (optional)
+- **AI:** OpenAI API
+- **Scheduling:** node-cron
+- **Logging:** Winston
+
+## 📄 License
+
+ISC
