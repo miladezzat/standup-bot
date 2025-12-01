@@ -1,0 +1,65 @@
+<div class="page-header animate-fade-in-up">
+    <h1>☕ Breaks Dashboard</h1>
+    <p>Track team break times and patterns</p>
+</div>
+
+<div class="date-picker card animate-fade-in-up">
+    <form action="/breaks" method="get" class="date-form">
+        <label for="date">Select Date:</label>
+        <input type="date" id="date" name="date" value="{{viewDate}}">
+        <button type="submit" class="btn btn-primary">View</button>
+    </form>
+</div>
+
+{{> stats-grid stats=stats}}
+
+<div class="content-grid">
+    <div class="card animate-fade-in-up">
+        <div class="card-header">
+            <h2 class="card-title">📋 Today's Breaks</h2>
+        </div>
+        <div class="breaks-list">
+            {{#if breaks.length}}
+                {{#each breaks}}
+                <div class="break-card">
+                    <div class="break-header">
+                        <span class="break-user">☕ {{this.slackUserName}}</span>
+                        <span class="break-time">{{this.startTime}} - {{this.endTime}}</span>
+                    </div>
+                    <div class="break-details">
+                        <span class="break-duration">{{this.durationMinutes}} mins</span>
+                        {{#if this.reason}}
+                        <span class="break-reason">{{this.reason}}</span>
+                        {{/if}}
+                    </div>
+                </div>
+                {{/each}}
+            {{else}}
+                <div class="empty-state">
+                    <span class="empty-icon">☕</span>
+                    <p>No breaks logged for this day</p>
+                </div>
+            {{/if}}
+        </div>
+    </div>
+    
+    <div class="card animate-fade-in-up">
+        <div class="card-header">
+            <h2 class="card-title">👥 By Team Member</h2>
+        </div>
+        <div class="user-summaries">
+            {{#if userBreaks.length}}
+                {{#each userBreaks}}
+                <div class="user-summary">
+                    <span class="user-name">{{this.userName}}</span>
+                    <span class="user-stats">{{this.breakCount}} break{{#if (gt this.breakCount 1)}}s{{/if}} • {{this.totalMinutes}} mins</span>
+                </div>
+                {{/each}}
+            {{else}}
+                <div class="empty-state">
+                    <p>No data</p>
+                </div>
+            {{/if}}
+        </div>
+    </div>
+</div>

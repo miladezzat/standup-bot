@@ -3,6 +3,7 @@ import { format, parseISO, isValid, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { estimateStandupTime } from './ai-time-estimation.service';
 import { generateStandupSummary } from './ai-summary.service';
+import { handleBreakCommand } from './break.service';
 import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { slackWebClient } from '../singleton';
 
@@ -22,6 +23,14 @@ export const handleStandupSlashCommand = async ({ ack, body, client, respond }: 
   await ack();
 
   const text = (body.text || '').trim();
+  
+  // Handle break command: /standup break 20mins for lunch
+  if (text.toLowerCase().startsWith('break')) {
+    await handleBreakCommand({ body, client, respond, text });
+    return;
+  }
+  
+  // Handle OOO command: /standup ooo
   if (text.toLowerCase().startsWith('ooo')) {
     await handleQuickDayOffCommand({ body, client, respond, text });
     return;

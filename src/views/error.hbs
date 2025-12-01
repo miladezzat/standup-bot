@@ -1,0 +1,122 @@
+{{!-- Error Page Template --}}
+
+<div class="error-container">
+    <div class="error-icon">⚠️</div>
+    <h1>{{title}}</h1>
+    <p class="error-message">{{message}}</p>
+    
+    {{#if error}}
+        <div class="error-details">
+            <pre>{{error}}</pre>
+        </div>
+    {{/if}}
+    
+    <div class="error-actions">
+        <a href="/" class="btn-primary">🏠 Go Home</a>
+        <button onclick="window.history.back()" class="btn-secondary">← Go Back</button>
+    </div>
+</div>
+
+<style>
+.error-container {
+    max-width: 600px;
+    margin: 80px auto;
+    text-align: center;
+    background: white;
+    border-radius: 20px;
+    padding: 60px 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+}
+
+.error-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px) rotate(-5deg); }
+    40% { transform: translateX(10px) rotate(5deg); }
+    60% { transform: translateX(-10px) rotate(-5deg); }
+    80% { transform: translateX(10px) rotate(5deg); }
+}
+
+.error-container h1 {
+    font-size: 28px;
+    color: #1e293b;
+    margin-bottom: 15px;
+}
+
+.error-message {
+    font-size: 18px;
+    color: #64748b;
+    margin-bottom: 30px;
+}
+
+.error-details {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 30px;
+    text-align: left;
+    overflow-x: auto;
+}
+
+.error-details pre {
+    font-family: 'Menlo', 'Monaco', monospace;
+    font-size: 12px;
+    color: #dc2626;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.error-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 30px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    color: #475569;
+    padding: 12px 30px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+}
+</style>

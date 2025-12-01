@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { clerkMiddleware } from '@clerk/express';
 import { connectToDatabase } from './db/connection';
 import { expressApp, slackApp } from './singleton';
+import { configureViewEngine } from './config/view-engine';
 import { runJobs } from './jobs';
 import { getStandupHistory } from './service/standup-history.service';
 import { mentionApp } from './service/app-mention.service';
@@ -15,6 +16,8 @@ import { getUserReport } from './service/user-report.service';
 import { getDailySummaryView } from './service/daily-summary-view.service';
 import { getManagerDashboard } from './service/manager-dashboard.service';
 import { getTeamAnalyticsDashboard } from './service/team-analytics-dashboard.service';
+import { getBreaksDashboard } from './service/breaks-dashboard.service';
+import { serveWorkflowDashboard } from './service/workflow.service';
 import { exportStandupsCSV, exportPerformanceMetricsCSV, exportAlertsCSV, exportAchievementsCSV, exportUserReportCSV } from './service/export.service';
 import { apiLimiter } from './middleware/security.middleware';
 import { checkAuth } from './middleware/clerk-auth.middleware';
@@ -51,6 +54,13 @@ expressApp.use(clerkMiddleware());
 
 // Rate limiting on dashboard routes
 expressApp.use(apiLimiter);
+
+// ============================================
+// 🎨 VIEW ENGINE CONFIGURATION
+// ============================================
+
+// Configure Handlebars as the view engine
+configureViewEngine(expressApp);
 
 // ============================================
 // 🔐 ENVIRONMENT VALIDATION
@@ -353,6 +363,8 @@ expressApp.get('/daily-summary', authMiddleware, getDailySummaryView); // AI-pow
 expressApp.get('/history', authMiddleware, getStandupHistory); // Legacy thread-based view
 expressApp.get('/manager', authMiddleware, getManagerDashboard); // Manager insights dashboard
 expressApp.get('/analytics', authMiddleware, getTeamAnalyticsDashboard); // Team analytics with charts
+expressApp.get('/breaks', authMiddleware, getBreaksDashboard); // Breaks tracking dashboard
+expressApp.get('/workflow', authMiddleware, serveWorkflowDashboard); // Task workflow visualization
 
 // Export routes
 expressApp.get('/export/standups', authMiddleware, exportStandupsCSV); // Export standups to CSV

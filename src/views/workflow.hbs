@@ -1,0 +1,188 @@
+{{!-- Task Workflow Visualization Dashboard --}}
+
+{{!-- Include workflow-specific styles --}}
+{{> workflow-styles}}
+
+{{!-- Back Link --}}
+<a href="/submissions" class="back-link">← Back to Dashboard</a>
+
+{{!-- Page Header --}}
+<div class="page-header">
+    <h1>🔄 Task Workflow</h1>
+    <p>Visualize your team's task flow and connections</p>
+</div>
+
+{{!-- Date Filter --}}
+<div class="date-filter">
+    <strong>📅 View date:</strong>
+    <input type="date" id="datePicker" value="{{date}}">
+    <button onclick="window.location.href='/workflow?date=' + document.getElementById('datePicker').value" class="filter-btn">Go</button>
+    <button onclick="window.location.href='/workflow?date=today'" class="filter-btn secondary">Today</button>
+</div>
+
+{{!-- Stats Overview --}}
+<div class="workflow-stats">
+    <div class="stat-pill">
+        <span class="stat-icon">👥</span>
+        <span class="stat-value">{{teamMembers}}</span>
+        <span class="stat-label">Contributors</span>
+    </div>
+    <div class="stat-pill">
+        <span class="stat-icon">✅</span>
+        <span class="stat-value">{{completedTasks}}</span>
+        <span class="stat-label">Completed</span>
+    </div>
+    <div class="stat-pill">
+        <span class="stat-icon">🎯</span>
+        <span class="stat-value">{{plannedTasks}}</span>
+        <span class="stat-label">Planned</span>
+    </div>
+    <div class="stat-pill warning">
+        <span class="stat-icon">🚧</span>
+        <span class="stat-value">{{blockerCount}}</span>
+        <span class="stat-label">Blockers</span>
+    </div>
+</div>
+
+{{!-- Workflow Canvas --}}
+<div class="workflow-container">
+    <div class="workflow-canvas" id="workflowCanvas">
+        {{!-- User Workflow Nodes --}}
+        {{#each users}}
+            <div class="workflow-user-group" data-user-id="{{this.userId}}" style="--user-index: {{@index}};">
+                <div class="user-node">
+                    <div class="user-avatar">{{userInitial this.userName}}</div>
+                    <div class="user-name">{{this.userName}}</div>
+                    {{#if this.hasBlocker}}
+                        <span class="node-badge blocker">⚠️</span>
+                    {{/if}}
+                </div>
+                
+                <div class="task-flow">
+                    {{!-- Yesterday Tasks (Completed) --}}
+                    <div class="task-column completed">
+                        <div class="column-header">
+                            <span class="column-icon">✅</span>
+                            <span>Completed</span>
+                        </div>
+                        <div class="task-nodes">
+                            {{#each this.yesterdayTasks}}
+                                <div class="task-node completed" data-task="{{this}}">
+                                    <div class="task-content">{{this}}</div>
+                                    <div class="task-connector"></div>
+                                </div>
+                            {{/each}}
+                            {{#unless this.yesterdayTasks.length}}
+                                <div class="task-node empty">No tasks reported</div>
+                            {{/unless}}
+                        </div>
+                    </div>
+                    
+                    {{!-- Flow Arrow --}}
+                    <div class="flow-arrow">
+                        <svg viewBox="0 0 50 20" class="arrow-svg">
+                            <defs>
+                                <linearGradient id="arrowGradient{{@index}}" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#667eea;stop-opacity:1" />
+                                </linearGradient>
+                            </defs>
+                            <line x1="0" y1="10" x2="40" y2="10" stroke="url(#arrowGradient{{@index}})" stroke-width="3" stroke-linecap="round"/>
+                            <polygon points="40,5 50,10 40,15" fill="#667eea"/>
+                        </svg>
+                    </div>
+                    
+                    {{!-- Today Tasks (Planned) --}}
+                    <div class="task-column planned">
+                        <div class="column-header">
+                            <span class="column-icon">🎯</span>
+                            <span>Planned</span>
+                        </div>
+                        <div class="task-nodes">
+                            {{#each this.todayTasks}}
+                                <div class="task-node planned" data-task="{{this}}">
+                                    <div class="task-content">{{this}}</div>
+                                </div>
+                            {{/each}}
+                            {{#unless this.todayTasks.length}}
+                                <div class="task-node empty">No tasks planned</div>
+                            {{/unless}}
+                        </div>
+                    </div>
+                    
+                    {{!-- Blocker Node --}}
+                    {{#if this.hasBlocker}}
+                        <div class="blocker-node">
+                            <div class="blocker-header">
+                                <span>🚧</span>
+                                <span>Blocker</span>
+                            </div>
+                            <div class="blocker-content">{{this.blockers}}</div>
+                        </div>
+                    {{/if}}
+                </div>
+            </div>
+        {{/each}}
+        
+        {{#unless users.length}}
+            <div class="empty-workflow">
+                <div class="empty-icon">📋</div>
+                <h3>No Workflow Data</h3>
+                <p>No standup submissions found for this date.</p>
+            </div>
+        {{/unless}}
+    </div>
+</div>
+
+{{!-- Team Task Flow Summary --}}
+{{#if (gt users.length 0)}}
+<div class="flow-summary">
+    <h3>📊 Task Flow Summary</h3>
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-header">Most Active</div>
+            <div class="summary-content">
+                {{#each topContributors}}
+                    <div class="contributor-row">
+                        <span class="contributor-avatar">{{userInitial this.userName}}</span>
+                        <span class="contributor-name">{{this.userName}}</span>
+                        <span class="contributor-tasks">{{this.taskCount}} tasks</span>
+                    </div>
+                {{/each}}
+            </div>
+        </div>
+        
+        <div class="summary-card">
+            <div class="summary-header">Task Distribution</div>
+            <div class="summary-content">
+                <div class="task-bar">
+                    <div class="bar-segment completed" style="width: {{completedPercent}}%">
+                        <span>{{completedTasks}} Done</span>
+                    </div>
+                    <div class="bar-segment planned" style="width: {{plannedPercent}}%">
+                        <span>{{plannedTasks}} Planned</span>
+                    </div>
+                </div>
+                <div class="bar-legend">
+                    <span class="legend-item completed"><span class="dot"></span> Completed</span>
+                    <span class="legend-item planned"><span class="dot"></span> Planned</span>
+                </div>
+            </div>
+        </div>
+        
+        {{#if (gt blockerCount 0)}}
+        <div class="summary-card blockers">
+            <div class="summary-header">⚠️ Active Blockers</div>
+            <div class="summary-content">
+                {{#each blockerUsers}}
+                    <div class="blocker-row">
+                        <span class="blocker-user">{{this.userName}}</span>
+                        <span class="blocker-text">{{truncate this.blockers 50}}</span>
+                    </div>
+                {{/each}}
+            </div>
+        </div>
+        {{/if}}
+    </div>
+</div>
+{{/if}}

@@ -1,6 +1,11 @@
 import rateLimit from 'express-rate-limit';
 import { logger } from '../utils/logger';
 
+// Rate limit configuration (can be overridden via environment variables)
+const API_RATE_LIMIT_WINDOW_MS = parseInt(process.env.API_RATE_LIMIT_WINDOW_MS || '900000', 10); // 15 minutes default
+const API_RATE_LIMIT_MAX_PROD = parseInt(process.env.API_RATE_LIMIT_MAX || '100', 10); // 100 requests per window in prod
+const API_RATE_LIMIT_MAX_DEV = 10000; // Very high for development
+
 /**
  * Sanitize HTML input to prevent XSS attacks
  * Simple but effective approach without external dependencies
@@ -34,19 +39,20 @@ export function escapeHtml(text: string): string {
 
 /**
  * Rate limiter for general API endpoints
- * DEVELOPMENT: Very permissive limits for development
+ * Production-ready with configurable limits
  */
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10000, // Very high limit for development (10,000 requests per 15 min)
+  windowMs: API_RATE_LIMIT_WINDOW_MS,
+  max: isDevelopment ? API_RATE_LIMIT_MAX_DEV : API_RATE_LIMIT_MAX_PROD,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for auth routes and in development
-    const isDevelopment = process.env.NODE_ENV !== 'production';
+    // Skip rate limiting for auth routes in development only
     const isAuthRoute = req.path.startsWith('/auth/');
-    return isDevelopment || isAuthRoute;
+    return isDevelopment && isAuthRoute;
   },
   handler: (req, res) => {
     logger.warn('Rate limit exceeded', {

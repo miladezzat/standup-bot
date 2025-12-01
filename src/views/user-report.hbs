@@ -1,0 +1,177 @@
+{{!-- User Report Dashboard Template --}}
+
+{{!-- Back Link --}}
+<a href="/submissions" class="back-link">← Back to All Submissions</a>
+
+{{!-- User Header --}}
+<div class="user-header-card">
+    <div class="user-profile">
+        {{#if avatarUrl}}
+            <img src="{{avatarUrl}}" alt="{{userName}}" class="user-avatar-large" />
+        {{else}}
+            <div class="user-avatar-large">{{userInitial userName}}</div>
+        {{/if}}
+        <div class="user-info-main">
+            <h1>{{userName}}</h1>
+            <p class="user-period">{{periodLabel}}</p>
+        </div>
+    </div>
+    
+    {{!-- Performance Badge --}}
+    <div class="performance-badge {{riskLevel}}">
+        <div class="score">{{performanceScore}}</div>
+        <div class="label">Performance Score</div>
+        <div class="trend {{velocityTrend}}">
+            {{#if (eq velocityTrend 'up')}}📈{{else if (eq velocityTrend 'down')}}📉{{else}}➡️{{/if}}
+            {{velocityTrend}}
+        </div>
+    </div>
+</div>
+
+{{!-- Stats Grid --}}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value">{{totalSubmissions}}</div>
+        <div class="stat-label">Total Submissions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📋</div>
+        <div class="stat-value">{{totalTasks}}</div>
+        <div class="stat-label">Tasks Tracked</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-value">{{avgTasksPerDay}}</div>
+        <div class="stat-label">Avg Tasks/Day</div>
+    </div>
+    <div class="stat-card {{#if (gt blockerCount 0)}}warning{{/if}}">
+        <div class="stat-icon">🚧</div>
+        <div class="stat-value">{{blockerCount}}</div>
+        <div class="stat-label">Days with Blockers</div>
+    </div>
+</div>
+
+{{!-- Contribution Graph --}}
+<div class="contribution-section">
+    <h3>📅 Activity Overview</h3>
+    {{{contributionGraphHTML}}}
+</div>
+
+{{!-- Day Off History --}}
+{{#if (gt dayOffEntries.length 0)}}
+<div class="ooo-section">
+    <div class="ooo-header">
+        <h3>🛫 Day Off History</h3>
+        <div class="ooo-filters">
+            {{#each oooFilters}}
+                <a href="{{this.url}}" class="ooo-filter-btn {{#if this.active}}active{{/if}}">{{this.label}}</a>
+            {{/each}}
+        </div>
+    </div>
+    <div class="ooo-list">
+        {{#each dayOffEntries}}
+            <div class="ooo-item">
+                <span class="ooo-date">{{formatDate this.date 'MMM d, yyyy'}}</span>
+                <span class="ooo-reason">{{or this.dayOffReason 'Day Off'}}</span>
+            </div>
+        {{/each}}
+    </div>
+</div>
+{{/if}}
+
+{{!-- AI Insights --}}
+{{#if hasAiInsights}}
+<div class="insights-section">
+    <h3>🤖 AI Performance Insights</h3>
+    <div class="insights-grid">
+        {{#if (gt aiInsights.strengths.length 0)}}
+        <div class="insight-card strengths">
+            <h4>💪 Strengths</h4>
+            <ul>
+                {{#each aiInsights.strengths}}
+                    <li>{{this}}</li>
+                {{/each}}
+            </ul>
+        </div>
+        {{/if}}
+        
+        {{#if (gt aiInsights.improvements.length 0)}}
+        <div class="insight-card improvements">
+            <h4>🎯 Areas for Improvement</h4>
+            <ul>
+                {{#each aiInsights.improvements}}
+                    <li>{{this}}</li>
+                {{/each}}
+            </ul>
+        </div>
+        {{/if}}
+        
+        {{#if (gt aiInsights.recommendations.length 0)}}
+        <div class="insight-card recommendations">
+            <h4>💡 Recommendations</h4>
+            <ul>
+                {{#each aiInsights.recommendations}}
+                    <li>{{this}}</li>
+                {{/each}}
+            </ul>
+        </div>
+        {{/if}}
+    </div>
+</div>
+{{/if}}
+
+{{!-- Time Period Filter --}}
+<div class="filters">
+    <span class="filter-label">📅 Time Period:</span>
+    <a href="/user/{{userId}}?period=week" class="filter-btn {{#if (eq period 'week')}}active{{/if}}">Last 7 Days</a>
+    <a href="/user/{{userId}}?period=month" class="filter-btn {{#if (eq period 'month')}}active{{/if}}">This Month</a>
+    <a href="/user/{{userId}}?period=all" class="filter-btn {{#if (eq period 'all')}}active{{/if}}">All Time</a>
+</div>
+
+{{!-- Standup History --}}
+<div class="content">
+    {{#each standups}}
+        <div class="standup-card {{#if this.hasBlocker}}has-blocker{{/if}} {{#if this.isDayOff}}day-off-card{{/if}}">
+            <div class="date-header">
+                <div class="date-title">
+                    {{formatDate this.date 'EEEE, MMMM d, yyyy'}}
+                    {{#if this.hasBlocker}}<span class="blocker-badge">HAS BLOCKERS</span>{{/if}}
+                    {{#if this.isDayOff}}<span class="dayoff-badge">DAY OFF</span>{{/if}}
+                </div>
+                <div class="timestamp">Submitted at {{formatDate this.createdAt 'h:mm a'}}</div>
+            </div>
+            
+            <div class="section">
+                <div class="section-label">🕒 What I Did Yesterday</div>
+                <div class="section-content">{{this.yesterday}}</div>
+            </div>
+            
+            <div class="section">
+                <div class="section-label">🗓️ What I'll Do Today</div>
+                <div class="section-content">{{this.today}}</div>
+            </div>
+            
+            {{#if this.hasBlocker}}
+            <div class="section">
+                <div class="section-label">🚧 Blockers</div>
+                <div class="section-content blocker-content">{{this.blockers}}</div>
+            </div>
+            {{/if}}
+            
+            {{#if this.notes}}
+            <div class="section">
+                <div class="section-label">📝 Notes</div>
+                <div class="section-content notes-content">{{this.notes}}</div>
+            </div>
+            {{/if}}
+            
+            {{#if this.isDayOff}}
+            <div class="section">
+                <div class="section-label">🛫 Day Off</div>
+                <div class="section-content dayoff-content">{{or this.dayOffReason 'Marked as out of office'}}</div>
+            </div>
+            {{/if}}
+        </div>
+    {{/each}}
+</div>

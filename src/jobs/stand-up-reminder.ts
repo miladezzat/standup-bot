@@ -1,8 +1,9 @@
 import { CronJob } from "cron";
-import { slackApp } from '../singleton'
+import { slackApp } from '../singleton';
 import { CHANNEL_ID, APP_TIMEZONE } from "../config";
 import StandupThread from '../models/standupThread';
 import { format } from "date-fns";
+import { logInfo, logError } from '../utils/logger';
 
 let currentStandupThreadTs: string | null = null;
 const TIMEZONE = APP_TIMEZONE;
@@ -64,9 +65,9 @@ export const standupReminder = new CronJob(
                 );
             }
 
-            console.log('✅ Sent standup reminder');
+            logInfo('✅ Sent standup reminder');
         } catch (err) {
-            console.error('❌ Error sending standup reminder:', err);
+            logError('❌ Error sending standup reminder:', err);
         }
     },
     null,

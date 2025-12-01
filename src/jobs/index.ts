@@ -9,44 +9,45 @@ import { hourlyReminderNonSubmitters } from "./hourly-reminder-non-submitters";
 import { dailySummary } from "./daily-summary";
 import { calculateMetricsJob } from "./calculate-metrics";
 import { runAlertChecksJob } from "./run-alert-checks";
+import { logInfo } from "../utils/logger";
 
 export const runJobs = () => {
-    console.log('✅ Starting scheduled jobs...');
+    logInfo('✅ Starting scheduled jobs...');
     
-    console.log('🕘 Starting standupReminder...');
+    logInfo('🕘 Starting standupReminder...');
     standupReminder.start();
     
-    console.log('🕘 Starting reminderNonSubmitters...');
+    logInfo('🕘 Starting reminderNonSubmitters...');
     reminderNonSubmitters.start();
     
-    console.log('🕘 Starting hourlyReminderNonSubmitters...');
+    logInfo('🕘 Starting hourlyReminderNonSubmitters...');
     hourlyReminderNonSubmitters.start();
   
-    console.log('🕘 Starting standupHuddleFollowUp...');
+    logInfo('🕘 Starting standupHuddleFollowUp...');
     standupHuddleFollowUp.start();
     
     // Daily summary disabled - view on dashboard instead
-    // console.log('🕘 Starting dailySummary...');
+    // logInfo('🕘 Starting dailySummary...');
     // dailySummary.start();
   
-    console.log('🕘 Starting startWeek...');
+    logInfo('🕘 Starting startWeek...');
     startWeek.start();
   
-    console.log('🕘 Starting endWeek...');
+    logInfo('🕘 Starting endWeek...');
     endWeek.start();
   
-    console.log('🕘 Starting weeklyReport...');
+    logInfo('🕘 Starting weeklyReport...');
     weeklyReport.start();
   
-    console.log('🕘 Starting monthlyReport...');
+    logInfo('🕘 Starting monthlyReport...');
     monthlyReport.start();
   
-    console.log('🕘 Starting calculateMetricsJob...');
+    logInfo('🕘 Starting calculateMetricsJob...');
     calculateMetricsJob.start();
   
-    console.log('🕘 Starting runAlertChecksJob...');
+    logInfo('🕘 Starting runAlertChecksJob...');
     runAlertChecksJob.start();
   
-    console.log('🚀 All jobs scheduled successfully!');
+    logInfo('🚀 All jobs scheduled successfully!');
   };
   

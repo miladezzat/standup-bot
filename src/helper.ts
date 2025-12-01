@@ -550,3 +550,80 @@ export async function generateDateAnalytics(thread: any) {
         return '';
     }
 }
+
+// ============================================
+// 🔧 SHARED UTILITY FUNCTIONS
+// ============================================
+
+/**
+ * Parse duration string to minutes
+ * Examples: "20mins", "1hr", "30m", "2hours"
+ */
+export function parseDurationToMinutes(durationStr: string): number | null {
+  const match = durationStr.trim().match(/^(\d+)\s*(mins?|minutes?|m|hrs?|hours?|h)$/i);
+  if (!match) return null;
+  
+  const value = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  
+  if (unit.startsWith('h')) {
+    return value * 60;
+  }
+  return value;
+}
+
+/**
+ * Format minutes to human-readable duration
+ */
+export function formatMinutesToDuration(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} min${minutes !== 1 ? 's' : ''}`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  if (remainingMins === 0) {
+    return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  }
+  return `${hours}h ${remainingMins}m`;
+}
+
+/**
+ * Parse time string (HH:mm) to { hours, minutes }
+ */
+export function parseTimeString(timeStr: string): { hours: number; minutes: number } | null {
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+  
+  return { hours, minutes };
+}
+
+/**
+ * Escape HTML characters to prevent XSS
+ */
+export function escapeHtmlChars(text: string): string {
+  return text.replace(/[&<>"']/g, (ch) => {
+    switch (ch) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return ch;
+    }
+  });
+}
+
+/**
+ * Sanitize user input for display
+ */
+export function sanitizeInput(input: string): string {
+  return escapeHtmlChars(input.trim());
+}
+

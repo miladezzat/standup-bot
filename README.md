@@ -3,10 +3,25 @@
 Modern Slack standup workflow that stores submissions in MongoDB, powers AI summaries, and serves dashboards for managers.
 
 ## Features
-- `/standup` slash command with reminders, OOO handling, and AI-powered summaries/time estimates.
-- Web dashboards for submissions, analytics, manager insights, exports, and historical thread views.
+- `/standup` slash command with reminders, OOO handling, break tracking, and AI-powered summaries/time estimates.
+- `/standup break <duration> [reason]` - Log break times (lunch, coffee, etc.)
+- Web dashboards for submissions, analytics, breaks, manager insights, exports, and historical thread views.
 - Scheduled jobs for reminders, reports, metric calculations, and alerting.
 - Optional integrations with OpenAI and Linear for richer insights.
+
+## Slash Commands
+
+| Command | Description | Example |
+| ------- | ----------- | ------- |
+| `/standup` | Open standup submission modal | `/standup` |
+| `/standup ooo [reason]` | Mark yourself as out of office | `/standup ooo doctor appointment` |
+| `/standup break <duration> [for <reason>]` | Log a break | `/standup break 20mins for lunch` |
+
+### Break Command Examples
+- `/standup break 20mins for lunch` - 20 minute lunch break
+- `/standup break 1hr doctor appointment` - 1 hour break
+- `/standup break 15m coffee` - 15 minute coffee break
+- `/standup break 30mins` - 30 minute break (no reason)
 
 ## Requirements
 - Node.js 18+
@@ -35,7 +50,12 @@ Key variables:
 | `ENABLE_TEST_ROUTES` | optional | Set to `true` to expose `/trigger/*` endpoints in non-prod setups |
 | `APP_TIMEZONE` | optional | Time zone for cron jobs & UI (default `Africa/Cairo`) |
 | `OPENAI_API_KEY` | optional | Enables AI summaries, insights, and estimations |
+| `AI_MODEL` | optional | OpenAI model to use (default `gpt-3.5-turbo`) |
+| `AI_MAX_TOKENS` | optional | Max tokens for AI responses (default `150`) |
 | `LINEAR_API_KEY` | optional | Enables Linear issue lookups |
+| `API_RATE_LIMIT_MAX` | optional | Max API requests per window in production (default `100`) |
+| `MAX_BREAK_DURATION_MINUTES` | optional | Maximum break duration in minutes (default `480`) |
+| `BREAK_WARNING_THRESHOLD_MINUTES` | optional | Warn when daily breaks exceed this (default `120`) |
 | `DAILY_*_CRON` vars | optional | Override cron expressions, see `.env.example` |
 
 See `AUTHENTICATION_SETUP.md` for Clerk and auth guidance.

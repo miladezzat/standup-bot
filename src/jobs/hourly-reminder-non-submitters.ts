@@ -2,22 +2,23 @@ import { CronJob } from 'cron';
 import { slackApp } from '../singleton';
 import { getTeamMembersWhoHaventSubmitted } from '../service/team-members.service';
 import { APP_TIMEZONE } from '../config';
+import { logInfo, logError } from '../utils/logger';
 
 // Hourly reminder for non-submitters - runs every hour from 11 AM to 5 PM
 export const hourlyReminderNonSubmitters = new CronJob(
   process.env.HOURLY_REMINDER_CRON || '0 11-17 * * 0-4', // Default: Every hour from 11 AM to 5 PM Sun-Thu
   async () => {
     try {
-      console.log('🔔 Hourly check for team members who haven\'t submitted...');
+      logInfo('🔔 Hourly check for team members who haven\'t submitted...');
       
       const notSubmitted = await getTeamMembersWhoHaventSubmitted();
       
       if (notSubmitted.length === 0) {
-        console.log('✅ All team members have submitted their standups!');
+        logInfo('✅ All team members have submitted their standups!');
         return;
       }
 
-      console.log(`📤 Sending hourly reminders to ${notSubmitted.length} team member(s)...`);
+      logInfo(`📤 Sending hourly reminders to ${notSubmitted.length} team member(s)...`);
 
       // Send DM to each user who hasn't submitted
       for (const member of notSubmitted) {
@@ -66,15 +67,15 @@ export const hourlyReminderNonSubmitters = new CronJob(
             ]
           });
           
-          console.log(`✅ Sent hourly reminder to ${member.realName} (${member.id})`);
+          logInfo(`✅ Sent hourly reminder to ${member.realName} (${member.id})`);
         } catch (error) {
-          console.error(`❌ Error sending hourly reminder to ${member.id}:`, error);
+          logError(`❌ Error sending hourly reminder to ${member.id}:`, error);
         }
       }
 
-      console.log('✅ Finished sending hourly reminders');
+      logInfo('✅ Finished sending hourly reminders');
     } catch (err) {
-      console.error('❌ Error in hourlyReminderNonSubmitters job:', err);
+      logError('❌ Error in hourlyReminderNonSubmitters job:', err);
     }
   },
   null,

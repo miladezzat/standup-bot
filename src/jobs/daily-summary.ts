@@ -3,6 +3,7 @@ import { postDailySummaryToSlack } from '../service/ai-summary.service';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { APP_TIMEZONE } from '../config';
+import { logInfo, logError } from '../utils/logger';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -14,10 +15,10 @@ export const dailySummary = new CronJob(
       const now = toZonedTime(new Date(), TIMEZONE);
       const today = format(now, 'yyyy-MM-dd');
       
-      console.log('📋 Running daily summary generation...');
+      logInfo('📋 Running daily summary generation...');
       await postDailySummaryToSlack(today);
     } catch (err) {
-      console.error('❌ Error in daily summary job:', err);
+      logError('❌ Error in daily summary job:', err);
     }
   },
   null,

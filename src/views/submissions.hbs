@@ -1,0 +1,164 @@
+{{!-- Submissions Dashboard - Modern Clean Design --}}
+
+{{!-- Minimal Stats Bar --}}
+<div class="stats-bar">
+    <div class="stat-item">
+        <span class="stat-number">{{totalSubmissions}}</span>
+        <span class="stat-label">Submissions</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-number">{{uniqueContributors}}</span>
+        <span class="stat-label">Team Members</span>
+    </div>
+    {{#if (gt blockerCount 0)}}
+    <div class="stat-item blocker">
+        <span class="stat-number">{{blockerCount}}</span>
+        <span class="stat-label">Blockers</span>
+    </div>
+    {{/if}}
+</div>
+
+{{!-- Date Navigation --}}
+<div class="date-nav">
+    <div class="date-tabs">
+        <a href="/submissions?date=today" class="tab {{#if isToday}}active{{/if}}">Today</a>
+        <a href="/submissions?date={{yesterdayDate}}" class="tab {{#if isYesterday}}active{{/if}}">Yesterday</a>
+        <a href="/submissions" class="tab {{#if isAllTime}}active{{/if}}">All</a>
+    </div>
+    <div class="date-picker-group">
+        <input type="date" id="datePicker" value="{{queryDate}}" />
+        <button onclick="goToDate()" class="btn-go">Go</button>
+    </div>
+</div>
+
+{{!-- Main Content --}}
+{{#if (eq entriesByDate.length 0)}}
+    <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>No standups yet</h3>
+        <p>{{#if isToday}}Waiting for team submissions...{{else}}No standups on this date{{/if}}</p>
+        {{#if isToday}}
+        <button onclick="location.reload()" class="btn-refresh">🔄 Refresh</button>
+        {{/if}}
+    </div>
+{{else}}
+    {{#each entriesByDate}}
+        {{#if (gt ../entriesByDate.length 1)}}
+        <div class="date-header">
+            <span>{{formatDate this.date 'EEEE, MMM d'}}</span>
+            <span class="count">{{this.entries.length}}</span>
+        </div>
+        {{/if}}
+        
+        <div class="cards-grid">
+            {{#each this.entries}}
+            <div class="card {{#if this.hasBlocker}}has-blocker{{/if}}">
+                {{!-- User Header --}}
+                <div class="card-top">
+                    <div class="user">
+                        <div class="avatar" style="background: {{#if this.hasBlocker}}#ef4444{{else}}linear-gradient(135deg, #667eea, #764ba2){{/if}}">
+                            {{userInitial this.slackUserName}}
+                        </div>
+                        <div class="user-info">
+                            <a href="/user/{{this.slackUserId}}" class="name">{{this.slackUserName}}</a>
+                            <span class="time">{{formatDate this.createdAt 'h:mm a'}}</span>
+                        </div>
+                    </div>
+                    <div class="badges">
+                        {{#if this.hasBlocker}}
+                        <span class="badge danger">⚠ Blocked</span>
+                        {{/if}}
+                        {{#if this.hasTimeEstimates}}
+                        <span class="badge time">⏱ {{add (or this.yesterdayHoursEstimate 0) (or this.todayHoursEstimate 0)}}h</span>
+                        {{/if}}
+                    </div>
+                </div>
+
+                {{!-- AI Summary --}}
+                {{#if this.aiSummary}}
+                <div class="ai-box">
+                    <span class="ai-icon">✨</span>
+                    <p>{{this.aiSummary}}</p>
+                </div>
+                {{/if}}
+
+                {{!-- Day Off --}}
+                {{#if this.isDayOff}}
+                <div class="dayoff-box">
+                    <span>🏖️</span>
+                    <div>
+                        <strong>Out of Office</strong>
+                        <p>{{or this.dayOffReason 'Day off'}}</p>
+                    </div>
+                </div>
+                {{else}}
+                {{!-- Work Sections --}}
+                <div class="section completed">
+                    <div class="section-head">
+                        <span class="icon">✓</span>
+                        <span class="title">COMPLETED</span>
+                        {{#if this.yesterdayHoursEstimate}}
+                        <span class="hours">~{{this.yesterdayHoursEstimate}}h</span>
+                        {{/if}}
+                    </div>
+                    <div class="section-body">{{this.yesterday}}</div>
+                </div>
+
+                <div class="section planned">
+                    <div class="section-head">
+                        <span class="icon">→</span>
+                        <span class="title">TODAY'S PLAN</span>
+                        {{#if this.todayHoursEstimate}}
+                        <span class="hours">~{{this.todayHoursEstimate}}h</span>
+                        {{/if}}
+                    </div>
+                    <div class="section-body">{{this.today}}</div>
+                </div>
+
+                {{#if this.hasBlocker}}
+                <div class="section blocker">
+                    <div class="section-head">
+                        <span class="icon">!</span>
+                        <span class="title">BLOCKER</span>
+                    </div>
+                    <div class="section-body">{{this.blockers}}</div>
+                </div>
+                {{/if}}
+
+                {{#if this.notes}}
+                <div class="section notes">
+                    <div class="section-head">
+                        <span class="icon">📝</span>
+                        <span class="title">NOTES</span>
+                    </div>
+                    <div class="section-body">{{this.notes}}</div>
+                </div>
+                {{/if}}
+                {{/if}}
+            </div>
+            {{/each}}
+        </div>
+    {{/each}}
+{{/if}}
+
+{{!-- Quick Links Footer --}}
+<div class="quick-links">
+    <a href="/workflow">🔄 Workflow</a>
+    <a href="/daily-summary">✨ AI Summary</a>
+    <a href="/analytics">📊 Analytics</a>
+    <a href="/manager">👔 Manager</a>
+    <a href="/breaks">☕ Breaks</a>
+</div>
+
+<script>
+function goToDate() {
+    const d = document.getElementById('datePicker').value;
+    if (d) window.location.href = '/submissions?date=' + d;
+}
+document.getElementById('datePicker')?.addEventListener('keypress', e => {
+    if (e.key === 'Enter') goToDate();
+});
+{{#if isToday}}
+setTimeout(() => location.reload(), 120000);
+{{/if}}
+</script>

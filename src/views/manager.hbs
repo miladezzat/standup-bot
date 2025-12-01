@@ -1,0 +1,133 @@
+{{!-- Manager Dashboard Template --}}
+
+{{!-- Back Link --}}
+<a href="/" class="back-link">← Back to Dashboard</a>
+
+{{!-- Page Header --}}
+<div class="page-header">
+    <h1>👔 Manager Dashboard</h1>
+    <p>Team health overview and insights</p>
+</div>
+
+{{!-- Health Score Card --}}
+<div class="health-score-card">
+    <div class="health-score {{healthScoreClass teamHealthScore}}">{{teamHealthScore}}</div>
+    <div class="health-label">Team Health Score</div>
+    <div class="health-description">Based on consistency, velocity, and engagement metrics</div>
+</div>
+
+{{!-- Key Metrics --}}
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-icon">👥</div>
+        <div class="metric-value">{{teamSize}}</div>
+        <div class="metric-label">Team Members</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon">📊</div>
+        <div class="metric-value">{{submissionRate}}%</div>
+        <div class="metric-label">Today's Submission Rate</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon">⚠️</div>
+        <div class="metric-value">{{atRiskCount}}</div>
+        <div class="metric-label">At Risk Members</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon">🚨</div>
+        <div class="metric-value">{{alertCount}}</div>
+        <div class="metric-label">Active Alerts</div>
+    </div>
+</div>
+
+{{!-- At Risk Members Section --}}
+{{#if (gt atRiskMembers.length 0)}}
+<div class="section">
+    <div class="section-header">
+        <div class="section-title">⚠️ At-Risk Team Members</div>
+    </div>
+    <div class="risk-grid">
+        {{#each atRiskMembers}}
+            <div class="risk-card {{this.riskLevel}}">
+                <div class="risk-header">
+                    <span class="user-initial">{{userInitial this.slackUserName}}</span>
+                    <div class="risk-info">
+                        <a href="/user/{{this.slackUserId}}" class="risk-name">{{this.slackUserName}}</a>
+                        <span class="risk-badge {{this.riskLevel}}">{{this.riskLevel}} risk</span>
+                    </div>
+                </div>
+                <div class="risk-metrics">
+                    <div class="risk-metric">
+                        <span class="metric-name">Consistency</span>
+                        <span class="metric-value">{{this.consistencyScore}}%</span>
+                    </div>
+                    <div class="risk-metric">
+                        <span class="metric-name">Engagement</span>
+                        <span class="metric-value">{{this.engagementScore}}%</span>
+                    </div>
+                    <div class="risk-metric">
+                        <span class="metric-name">Overall</span>
+                        <span class="metric-value">{{this.overallScore}}%</span>
+                    </div>
+                </div>
+            </div>
+        {{/each}}
+    </div>
+</div>
+{{/if}}
+
+{{!-- Active Alerts Section --}}
+{{#if (gt activeAlerts.length 0)}}
+<div class="section">
+    <div class="section-header">
+        <div class="section-title">🚨 Active Alerts</div>
+    </div>
+    {{#each activeAlerts}}
+        <div class="alert-card {{this.severity}}">
+            <div class="alert-title">{{this.title}}</div>
+            <div class="alert-description">{{this.description}}</div>
+            <div class="alert-meta">
+                <span>📌 {{this.type}}</span>
+                <span>👤 {{this.affectedUserName}}</span>
+                <span>📅 {{formatDate this.createdAt 'MMM d, yyyy'}}</span>
+            </div>
+        </div>
+    {{/each}}
+</div>
+{{/if}}
+
+{{!-- Recent Blockers Section --}}
+{{#if (gt recentBlockers.length 0)}}
+<div class="section">
+    <div class="section-header">
+        <div class="section-title">🚧 Recent Blockers (Last 7 Days)</div>
+    </div>
+    {{#each recentBlockers}}
+        <div class="blocker-item">
+            <div class="blocker-header">
+                <span class="blocker-user">{{this.slackUserName}}</span>
+                <span class="blocker-date">{{this.date}}</span>
+            </div>
+            <div class="blocker-text">{{this.blockers}}</div>
+        </div>
+    {{/each}}
+</div>
+{{/if}}
+
+{{!-- Top Performers Section --}}
+{{#if (gt topPerformers.length 0)}}
+<div class="section">
+    <div class="section-header">
+        <div class="section-title">🏆 Top Performers This Week</div>
+    </div>
+    {{#each topPerformers}}
+        <div class="performer-card">
+            <span class="performer-rank">{{add @index 1}}</span>
+            <div class="performer-info">
+                <a href="/user/{{this.slackUserId}}" class="performer-name">{{this.slackUserName}}</a>
+                <div class="performer-score">Performance Score: {{this.overallScore}}/100</div>
+            </div>
+        </div>
+    {{/each}}
+</div>
+{{/if}}

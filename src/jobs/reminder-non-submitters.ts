@@ -2,22 +2,23 @@ import { CronJob } from 'cron';
 import { slackApp } from '../singleton';
 import { getTeamMembersWhoHaventSubmitted } from '../service/team-members.service';
 import { APP_TIMEZONE } from '../config';
+import { logInfo, logError } from '../utils/logger';
 
 // Reminder for non-submitters - runs at 10:05 AM Cairo time Sun-Thu (10 mins before standup)
 export const reminderNonSubmitters = new CronJob(
   process.env.NON_SUBMITTER_REMINDER_CRON || '5 10 * * 0-4', // Default: 10:05 AM Sun-Thu
   async () => {
     try {
-      console.log('🔔 Checking for team members who haven\'t submitted...');
+      logInfo('🔔 Checking for team members who haven\'t submitted...');
       
       const notSubmitted = await getTeamMembersWhoHaventSubmitted();
       
       if (notSubmitted.length === 0) {
-        console.log('✅ All team members have submitted their standups!');
+        logInfo('✅ All team members have submitted their standups!');
         return;
       }
 
-      console.log(`📤 Sending reminders to ${notSubmitted.length} team member(s)...`);
+      logInfo(`📤 Sending reminders to ${notSubmitted.length} team member(s)...`);
 
       // Send DM to each user who hasn't submitted
       for (const member of notSubmitted) {
@@ -57,15 +58,15 @@ export const reminderNonSubmitters = new CronJob(
             ]
           });
           
-          console.log(`✅ Sent reminder to ${member.realName} (${member.id})`);
+          logInfo(`✅ Sent reminder to ${member.realName} (${member.id})`);
         } catch (error) {
-          console.error(`❌ Error sending reminder to ${member.id}:`, error);
+          logError(`❌ Error sending reminder to ${member.id}:`, error);
         }
       }
 
-      console.log('✅ Finished sending reminders');
+      logInfo('✅ Finished sending reminders');
     } catch (err) {
-      console.error('❌ Error in reminderNonSubmitters job:', err);
+      logError('❌ Error in reminderNonSubmitters job:', err);
     }
   },
   null,

@@ -1,0 +1,130 @@
+{{!-- Team Analytics Dashboard Template --}}
+
+{{!-- Back Link --}}
+<a href="/" class="back-link">← Back to Dashboard</a>
+
+{{!-- Page Header --}}
+<div class="page-header">
+    <h1>📈 Team Analytics</h1>
+    <p>Performance trends, velocity, and team insights</p>
+</div>
+
+{{!-- Summary Stats --}}
+<div class="summary-stats">
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value">{{totalSubmissions}}</div>
+        <div class="stat-label">Submissions (30d)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-value">{{totalUsers}}</div>
+        <div class="stat-label">Active Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">⏱</div>
+        <div class="stat-value">{{totalHours}}</div>
+        <div class="stat-label">Total Hours</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div class="stat-value">{{avgEngagement}}%</div>
+        <div class="stat-label">Avg Engagement</div>
+    </div>
+</div>
+
+{{!-- Charts Grid --}}
+<div class="charts-grid">
+    {{!-- Velocity Chart --}}
+    <div class="chart-card full-width">
+        <div class="chart-header">
+            <h3>📈 Velocity Trend</h3>
+            <p>Submissions and tasks completed over time</p>
+        </div>
+        <div class="chart-container">
+            <canvas id="velocityChart"></canvas>
+        </div>
+    </div>
+    
+    {{!-- Engagement Chart --}}
+    <div class="chart-card">
+        <div class="chart-header">
+            <h3>🎯 Engagement Scores</h3>
+            <p>Team member engagement levels</p>
+        </div>
+        <div class="chart-container">
+            <canvas id="engagementChart"></canvas>
+        </div>
+    </div>
+    
+    {{!-- Workload Chart --}}
+    <div class="chart-card">
+        <div class="chart-header">
+            <h3>⏰ Workload Distribution</h3>
+            <p>Hours worked by team member</p>
+        </div>
+        <div class="chart-container">
+            <canvas id="workloadChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{{!-- Blocker Heatmap --}}
+<div class="heatmap-section">
+    <div class="section-header">
+        <h3>🚧 Blocker Analysis</h3>
+        <p>Team members with blockers in the last 30 days</p>
+    </div>
+    <div class="heatmap-grid">
+        {{#each blockerHeatmap}}
+            <div class="heatmap-item {{heatmapClass this.blockerRate}}">
+                <div class="heatmap-user">
+                    <span class="user-initial">{{userInitial this.userName}}</span>
+                    <div class="user-info">
+                        <a href="/user/{{this.userId}}">{{this.userName}}</a>
+                        <span class="days-info">{{this.blockerDays}}/{{this.totalDays}} days</span>
+                    </div>
+                </div>
+                <div class="heatmap-rate">{{this.blockerRate}}%</div>
+            </div>
+        {{/each}}
+    </div>
+</div>
+
+{{!-- Engagement Table --}}
+<div class="table-section">
+    <div class="section-header">
+        <h3>🏆 Team Performance</h3>
+        <p>Detailed performance metrics by team member</p>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Team Member</th>
+                    <th>Engagement</th>
+                    <th>Consistency</th>
+                    <th>Tasks</th>
+                    <th>Hours</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each engagementData}}
+                    <tr>
+                        <td>
+                            <a href="/user/{{this.userId}}">{{this.userName}}</a>
+                        </td>
+                        <td>
+                            <span class="score-badge {{scoreClass this.score}}">{{this.score}}%</span>
+                        </td>
+                        <td>
+                            <span class="score-badge {{scoreClass this.consistency}}">{{this.consistency}}%</span>
+                        </td>
+                        <td>{{this.velocity}}</td>
+                        <td>{{lookupHours ../workloadData this.userName}}</td>
+                    </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+</div>

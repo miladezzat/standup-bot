@@ -1,0 +1,66 @@
+{{!-- Daily Summary View Template --}}
+
+{{!-- Back Link --}}
+<a href="/submissions" class="back-link">← Back to All Submissions</a>
+
+{{!-- Page Header --}}
+<div class="page-header">
+    <h1>📋 Daily Team Summary</h1>
+    <p>{{formatDate date 'EEEE, MMMM d, yyyy'}}</p>
+</div>
+
+{{!-- Date Picker --}}
+<div class="date-picker">
+    <strong>View date:</strong>
+    <input type="date" id="datePicker" value="{{date}}">
+    <button onclick="window.location.href='/daily-summary?date=' + document.getElementById('datePicker').value">Go</button>
+    <button onclick="window.location.href='/daily-summary?date=today'">Today</button>
+</div>
+
+{{!-- Stats --}}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{submissions}}</div>
+        <div class="stat-label">Submissions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{teamMembers}}</div>
+        <div class="stat-label">Team Members</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{blockerCount}}</div>
+        <div class="stat-label">Blockers</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{totalHours}}h</div>
+        <div class="stat-label">Total Hours</div>
+    </div>
+</div>
+
+{{!-- AI Summary --}}
+{{#if aiSummary}}
+<div class="ai-summary-card">
+    <div class="ai-summary-header">🤖 AI-Generated Team Summary</div>
+    <div class="ai-summary-content">{{aiSummary}}</div>
+</div>
+{{/if}}
+
+{{!-- Individual Summaries --}}
+<div class="individual-summaries">
+    <div class="section-title">👥 Individual Summaries</div>
+    {{#each standups}}
+        <div class="person-card">
+            <div class="person-name">
+                {{this.slackUserName}}
+                {{#if (gt this.totalHours 0)}}
+                    <span class="person-hours">⏱️ {{this.totalHours}}h</span>
+                {{/if}}
+            </div>
+            {{#if this.aiSummary}}
+                <div class="person-summary">"{{this.aiSummary}}"</div>
+            {{else}}
+                <div class="person-summary no-summary">No AI summary available</div>
+            {{/if}}
+        </div>
+    {{/each}}
+</div>
