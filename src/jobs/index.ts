@@ -9,6 +9,7 @@ import { hourlyReminderNonSubmitters } from "./hourly-reminder-non-submitters";
 import { dailySummary } from "./daily-summary";
 import { calculateMetricsJob } from "./calculate-metrics";
 import { runAlertChecksJob } from "./run-alert-checks";
+import { pushCodeReminderFirst, pushCodeReminderSecond } from "./push-code-reminder";
 import { logInfo } from "../utils/logger";
 
 export const runJobs = () => {
@@ -47,6 +48,12 @@ export const runJobs = () => {
   
     logInfo('🕘 Starting runAlertChecksJob...');
     runAlertChecksJob.start();
+  
+    logInfo('🕘 Starting pushCodeReminderFirst...');
+    pushCodeReminderFirst.start();
+  
+    logInfo('🕘 Starting pushCodeReminderSecond...');
+    pushCodeReminderSecond.start();
   
     logInfo('🚀 All jobs scheduled successfully!');
   };
