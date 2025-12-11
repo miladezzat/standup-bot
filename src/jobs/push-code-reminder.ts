@@ -2,12 +2,20 @@ import { CronJob } from 'cron';
 import { slackApp } from '../singleton';
 import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { logInfo, logError } from '../utils/logger';
+import { isWorkingDay } from '../utils/egyptian-holidays';
 
 // Reminder to push code before end of day - runs at 5:00 PM Cairo time Sun-Thu
 export const pushCodeReminder = new CronJob(
   process.env.PUSH_CODE_REMINDER_CRON || '0 17 * * 0-4', // Default: 5:00 PM Sun-Thu
   async () => {
     try {
+      // Check if today is a working day (skip weekends and Egyptian holidays)
+      const isWorking = await isWorkingDay();
+      if (!isWorking) {
+        logInfo('⏭️  Skipping push code reminder - today is a weekend or holiday');
+        return;
+      }
+      
       logInfo('📤 Sending push code reminder to the team...');
       
       await slackApp.client.chat.postMessage({
