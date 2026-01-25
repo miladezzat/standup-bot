@@ -1,5 +1,5 @@
 import { CronJob } from 'cron';
-import { calculateTeamMetrics } from '../service/ai-performance-analysis.service';
+import { calculateTeamMetrics } from '../service/performance-analysis.service';
 import { logger } from '../utils/logger';
 import { APP_TIMEZONE } from '../config';
 

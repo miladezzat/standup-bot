@@ -37,7 +37,7 @@ export interface IPerformanceMetrics extends Document {
   averageSubmissionTime: string; // e.g., "09:30"
   lateSubmissions: number; // After 12pm
   
-  // AI-Generated Insights
+  // Sentiment-driven insights
   sentimentScore: number; // -1 to 1: negative to positive
   sentimentTrend: 'improving' | 'stable' | 'declining';
   riskLevel: 'low' | 'medium' | 'high';
@@ -148,7 +148,7 @@ const PerformanceMetricsSchema: Schema = new Schema(
       type: Number,
       default: 0
     },
-    // AI Insights
+    // Sentiment insights
     sentimentScore: {
       type: Number,
       default: 0,
@@ -199,4 +199,3 @@ PerformanceMetricsSchema.index({ riskLevel: 1, startDate: -1 });
 PerformanceMetricsSchema.index({ overallScore: -1 });
 
 export default mongoose.model<IPerformanceMetrics>('PerformanceMetrics', PerformanceMetricsSchema);
-

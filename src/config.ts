@@ -19,12 +19,6 @@ export const IS_PRODUCTION = NODE_ENV === 'production';
 // Clerk configuration
 export const CLERK_SIGN_IN_URL = process.env.CLERK_SIGN_IN_URL || 'https://adapted-buffalo-53.accounts.dev/sign-in';
 
-// AI configuration
-export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
-export const AI_MODEL = process.env.AI_MODEL || 'gpt-3.5-turbo';
-export const AI_MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '150', 10);
-export const AI_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7');
-
 // Rate limiting configuration
 export const API_RATE_LIMIT_WINDOW_MS = parseInt(process.env.API_RATE_LIMIT_WINDOW_MS || '900000', 10);
 export const API_RATE_LIMIT_MAX = parseInt(process.env.API_RATE_LIMIT_MAX || '100', 10);

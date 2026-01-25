@@ -15,12 +15,9 @@ export interface IStandupEntry extends Document {
   dayOffEndTime?: string;     // Optional end time (HH:mm) for day off
   source: 'slash_command' | 'modal' | 'dm'; // How it was submitted
   workspaceId: string;        // Slack workspace/team ID
-  // AI Time Estimates (optional)
+  // Time estimates (optional)
   yesterdayHoursEstimate?: number;  // Estimated hours for yesterday's work
   todayHoursEstimate?: number;      // Estimated hours for today's plan
-  timeEstimatesRaw?: any;           // Raw AI estimates data
-  // AI Summary (optional)
-  aiSummary?: string;               // Natural language summary of standup
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,7 +80,7 @@ const StandupEntrySchema: Schema = new Schema(
       type: String, 
       required: true 
     },
-    // AI Time Estimates
+    // Time Estimates
     yesterdayHoursEstimate: {
       type: Number,
       default: 0
@@ -92,15 +89,6 @@ const StandupEntrySchema: Schema = new Schema(
       type: Number,
       default: 0
     },
-    timeEstimatesRaw: {
-      type: Schema.Types.Mixed,
-      default: null
-    },
-    // AI Summary
-    aiSummary: {
-      type: String,
-      default: ''
-    }
   },
   { 
     timestamps: true 

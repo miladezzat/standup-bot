@@ -43,7 +43,6 @@ One-page overview of all commands and actions.
 |-----|------|
 | `/` or `/submissions` | Today's submissions |
 | `/user/:userId` | Individual user report |
-| `/daily-summary` | AI-powered daily summary |
 | `/manager` | Manager insights & alerts |
 | `/analytics` | Team analytics & charts |
 | `/history` | Historical thread view |
@@ -86,7 +85,7 @@ One-page overview of all commands and actions.
 ⚠️ Active alerts  
 📈 Velocity & consistency  
 🎯 Active Linear issues  
-💡 AI insights  
+💡 Submission insights  
 
 ---
 
@@ -96,7 +95,6 @@ One-page overview of all commands and actions.
 
 ```
 GET /trigger/standup-reminder
-GET /trigger/daily-summary?date=2025-11-15
 ```
 
 ---

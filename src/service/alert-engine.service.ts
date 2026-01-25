@@ -3,7 +3,7 @@ import PerformanceMetrics from '../models/performanceMetrics';
 import Alert from '../models/alerts';
 import { format, subDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { assessRiskLevel, analyzeSentiment } from './ai-performance-analysis.service';
+import { assessRiskLevel } from './performance-analysis.service';
 import { logger } from '../utils/logger';
 import { APP_TIMEZONE } from '../config';
 
@@ -238,69 +238,6 @@ async function checkRepeatedBlockers(workspaceId: string) {
 }
 
 /**
- * Check for sentiment red flags (burnout indicators)
- */
-async function checkSentimentFlags(workspaceId: string) {
-  if (!process.env.OPENAI_API_KEY) {
-    logger.warn('OpenAI not configured - skipping sentiment analysis');
-    return;
-  }
-
-  logger.info('Checking for sentiment red flags...');
-
-  const now = toZonedTime(new Date(), TIMEZONE);
-  const last7Days = format(subDays(now, 7), 'yyyy-MM-dd');
-
-  const users = await StandupEntry.distinct('slackUserId', {
-    workspaceId,
-    date: { $gte: last7Days }
-  });
-
-  for (const userId of users) {
-    const standups = await StandupEntry.find({
-      slackUserId: userId,
-      date: { $gte: last7Days }
-    }).sort({ date: -1 }).limit(5).lean();
-
-    if (standups.length < 3) continue;
-
-    // Analyze sentiment of recent standups
-    const sentiments = await Promise.all(
-      standups.map(s => analyzeSentiment(`${s.yesterday} ${s.today} ${s.blockers}`))
-    );
-
-    const avgSentiment = sentiments.reduce((sum, s) => sum + s, 0) / sentiments.length;
-    const negativeDays = sentiments.filter(s => s < -0.3).length;
-
-    // Alert if consistently negative sentiment
-    if (avgSentiment < -0.4 || negativeDays >= 3) {
-      const userName = standups[0].slackUserName;
-      const standupIds = standups.map(s => s._id.toString());
-
-      await createOrUpdateAlert(
-        workspaceId,
-        'sentiment',
-        'critical',
-        userId,
-        userName,
-        'Potential Burnout Detected',
-        `${userName}'s recent standups show negative sentiment patterns (score: ${(avgSentiment * 100).toFixed(0)}). ${negativeDays} out of ${standups.length} recent updates indicate stress or frustration.`,
-        [
-          'Schedule immediate 1-on-1 to discuss wellbeing',
-          'Review workload and consider redistributing tasks',
-          'Discuss work-life balance and time off options',
-          'Check for team conflicts or external stressors'
-        ],
-        standupIds,
-        'sentimentScore',
-        Math.round(avgSentiment * 100),
-        -30
-      );
-    }
-  }
-}
-
-/**
  * Check for overwork risk (too many hours)
  */
 async function checkOverworkRisk(workspaceId: string) {
@@ -417,7 +354,6 @@ export async function runAlertChecks(workspaceId: string) {
   try {
     await checkDecliningPerformance(workspaceId);
     await checkRepeatedBlockers(workspaceId);
-    await checkSentimentFlags(workspaceId);
     await checkOverworkRisk(workspaceId);
     await checkUnderutilization(workspaceId);
 

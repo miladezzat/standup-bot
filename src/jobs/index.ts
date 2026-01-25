@@ -6,7 +6,6 @@ import { weeklyReport } from "./weekly-report";
 import { monthlyReport } from "./monthly-report";
 import { reminderNonSubmitters } from "./reminder-non-submitters";
 import { hourlyReminderNonSubmitters } from "./hourly-reminder-non-submitters";
-import { dailySummary } from "./daily-summary";
 import { calculateMetricsJob } from "./calculate-metrics";
 import { runAlertChecksJob } from "./run-alert-checks";
 import { pushCodeReminder, finalPushCodeReminder } from "./push-code-reminder";
@@ -27,10 +26,6 @@ export const runJobs = () => {
     logInfo('🕘 Starting standupHuddleFollowUp...');
     standupHuddleFollowUp.start();
     
-    // Daily summary disabled - view on dashboard instead
-    // logInfo('🕘 Starting dailySummary...');
-    // dailySummary.start();
-  
     logInfo('🕘 Starting startWeek...');
     startWeek.start();
   

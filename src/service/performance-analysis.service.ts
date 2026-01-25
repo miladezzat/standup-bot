@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
@@ -7,44 +6,6 @@ import { logger } from '../utils/logger';
 import { APP_TIMEZONE } from '../config';
 
 const TIMEZONE = APP_TIMEZONE;
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
-
-/**
- * Analyze sentiment from standup text
- * Returns score from -1 (very negative) to 1 (very positive)
- */
-export async function analyzeSentiment(text: string): Promise<number> {
-  if (!process.env.OPENAI_API_KEY || !text) return 0;
-
-  try {
-    const prompt = `Analyze the sentiment and emotional state of this standup update. Consider:
-- Stress indicators (urgent, blocked, struggling, overwhelmed)
-- Positive indicators (completed, accomplished, productive, excited)
-- Burnout signals (tired, exhausted, too many tasks)
-- Engagement level (detailed updates vs minimal effort)
-
-Text: "${text}"
-
-Rate sentiment from -1 (very negative/burned out) to 1 (very positive/engaged).
-Respond with ONLY a number between -1 and 1.`;
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      max_tokens: 10,
-    });
-
-    const score = parseFloat(response.choices[0]?.message?.content?.trim() || '0');
-    return Math.max(-1, Math.min(1, score));
-  } catch (error) {
-    logger.error('Error analyzing sentiment:', error);
-    return 0;
-  }
-}
 
 /**
  * Detect recurring blocker patterns
@@ -131,23 +92,6 @@ export async function assessRiskLevel(
     if (recentRate < olderRate * 0.7) {
       factors.push('Declining submission frequency');
       riskScore += 20;
-    }
-  }
-
-  // Factor 4: Sentiment analysis (check last 5 standups)
-  const recentTexts = recentStandups.slice(0, 5);
-  if (recentTexts.length >= 3) {
-    const sentiments = await Promise.all(
-      recentTexts.map(s => analyzeSentiment(`${s.yesterday} ${s.today} ${s.blockers || ''} ${s.notes || ''}`))
-    );
-    const avgSentiment = sentiments.reduce((sum, s) => sum + s, 0) / sentiments.length;
-    
-    if (avgSentiment < -0.3) {
-      factors.push('Negative sentiment detected');
-      riskScore += 25;
-    } else if (avgSentiment < 0) {
-      factors.push('Low engagement signals');
-      riskScore += 10;
     }
   }
 
@@ -288,20 +232,13 @@ export async function calculatePerformanceMetrics(
   // Sentiment & Risk
   const riskAssessment = await assessRiskLevel(slackUserId, 30);
   
-  // Get sentiment trend
-  const recentSentiments = await Promise.all(
-    standups.slice(0, Math.min(10, standups.length))
-      .map(s => analyzeSentiment(`${s.yesterday} ${s.today} ${s.blockers || ''} ${s.notes || ''}`))
-  );
-  const avgSentiment = recentSentiments.reduce((sum, s) => sum + s, 0) / recentSentiments.length;
-
   // Velocity trend
   const velocityTrend = calculateVelocityTrend(standups);
 
   // Engagement score (0-100)
   let engagementScore = 0;
   engagementScore += Math.min(40, consistencyScore * 0.4); // 40 points for consistency
-  engagementScore += Math.min(30, (avgSentiment + 1) * 15); // 30 points for sentiment
+  engagementScore += Math.min(30, avgTasksPerDay * 5); // 30 points for task output
   engagementScore += blockerFrequency < 30 ? 20 : 10; // 20 points for low blockers
   engagementScore += lateSubmissions < totalSubmissions * 0.3 ? 10 : 5; // 10 points for timely submissions
 
@@ -333,8 +270,8 @@ export async function calculatePerformanceMetrics(
     engagementScore: Math.round(engagementScore),
     averageSubmissionTime,
     lateSubmissions,
-    sentimentScore: Math.round(avgSentiment * 100) / 100,
-    sentimentTrend: avgSentiment > 0.2 ? 'improving' : avgSentiment < -0.2 ? 'declining' : 'stable',
+    sentimentScore: 0,
+    sentimentTrend: 'stable',
     riskLevel: riskAssessment.level,
     riskFactors: riskAssessment.factors,
     overallScore: Math.round(overallScore),
@@ -393,78 +330,4 @@ export async function calculateTeamMetrics(
   }
 
   logger.info(`Team metrics calculated for ${allMetrics.length} users`);
-}
-
-/**
- * Generate AI insights for a user
- */
-export async function generatePerformanceInsights(
-  slackUserId: string,
-  days: number = 30
-): Promise<{ strengths: string[]; improvements: string[]; recommendations: string[] }> {
-  if (!process.env.OPENAI_API_KEY) {
-    return { strengths: [], improvements: [], recommendations: [] };
-  }
-
-  const now = toZonedTime(new Date(), TIMEZONE);
-  const startDate = format(subDays(now, days), 'yyyy-MM-dd');
-
-  const standups = await StandupEntry.find({
-    slackUserId,
-    date: { $gte: startDate }
-  }).sort({ date: -1 }).limit(15).lean();
-
-  if (standups.length < 3) {
-    return { strengths: [], improvements: [], recommendations: [] };
-  }
-
-  const userName = standups[0].slackUserName;
-  const standupSummary = standups.slice(0, 10).map(s => ({
-    date: s.date,
-    yesterday: s.yesterday.substring(0, 200),
-    today: s.today.substring(0, 200),
-    blockers: s.blockers.substring(0, 150),
-    hours: (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0)
-  }));
-
-  try {
-    const prompt = `You are a senior engineering manager analyzing ${userName}'s performance over the last ${days} days.
-
-Recent standup data:
-${JSON.stringify(standupSummary, null, 2)}
-
-Provide 3 specific insights in each category:
-
-1. STRENGTHS (what they're doing well)
-2. IMPROVEMENTS (areas to develop)
-3. RECOMMENDATIONS (actionable next steps)
-
-Format as JSON:
-{
-  "strengths": ["strength 1", "strength 2", "strength 3"],
-  "improvements": ["improvement 1", "improvement 2", "improvement 3"],
-  "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"]
-}
-
-Be specific, professional, and actionable. Reference actual work patterns.`;
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-
-    const content = response.choices[0]?.message?.content?.trim() || '{}';
-    const insights = JSON.parse(content);
-
-    return {
-      strengths: insights.strengths || [],
-      improvements: insights.improvements || [],
-      recommendations: insights.recommendations || []
-    };
-  } catch (error) {
-    logger.error('Error generating performance insights:', error);
-    return { strengths: [], improvements: [], recommendations: [] };
-  }
 }

@@ -13,7 +13,7 @@ Comprehensive guide to all available commands, actions, web routes, and automate
 - Opens an interactive modal to submit your daily standup
 - Collects: Yesterday's work, Today's plans, Blockers, Notes
 - Option to mark day off (partial or full day)
-- Saves to MongoDB and triggers AI analysis
+- Saves to MongoDB and updates analytics & metrics
 
 **Examples:**
 ```
@@ -85,7 +85,7 @@ Comprehensive guide to all available commands, actions, web routes, and automate
 
 ---
 
-## 💬 Slack App Mentions (AI Assistant)
+## 💬 Slack App Mentions (Team Assistant)
 
 ### Basic Syntax
 ```
@@ -145,7 +145,7 @@ Comprehensive guide to all available commands, actions, web routes, and automate
 - Active alerts
 - Today's standup
 - Active Linear issues
-- AI insights & risk factors
+- Insights & risk factors
 
 ---
 
@@ -260,16 +260,6 @@ All dashboard routes require authentication (unless `ALLOW_PUBLIC_DASHBOARD=true
 **Example:** `/user/U123456789`
 
 ---
-
-#### `GET /daily-summary`
-**Page:** AI-Powered Daily Summary  
-**Shows:**
-- AI-generated summary of day's standups
-- Key highlights and themes
-- Team-wide progress
-- Notable blockers or risks
-- Sentiment analysis
-
 ---
 
 #### `GET /history`
@@ -350,17 +340,6 @@ All dashboard routes require authentication (unless `ALLOW_PUBLIC_DASHBOARD=true
 
 ---
 
-#### `GET /trigger/daily-summary?date=YYYY-MM-DD`
-**Purpose:** Manually generate daily summary  
-**Action:** Creates and posts AI summary for specified date  
-**Parameters:**
-- `date` (optional): YYYY-MM-DD format, defaults to today  
-**Usage:** Testing, backfilling summaries
-
-**Example:** `/trigger/daily-summary?date=2025-11-15`
-
----
-
 ## ⏰ Automated Scheduled Jobs
 
 These run automatically via cron schedules (configurable in `.env`)
@@ -383,15 +362,7 @@ These run automatically via cron schedules (configurable in `.env`)
 
 ---
 
-#### 3. **Daily Summary** *(Optional - currently disabled)*
-**Default Time:** 4:00 PM (Mon-Fri)  
-**Cron:** `DAILY_SUMMARY_CRON`  
-**Action:** Posts AI-generated summary to channel  
-**Note:** Available on `/daily-summary` dashboard instead
-
----
-
-#### 4. **Alert Checks**
+#### 3. **Alert Checks**
 **Default Time:** 10:00 PM daily  
 **Cron:** `ALERT_CHECKS_CRON`  
 **Action:** Analyzes patterns, generates alerts for managers  
@@ -404,7 +375,7 @@ These run automatically via cron schedules (configurable in `.env`)
 
 ---
 
-#### 5. **Calculate Metrics**
+#### 4. **Calculate Metrics**
 **Default Time:** 11:30 PM daily  
 **Cron:** `CALCULATE_METRICS_CRON`  
 **Action:** Calculates performance metrics for all users  
@@ -418,13 +389,13 @@ These run automatically via cron schedules (configurable in `.env`)
 
 ### Weekly Jobs
 
-#### 6. **Start Week**
+#### 5. **Start Week**
 **Default Time:** Monday 9:00 AM  
 **Action:** Posts motivational week start message
 
 ---
 
-#### 7. **End Week**
+#### 6. **End Week**
 **Default Time:** Friday 5:00 PM  
 **Action:** Posts week wrap-up message
 
@@ -495,8 +466,7 @@ These run automatically via cron schedules (configurable in `.env`)
 
 **On Submit:**
 - Saves to MongoDB
-- Triggers AI analysis
-- Updates metrics
+- Updates analytics & metrics
 - Checks for achievements
 - Posts thank you message
 
@@ -525,7 +495,6 @@ All job schedules are configurable via environment variables:
 # Daily Jobs
 DAILY_REMINDER_CRON=0 9 * * 1-5           # 9 AM, Mon-Fri
 NON_SUBMITTER_REMINDER_CRON=30 10 * * 1-5 # 10:30 AM, Mon-Fri
-DAILY_SUMMARY_CRON=0 16 * * 1-5           # 4 PM, Mon-Fri
 ALERT_CHECKS_CRON=0 22 * * *              # 10 PM daily
 CALCULATE_METRICS_CRON=30 23 * * *        # 11:30 PM daily
 

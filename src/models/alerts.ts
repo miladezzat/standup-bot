@@ -29,7 +29,7 @@ export interface IAlert extends Document {
   relatedGoalId?: string;
   
   // Action Items
-  suggestedActions: string[]; // AI-generated suggestions
+  suggestedActions: string[]; // Recommended next steps
   
   // Status
   status: 'active' | 'acknowledged' | 'resolved' | 'dismissed';
@@ -169,4 +169,3 @@ AlertSchema.index({ priority: -1, createdAt: -1 });
 AlertSchema.index({ expiresAt: 1 }, { sparse: true });
 
 export default mongoose.model<IAlert>('Alert', AlertSchema);
-

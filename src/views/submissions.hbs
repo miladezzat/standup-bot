@@ -68,19 +68,8 @@
                         {{#if this.hasBlocker}}
                         <span class="badge danger">⚠ Blocked</span>
                         {{/if}}
-                        {{#if this.hasTimeEstimates}}
-                        <span class="badge time">⏱ {{add (or this.yesterdayHoursEstimate 0) (or this.todayHoursEstimate 0)}}h</span>
-                        {{/if}}
                     </div>
                 </div>
-
-                {{!-- AI Summary --}}
-                {{#if this.aiSummary}}
-                <div class="ai-box">
-                    <span class="ai-icon">✨</span>
-                    <p>{{this.aiSummary}}</p>
-                </div>
-                {{/if}}
 
                 {{!-- Day Off --}}
                 {{#if this.isDayOff}}
@@ -97,9 +86,6 @@
                     <div class="section-head">
                         <span class="icon">✓</span>
                         <span class="title">COMPLETED</span>
-                        {{#if this.yesterdayHoursEstimate}}
-                        <span class="hours">~{{this.yesterdayHoursEstimate}}h</span>
-                        {{/if}}
                     </div>
                     <div class="section-body">{{this.yesterday}}</div>
                 </div>
@@ -108,9 +94,6 @@
                     <div class="section-head">
                         <span class="icon">→</span>
                         <span class="title">TODAY'S PLAN</span>
-                        {{#if this.todayHoursEstimate}}
-                        <span class="hours">~{{this.todayHoursEstimate}}h</span>
-                        {{/if}}
                     </div>
                     <div class="section-body">{{this.today}}</div>
                 </div>
@@ -144,7 +127,6 @@
 {{!-- Quick Links Footer --}}
 <div class="quick-links">
     <a href="/workflow">🔄 Workflow</a>
-    <a href="/daily-summary">✨ AI Summary</a>
     <a href="/analytics">📊 Analytics</a>
     <a href="/manager">👔 Manager</a>
     <a href="/breaks">☕ Breaks</a>

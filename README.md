@@ -1,6 +1,6 @@
 # Standup Bot
 
-Modern Slack standup workflow that stores submissions in MongoDB, powers AI summaries, and serves beautiful dashboards for managers and teams.
+Modern Slack standup workflow that stores submissions in MongoDB and serves beautiful dashboards for managers and teams.
 
 ## ✨ Features
 
@@ -9,24 +9,21 @@ Modern Slack standup workflow that stores submissions in MongoDB, powers AI summ
 - 🏖️ Out-of-office (OOO) tracking with optional time ranges
 - ☕ Break tracking (lunch, coffee, appointments, etc.)
 - 🔔 Automated reminders for non-submitters
-- 💬 AI-powered standup summaries and time estimates
+- 💬 Summaries and time tracking of daily standups
 
 ### Web Dashboards
 - 📊 **Submissions** - View all standup submissions with Today/Yesterday/All filters
 - 📈 **Analytics** - Team performance charts and metrics visualization
 - 🔀 **Workflow** - Visual task flow showing completed → planned tasks per user
 - ☕ **Breaks** - Track team break patterns and daily totals
-- 👤 **User Reports** - Individual member detailed view with AI insights
-- 📅 **Daily Summary** - AI-generated team summary for the day
+- 👤 **User Reports** - Individual member detailed view with performance trends
 - 🎯 **Manager Dashboard** - Alerts, achievements, and team health overview
 - 📜 **History** - Legacy thread-based standup view
 
-### AI-Powered Insights
-- 🤖 Natural language standup summaries
-- ⏱️ Automatic time estimation for tasks
-- 📊 Performance analysis and recommendations
-- 🚨 Smart alerting for blockers and patterns
-- 😊 Sentiment analysis and risk assessment
+### Team Insights
+- 📈 Performance metrics, velocity charts, and consistency scores
+- 🔔 Alerts for blockers, underperforming pages, and capacity risks
+- 🧭 Manager dashboards surface badges, streaks, and actionable callouts
 
 ### Data Export
 - Export standups, metrics, alerts, achievements to CSV
@@ -68,7 +65,6 @@ Modern Slack standup workflow that stores submissions in MongoDB, powers AI summ
 | `/analytics` | Team analytics with charts |
 | `/breaks` | Breaks tracking dashboard |
 | `/manager` | Manager insights (alerts, achievements) |
-| `/daily-summary` | AI-powered daily summary view |
 | `/user/:userId` | Individual user report |
 | `/history` | Legacy thread-based view |
 
@@ -95,7 +91,6 @@ src/
 │   └── connection.ts      # MongoDB connection
 ├── jobs/                  # Scheduled cron jobs
 │   ├── calculate-metrics.ts
-│   ├── daily-summary.ts
 │   ├── hourly-reminder-non-submitters.ts
 │   ├── monthly-report.ts
 │   ├── reminder-non-submitters.ts
@@ -118,10 +113,7 @@ src/
 │   └── teamGoals.ts
 ├── service/               # Business logic
 │   ├── achievement.service.ts
-│   ├── ai-performance-analysis.service.ts
-│   ├── ai-recommendations.service.ts
-│   ├── ai-summary.service.ts
-│   ├── ai-time-estimation.service.ts
+│   ├── performance-analysis.service.ts
 │   ├── alert-engine.service.ts
 │   ├── app-mention.service.ts
 │   ├── break.service.ts
@@ -152,7 +144,6 @@ src/
     ├── partials/
     ├── analytics.hbs
     ├── breaks.hbs
-    ├── daily-summary.hbs
     ├── manager.hbs
     ├── submissions.hbs
     ├── user-report.hbs
@@ -163,7 +154,7 @@ src/
 
 | Model | Description |
 | ----- | ----------- |
-| `StandupEntry` | Individual standup submissions with AI estimates |
+| `StandupEntry` | Individual standup submissions with time tracking |
 | `Break` | Break time tracking (lunch, coffee, etc.) |
 | `PerformanceMetrics` | Aggregated weekly/monthly metrics |
 | `Achievement` | Badges earned (streak, velocity, helper, etc.) |
@@ -201,9 +192,6 @@ Copy `.env.example` to `.env` and configure:
 ### Optional Integrations
 | Name | Default | Description |
 | ---- | ------- | ----------- |
-| `OPENAI_API_KEY` | - | Enables AI summaries and insights |
-| `AI_MODEL` | `gpt-3.5-turbo` | OpenAI model |
-| `AI_MAX_TOKENS` | `150` | Max tokens for AI responses |
 | `LINEAR_API_KEY` | - | Enables Linear issue lookups |
 
 ### Configuration
@@ -276,7 +264,6 @@ npm run dev    # Live reload with nodemon + ts-node
 - **Web Server:** Express.js
 - **Templates:** Handlebars (express-handlebars)
 - **Auth:** Clerk (optional)
-- **AI:** OpenAI API
 - **Scheduling:** node-cron
 - **Logging:** Winston
 

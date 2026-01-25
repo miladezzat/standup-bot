@@ -6,7 +6,6 @@ import { toZonedTime } from 'date-fns-tz';
 import { getUserName } from '../helper';
 import { getUserContributions, getUserStreak, generateContributionGraphHTML, getContributionGraphCSS } from './contribution-graph.service';
 import { hasClerk } from '../index';
-import { generatePerformanceInsights } from './ai-performance-analysis.service';
 import { APP_TIMEZONE } from '../config';
 import { createBaseViewData } from '../config/view-engine';
 import { logger } from '../utils/logger';
@@ -97,13 +96,10 @@ export const getUserReport = async (req: Request, res: Response) => {
         const streak = await getUserStreak(userId);
         const contributionGraphHTML = generateContributionGraphHTML(contributions, streak);
 
-        // Get performance metrics and AI insights
+        // Get performance metrics
         let performanceScore = 0;
         let velocityTrend = 'stable';
         let riskLevel = 'low';
-        let aiInsights: { strengths: string[], improvements: string[], recommendations: string[] } = { 
-            strengths: [], improvements: [], recommendations: [] 
-        };
 
         try {
             const perfMetrics = await PerformanceMetrics.findOne({
@@ -117,9 +113,6 @@ export const getUserReport = async (req: Request, res: Response) => {
                 riskLevel = perfMetrics.riskLevel || 'low';
             }
 
-            if (process.env.OPENAI_API_KEY) {
-                aiInsights = await generatePerformanceInsights(userId, 30);
-            }
         } catch (error) {
             logger.error('Error fetching performance data:', error);
         }
@@ -172,10 +165,6 @@ export const getUserReport = async (req: Request, res: Response) => {
             hasBlocker: !!(s.blockers && s.blockers.trim() && !s.blockers.toLowerCase().includes('none'))
         }));
 
-        const hasAiInsights = aiInsights.strengths.length > 0 || 
-                             aiInsights.improvements.length > 0 || 
-                             aiInsights.recommendations.length > 0;
-
         // Render template
         res.render('user-report', {
             ...createBaseViewData(`${userName}'s Report`, 'user-report', !!hasClerk),
@@ -192,8 +181,6 @@ export const getUserReport = async (req: Request, res: Response) => {
             performanceScore,
             velocityTrend,
             riskLevel,
-            aiInsights,
-            hasAiInsights,
             contributionGraphHTML,
             dayOffEntries,
             oooFilters,
@@ -460,7 +447,6 @@ const userReportStyles = `
     color: var(--gray-600);
 }
 
-/* AI Insights Section */
 .insights-section {
     background: white;
     border-radius: 16px;

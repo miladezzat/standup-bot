@@ -3,7 +3,6 @@ import type { WebClient } from '@slack/web-api';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import dotenv from 'dotenv';
-import OpenAI from 'openai';
 import standupThread from '../models/standupThread';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
@@ -21,7 +20,6 @@ import {
 } from './linear.service';
 
 const TIMEZONE = APP_TIMEZONE;
-const openaiClient = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 dotenv.config();
 const timeStringToMinutes = (time?: string | null) => {
     if (!time) return null;
@@ -600,66 +598,6 @@ const buildGeneralContext = async (text: string, mentionedUsers: string[]) => {
     return contexts;
 };
 
-const generateAIResponse = async (question: string, contexts: string[]): Promise<string> => {
-    const contextText = contexts.filter(Boolean).join('\n\n');
-    if (!contextText) {
-        return 'I don\'t have any information to answer that question right now.';
-    }
-    if (!openaiClient) {
-        // No AI available, return raw context
-        return contextText;
-    }
-    try {
-        const prompt = `You are a team standup assistant. Answer the question using ONLY the information provided below. 
-
-CRITICAL RULES:
-- Use ONLY the facts from the "Information" section
-- If the information doesn't contain the answer, say "I don't have that information in the standup data"
-- DO NOT make up or infer details not explicitly stated
-- DO NOT hallucinate appointments, meetings, or reasons not mentioned
-- Be accurate and factual
-
-Question: ${question}
-
-Information:
-${contextText}
-
-Answer briefly and accurately (2-3 sentences max):`;
-        
-        const completion = await openaiClient.chat.completions.create({
-            model: 'gpt-4o-mini',
-            temperature: 0.1, // Lower temperature for more factual responses
-            messages: [
-                { 
-                    role: 'system', 
-                    content: 'You are a factual assistant that only reports information explicitly provided. Never make assumptions or add details not in the source data.' 
-                },
-                { 
-                    role: 'user', 
-                    content: prompt 
-                }
-            ],
-            max_tokens: 150,
-        });
-        
-        const aiResponse = completion.choices[0]?.message?.content?.trim();
-        
-        // If AI says it doesn't know, fall back to raw context
-        if (aiResponse && (
-            aiResponse.toLowerCase().includes("don't have") || 
-            aiResponse.toLowerCase().includes("no information") ||
-            aiResponse.toLowerCase().includes("not found")
-        )) {
-            return contextText; // Return raw data instead of "I don't know"
-        }
-        
-        return aiResponse || contextText;
-    } catch (error) {
-        console.error('Error generating AI response:', error);
-        return contextText;
-    }
-};
-
 export const mentionApp = async ({
     event,
     client,
@@ -754,7 +692,7 @@ export const mentionApp = async ({
                     type: 'section',
                     text: {
                         type: 'mrkdwn',
-                        text: '*📊 6. Performance Metrics & Stats*\n\n*Performance Queries:*\n• `@Standup how is @user performing?`\n• `@Standup @user\'s performance`\n• `@Standup @user stats`\n• `@Standup report on @user`\n\n*Full Profile (Everything):*\n• `@Standup profile of @user`\n• `@Standup tell me about @user`\n• `@Standup everything about @user`\n\n📌 *Try:* `@Standup profile of @mike`\n\n*Profile Includes:*\n• 🎯 Current availability & status\n• 📈 Performance scores (0-100)\n• 🔥 Current submission streak\n• 🏆 Earned badges & achievements\n• ⚠️ Active alerts & warnings\n• 📊 Weekly/monthly velocity\n• 💡 AI-generated insights'
+                        text: '*📊 6. Performance Metrics & Stats*\n\n*Performance Queries:*\n• `@Standup how is @user performing?`\n• `@Standup @user\'s performance`\n• `@Standup @user stats`\n• `@Standup report on @user`\n\n*Full Profile (Everything):*\n• `@Standup profile of @user`\n• `@Standup tell me about @user`\n• `@Standup everything about @user`\n\n📌 *Try:* `@Standup profile of @mike`\n\n*Profile Includes:*\n• 🎯 Current availability & status\n• 📈 Performance scores (0-100)\n• 🔥 Current submission streak\n• 🏆 Earned badges & achievements\n• ⚠️ Active alerts & warnings\n• 📊 Weekly/monthly velocity\n• 💡 Submission-based highlights'
                     }
                 },
                 {
@@ -784,7 +722,7 @@ export const mentionApp = async ({
                     type: 'section',
                     text: {
                         type: 'mrkdwn',
-                        text: '*📋 9. Standup Thread Summaries*\n\n*Get AI Summary:*\nIn any standup thread, mention:\n`@Standup standup`\n\n*You\'ll Get:*\n• 🤖 AI-powered summary of all submissions\n• 📊 Team status overview\n• ✨ Key highlights & progress\n• 🚧 Team blockers & challenges\n• 📝 Automatic categorization\n\n📌 *Try it in today\'s standup thread!*'
+                        text: '*📋 9. Standup Thread Summaries*\n\n*Get a thread recap:*\nIn any standup thread, mention:\n`@Standup standup`\n\n*You\'ll Get:*\n• 📋 Consolidated summary of the replies\n• 📊 Team status overview\n• ✨ Key highlights & progress\n• 🚧 Team blockers & challenges\n• 📝 Automatic categorization\n\n📌 *Try it in today\'s standup thread!*'
                     }
                 },
                 {
@@ -794,7 +732,7 @@ export const mentionApp = async ({
                     type: 'section',
                     text: {
                         type: 'mrkdwn',
-                        text: '*🌐 10. Web Dashboards*\n\nVisit these dashboards in your browser:\n\n*Main Dashboards:*\n• `/` - Today\'s submissions overview\n• `/user/:userId` - Individual user report\n• `/daily-summary` - AI-powered daily summary\n• `/manager` - Manager insights & alerts\n• `/analytics` - Team analytics with charts\n• `/history` - Historical thread view\n\n*Export Data (CSV):*\n• `/export/standups` - All submissions\n• `/export/metrics` - Performance metrics\n• `/export/alerts` - Alerts & warnings\n• `/export/achievements` - Badges earned\n• `/export/user/:userId` - Full user report\n\n🔒 *Note:* Requires authentication (Clerk)'
+                        text: '*🌐 10. Web Dashboards*\n\nVisit these dashboards in your browser:\n\n*Main Dashboards:*\n• `/` - Today\'s submissions overview\n• `/user/:userId` - Individual user report\n• `/manager` - Manager insights & alerts\n• `/analytics` - Team analytics with charts\n• `/history` - Historical thread view\n\n*Export Data (CSV):*\n• `/export/standups` - All submissions\n• `/export/metrics` - Performance metrics\n• `/export/alerts` - Alerts & warnings\n• `/export/achievements` - Badges earned\n• `/export/user/:userId` - Full user report\n\n🔒 *Note:* Requires authentication (Clerk)'
                     }
                 },
                 {
@@ -814,7 +752,7 @@ export const mentionApp = async ({
                     type: 'section',
                     text: {
                         type: 'mrkdwn',
-                        text: '*💡 12. Pro Tips & Best Practices*\n\n• 🗣️ *Ask naturally* - I understand conversational language!\n• 🔗 *Combine questions:* "Where is @user and what are they working on?"\n• ⏰ *Submit early* to avoid hourly reminders\n• 🎫 *Use ticket IDs* (ABC-123) for automatic Linear tracking\n• 📊 *Check dashboards* for trends and analytics\n• ⏱️ *Set partial OOO* for appointments (not full day off)\n• 🏆 *Build streaks* to earn achievement badges\n• 📈 *Review your profile* weekly to track improvement\n• 🤖 *Ask me anything* about your team - I\'m AI-powered!'
+                        text: '*💡 12. Pro Tips & Best Practices*\n\n• 🗣️ *Ask naturally* - I understand conversational language!\n• 🔗 *Combine questions:* "Where is @user and what are they working on?"\n• ⏰ *Submit early* to avoid hourly reminders\n• 🎫 *Use ticket IDs* (ABC-123) for automatic Linear tracking\n• 📊 *Check dashboards* for trends and analytics\n• ⏱️ *Set partial OOO* for appointments (not full day off)\n• 🏆 *Build streaks* to earn achievement badges\n• 📈 *Review your profile* weekly to track improvement\n• 🤖 *Ask me anything* about your team - I\'m here to help!'
                     }
                 },
                 {
@@ -835,7 +773,7 @@ export const mentionApp = async ({
                     elements: [
                         {
                             type: 'mrkdwn',
-                            text: '🤖 Powered by OpenAI • 📊 Integrated with Linear • 🔒 Secured by Clerk • 💬 Always Learning!'
+                            text: '🤖 Conversational and helpful • 📊 Integrated with Linear • 🔒 Secured by Clerk • 💬 Always Learning!'
                         }
                     ]
                 }
@@ -1174,30 +1112,11 @@ export const mentionApp = async ({
     if (contexts.length > 0) {
         // Check if we have Linear work data (contains grouped status formatting)
         const hasLinearData = contexts.some(c => c.includes('Linear Issues for') || c.includes('📋') || c.includes('📝') || c.includes('🔄'));
+        const combined = contexts.join('\n\n');
         
-        // Generate AI response for more natural language
-        const aiAnswer = await generateAIResponse(text, contexts);
-        console.log(`[DEBUG] AI Answer: "${aiAnswer}"`);
-        const useAI = aiAnswer && !/i\s+don't\s+know/i.test(aiAnswer.trim()) && !hasLinearData;
-        console.log(`[DEBUG] Use AI: ${useAI}`);
-        
-        // If we have structured status results, use Block Kit formatting with AI enhancement
+        // If we have structured status results, use Block Kit formatting with enhanced layout
         if (statusResults.length > 0 && !wantsWorkSummary && !wantsTicketStatus) {
             const blocks: any[] = [];
-            
-            // Add AI-generated summary at the top if available
-            if (useAI) {
-                blocks.push({
-                    type: 'section',
-                    text: {
-                        type: 'mrkdwn',
-                        text: `💬 ${aiAnswer}`
-                    }
-                });
-                blocks.push({
-                    type: 'divider'
-                });
-            }
             
             // Add detailed status information
             for (const statusData of statusResults) {
@@ -1225,15 +1144,9 @@ export const mentionApp = async ({
             await say({
                 thread_ts: event.ts,
                 blocks: blocks,
-                text: useAI ? aiAnswer : contexts.join('\n\n'), // Fallback text
+                text: combined,
             });
             return;
-        }
-        
-        // For other cases (work summary, ticket status, etc.), use AI-enhanced text format
-        let combined = contexts.join('\n\n');
-        if (useAI) {
-            combined = aiAnswer;
         }
         
         // If we have Linear data with formatting, preserve it by using blocks
@@ -1293,7 +1206,7 @@ export const mentionApp = async ({
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `Hi <@${event.user}>! I'm your AI-powered team intelligence assistant. I can help you with standups, team status, performance tracking, and much more!`
+                text: `Hi <@${event.user}>! I'm your team intelligence assistant built on standup data. I can help you with standups, team status, performance tracking, and much more!`
                 }
             },
             {
@@ -1327,7 +1240,7 @@ export const mentionApp = async ({
                 type: 'section',
                 text: {
                     type: 'mrkdwn',
-                    text: `*💡 What I Can Do:*\n• 📊 Track performance & streaks\n• 🏆 Award achievement badges\n• 🔔 Send smart reminders\n• 🤖 Generate AI summaries\n• 📈 Analyze team trends\n• ⚠️ Detect risks & blockers\n• 🎯 Integrate with Linear`
+                    text: `*💡 What I Can Do:*\n• 📊 Track performance & streaks\n• 🏆 Award achievement badges\n• 🔔 Send smart reminders\n• 📋 Summarize standup threads\n• 📈 Analyze team trends\n• ⚠️ Detect risks & blockers\n• 🎯 Integrate with Linear`
                 }
             },
             {
@@ -1342,7 +1255,7 @@ export const mentionApp = async ({
                 elements: [
                     {
                         type: 'mrkdwn',
-                        text: '🤖 I understand natural language - just ask! | 💬 Powered by AI | 📊 Integrated with Linear'
+                    text: '🤖 I understand natural language - just ask! | 📊 Integrated with Linear'
                     }
                 ]
             }

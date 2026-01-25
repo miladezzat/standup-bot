@@ -80,47 +80,6 @@
 </div>
 {{/if}}
 
-{{!-- AI Insights --}}
-{{#if hasAiInsights}}
-<div class="insights-section">
-    <h3>🤖 AI Performance Insights</h3>
-    <div class="insights-grid">
-        {{#if (gt aiInsights.strengths.length 0)}}
-        <div class="insight-card strengths">
-            <h4>💪 Strengths</h4>
-            <ul>
-                {{#each aiInsights.strengths}}
-                    <li>{{this}}</li>
-                {{/each}}
-            </ul>
-        </div>
-        {{/if}}
-        
-        {{#if (gt aiInsights.improvements.length 0)}}
-        <div class="insight-card improvements">
-            <h4>🎯 Areas for Improvement</h4>
-            <ul>
-                {{#each aiInsights.improvements}}
-                    <li>{{this}}</li>
-                {{/each}}
-            </ul>
-        </div>
-        {{/if}}
-        
-        {{#if (gt aiInsights.recommendations.length 0)}}
-        <div class="insight-card recommendations">
-            <h4>💡 Recommendations</h4>
-            <ul>
-                {{#each aiInsights.recommendations}}
-                    <li>{{this}}</li>
-                {{/each}}
-            </ul>
-        </div>
-        {{/if}}
-    </div>
-</div>
-{{/if}}
-
 {{!-- Time Period Filter --}}
 <div class="filters">
     <span class="filter-label">📅 Time Period:</span>

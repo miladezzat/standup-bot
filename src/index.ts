@@ -13,7 +13,6 @@ import { mentionApp } from './service/app-mention.service';
 import { openStandupModal, handleStandupSubmission, handleStandupSlashCommand } from './service/standup-submission.service';
 import { getSubmissionsDashboard } from './service/submissions-dashboard.service';
 import { getUserReport } from './service/user-report.service';
-import { getDailySummaryView } from './service/daily-summary-view.service';
 import { getManagerDashboard } from './service/manager-dashboard.service';
 import { getTeamAnalyticsDashboard } from './service/team-analytics-dashboard.service';
 import { getBreaksDashboard } from './service/breaks-dashboard.service';
@@ -23,7 +22,7 @@ import { exportStandupsCSV, exportPerformanceMetricsCSV, exportAlertsCSV, export
 import { apiLimiter } from './middleware/security.middleware';
 import { checkAuth } from './middleware/clerk-auth.middleware';
 import { logger, logInfo, logError, logWarn } from './utils/logger';
-import { CLERK_SIGN_IN_URL, ALLOW_PUBLIC_DASHBOARD, ENABLE_TEST_ROUTES, APP_TIMEZONE } from './config';
+import { CLERK_SIGN_IN_URL, ALLOW_PUBLIC_DASHBOARD, ENABLE_TEST_ROUTES } from './config';
 
 // ============================================
 // 🔒 SECURITY MIDDLEWARE
@@ -269,7 +268,6 @@ const authMiddleware = hasClerk ? checkAuth : (req: any, res: any, next: any) =>
 expressApp.get('/', authMiddleware, getSubmissionsDashboard);
 expressApp.get('/submissions', authMiddleware, getSubmissionsDashboard);
 expressApp.get('/user/:userId', authMiddleware, getUserReport); // Individual user report
-expressApp.get('/daily-summary', authMiddleware, getDailySummaryView); // AI-powered daily summary view
 expressApp.get('/history', authMiddleware, getStandupHistory); // Legacy thread-based view
 expressApp.get('/manager', authMiddleware, getManagerDashboard); // Manager insights dashboard
 expressApp.get('/analytics', authMiddleware, getTeamAnalyticsDashboard); // Team analytics with charts
@@ -334,23 +332,6 @@ if (ENABLE_TEST_ROUTES) {
         }
     });
 
-    // Test trigger - Generate daily summary now
-    expressApp.get('/trigger/daily-summary', async (req, res) => {
-        try {
-            const { postDailySummaryToSlack } = await import('./service/ai-summary.service');
-            const { format } = await import('date-fns');
-            const { toZonedTime } = await import('date-fns-tz');
-            
-            const dateParam = req.query.date as string;
-            const date = dateParam || format(toZonedTime(new Date(), APP_TIMEZONE), 'yyyy-MM-dd');
-            
-            await postDailySummaryToSlack(date);
-            res.send(`✅ <b>Daily summary generated for ${date}!</b><br><br>Check your Slack channel now.<br><br><a href="/submissions">View Dashboard</a>`);
-        } catch (error) {
-            console.error('Error triggering daily summary:', error);
-            res.status(500).send(`❌ Error: ${error}`);
-        }
-    });
 } else {
     logInfo('Test trigger routes are disabled. Set ENABLE_TEST_ROUTES=true to expose them.');
 }

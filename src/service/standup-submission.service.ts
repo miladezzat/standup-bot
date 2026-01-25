@@ -1,8 +1,6 @@
 import StandupEntry from '../models/standupEntry';
 import { format, parseISO, isValid, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { estimateStandupTime } from './ai-time-estimation.service';
-import { generateStandupSummary } from './ai-summary.service';
 import { handleBreakCommand } from './break.service';
 import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { slackWebClient } from '../singleton';
@@ -339,10 +337,6 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
         dayOffEndTime: timeRange?.end || '23:59',
         source: 'slash_command',
         workspaceId,
-        yesterdayHoursEstimate: 0,
-        todayHoursEstimate: 0,
-        timeEstimatesRaw: null,
-        aiSummary: ''
       },
       {
         upsert: true,
@@ -432,30 +426,6 @@ export const handleStandupSubmission = async (args: any) => {
       return;
     }
 
-    // Estimate time using AI (if configured)
-    let timeEstimates = null;
-    let yesterdayHours = 0;
-    let todayHours = 0;
-    let aiSummary = '';
-
-    if (!isDayOff && process.env.OPENAI_API_KEY) {
-      try {
-        // Generate time estimates
-        timeEstimates = await estimateStandupTime(yesterday, today_plan);
-        yesterdayHours = timeEstimates.totalYesterdayHours;
-        todayHours = timeEstimates.totalTodayHours;
-        console.log(`⏱️ Estimated ${yesterdayHours}h yesterday, ${todayHours}h today for ${userName}`);
-
-        // Generate AI summary
-        aiSummary = await generateStandupSummary(userName, yesterday, today_plan, blockers, notes);
-        if (aiSummary) {
-          console.log(`📝 Generated summary for ${userName}`);
-        }
-      } catch (error) {
-        console.error('Error with AI services:', error);
-      }
-    }
-
     // Upsert the standup entry (update if exists, create if not)
     const standupEntry = await StandupEntry.findOneAndUpdate(
       {
@@ -476,10 +446,6 @@ export const handleStandupSubmission = async (args: any) => {
         dayOffEndTime,
         source: 'modal',
         workspaceId: workspaceId,
-        yesterdayHoursEstimate: yesterdayHours,
-        todayHoursEstimate: todayHours,
-        timeEstimatesRaw: timeEstimates,
-        aiSummary: aiSummary
       },
       {
         upsert: true,
@@ -501,22 +467,6 @@ export const handleStandupSubmission = async (args: any) => {
     // Add status info
     if (isDayOff) {
       confirmationText += `\n\n🛫 *Status:* Marked as out of office${dayOffReason ? ` (${dayOffReason})` : ''}.`;
-    }
-
-    // Add AI summary if available
-    if (aiSummary) {
-      confirmationText += `\n\n📝 *AI Summary:*\n_${aiSummary}_`;
-    }
-    
-    // Add time estimates if available
-    if (yesterdayHours > 0 || todayHours > 0) {
-      confirmationText += `\n\n⏱️ *Time Estimates:*`;
-      if (yesterdayHours > 0) {
-        confirmationText += `\n• Yesterday: ~${yesterdayHours}h`;
-      }
-      if (todayHours > 0) {
-        confirmationText += `\n• Today: ~${todayHours}h`;
-      }
     }
 
     // Send confirmation message to the user

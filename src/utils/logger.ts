@@ -96,15 +96,5 @@ export const logRequest = (method: string, url: string, userId?: string, meta?: 
   });
 };
 
-// AI operation logging
-export const logAIOperation = (operation: string, userId: string, meta?: any) => {
-  logger.info('AI Operation', {
-    operation,
-    userId,
-    ...meta,
-  });
-};
-
 // Export default logger
 export default logger;
-

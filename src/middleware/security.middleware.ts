@@ -89,24 +89,6 @@ export const slackCommandLimiter = rateLimit({
 });
 
 /**
- * Rate limiter for AI operations (more restrictive due to cost)
- */
-export const aiOperationLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 50, // 50 AI operations per hour
-  message: 'AI rate limit exceeded, please try again later.',
-  handler: (req, res) => {
-    logger.warn('AI operation rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-    });
-    res.status(429).json({
-      error: 'AI usage limit exceeded, please try again later.',
-    });
-  },
-});
-
-/**
  * Rate limiter for authentication attempts
  */
 export const authLimiter = rateLimit({
@@ -146,4 +128,3 @@ export function validateSecurityConfig(): void {
 
   logger.info('Security configuration validated');
 }
-

@@ -18,12 +18,8 @@ interface StandupEntryView {
     notes?: string;
     isDayOff?: boolean;
     dayOffReason?: string;
-    aiSummary?: string;
-    yesterdayHoursEstimate?: number;
-    todayHoursEstimate?: number;
     createdAt: Date;
     hasBlocker: boolean;
-    hasTimeEstimates: boolean;
 }
 
 interface DateGroupView {
@@ -101,12 +97,8 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                         notes: entry.notes,
                         isDayOff: entry.isDayOff,
                         dayOffReason: entry.dayOffReason,
-                        aiSummary: entry.aiSummary,
-                        yesterdayHoursEstimate: entry.yesterdayHoursEstimate,
-                        todayHoursEstimate: entry.todayHoursEstimate,
                         createdAt: entry.createdAt,
-                        hasBlocker,
-                        hasTimeEstimates: !!(entry.yesterdayHoursEstimate || entry.todayHoursEstimate)
+                        hasBlocker
                     };
                 })
             }));
@@ -361,7 +353,7 @@ const submissionsStyles = `
     color: #0369a1;
 }
 
-/* AI BOX */
+/* Summary box */
 .ai-box {
     display: flex;
     gap: 0.6rem;
@@ -571,4 +563,3 @@ const submissionsStyles = `
     }
 }
 `;
-
