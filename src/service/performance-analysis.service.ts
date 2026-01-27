@@ -238,7 +238,7 @@ export async function calculatePerformanceMetrics(
   // Engagement score (0-100)
   let engagementScore = 0;
   engagementScore += Math.min(40, consistencyScore * 0.4); // 40 points for consistency
-  engagementScore += Math.min(30, avgTasksPerDay * 5); // 30 points for task output
+  engagementScore += Math.min(30, averageTasksPerDay * 5); // 30 points for task output
   engagementScore += blockerFrequency < 30 ? 20 : 10; // 20 points for low blockers
   engagementScore += lateSubmissions < totalSubmissions * 0.3 ? 10 : 5; // 10 points for timely submissions
 
