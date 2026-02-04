@@ -19,7 +19,7 @@
         "date-fns": "^4.1.0",
         "date-fns-tz": "^3.2.0",
         "dotenv": "^17.2.3",
-        "express-handlebars": "^8.0.4",
+        "express-handlebars": "^7.1.2",
         "express-rate-limit": "^8.2.1",
         "hbs": "^4.2.0",
         "helmet": "^8.1.0",
