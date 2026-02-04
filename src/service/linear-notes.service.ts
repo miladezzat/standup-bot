@@ -88,7 +88,7 @@ async function getTeamMembers(): Promise<{ id: string; name: string; email: stri
         id: u.id,
         name: u.name,
         email: u.email || '',
-        avatarUrl: u.avatarUrl
+        avatarUrl: u.avatarUrl || undefined
       }));
   } catch (error) {
     logError('Error fetching Linear users', error);

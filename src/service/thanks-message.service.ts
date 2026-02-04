@@ -1,6 +1,6 @@
 import { CHANNEL_ID } from '../config';
 import { format } from 'date-fns';
-import { AllMiddlewareArgs, GenericMessageEvent, SlackEventMiddlewareArgs } from '@slack/bolt';
+import { AllMiddlewareArgs, SlackEventMiddlewareArgs } from '@slack/bolt';
 
 
 interface StandupUpdate {
@@ -22,7 +22,7 @@ const standups: UpdatesMap = {};
 
 export const getThanksMessage = async (args: SlackEventMiddlewareArgs<'message'> & AllMiddlewareArgs) => {
     const { message, say } = args;
-    const msg = message as GenericMessageEvent;
+    const msg = message as any;
 
     if (
         msg.channel === CHANNEL_ID &&

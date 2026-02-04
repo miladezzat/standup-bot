@@ -536,11 +536,11 @@ const setSlackStatus = async (userId: string, statusText: string, statusEmoji: s
   try {
     await slackWebClient.users.profile.set({
       user: userId,
-      profile: JSON.stringify({
+      profile: {
         status_text: statusText,
         status_emoji: statusEmoji,
         status_expiration: expiration
-      })
+      } as Record<string, unknown>
     });
   } catch (error: any) {
     // Don't crash on permission errors - bot token may not have permission to set user status
@@ -558,11 +558,11 @@ const clearSlackStatus = async (userId: string) => {
   try {
     await slackWebClient.users.profile.set({
       user: userId,
-      profile: JSON.stringify({
+      profile: {
         status_text: '',
         status_emoji: '',
         status_expiration: 0
-      })
+      } as Record<string, unknown>
     });
   } catch (error: any) {
     // Don't crash on permission errors - bot token may not have permission to set user status

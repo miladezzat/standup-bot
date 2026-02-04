@@ -32,7 +32,7 @@ interface OooFilter {
 
 export const getUserReport = async (req: Request, res: Response) => {
     try {
-        const userId = req.params.userId;
+        const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
         const period = (req.query.period as string) || 'month';
 
         const now = toZonedTime(new Date(), TIMEZONE);

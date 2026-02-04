@@ -1,6 +1,6 @@
-import type { AppMentionEvent, SayFn } from '@slack/bolt';
+import type { SayFn } from '@slack/bolt';
 import type { WebClient } from '@slack/web-api';
-import { format, subDays, differenceInDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import dotenv from 'dotenv';
 import standupThread from '../models/standupThread';
@@ -344,7 +344,7 @@ const handleStandupSummaryRequest = async ({
     say,
     threadTs,
 }: {
-    event: AppMentionEvent;
+    event: any;
     client: WebClient;
     say: SayFn;
     threadTs: string;
@@ -603,7 +603,7 @@ export const mentionApp = async ({
     client,
     say,
 }: {
-    event: AppMentionEvent;
+    event: any;
     client: WebClient;
     say: SayFn;
 }) => {
