@@ -455,11 +455,12 @@ export const handleStandupSubmission = async (args: any) => {
 
     console.log(`✅ Standup saved for ${userName} (${userId}) on ${today}`);
 
-    if (isDayOff) {
-      await applyDayOffStatus(userId, today, dayOffReason);
-    } else {
-      await clearSlackStatus(userId);
-    }
+    // Note: Status updates disabled - requires user token, bot token doesn't have permission
+    // if (isDayOff) {
+    //   await applyDayOffStatus(userId, today, dayOffReason);
+    // } else {
+    //   await clearSlackStatus(userId);
+    // }
 
     // Build confirmation message
     let confirmationText = `✅ *Your standup for ${today} has been saved!*\n\nThank you for keeping the team updated. You can update it anytime by running \`/standup\` again.`;
@@ -541,7 +542,13 @@ const setSlackStatus = async (userId: string, statusText: string, statusEmoji: s
         status_expiration: expiration
       })
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Don't crash on permission errors - bot token may not have permission to set user status
+    // This requires a user token (xoxp-) not a bot token (xoxb-)
+    if (error?.data?.error === 'not_allowed_token_type') {
+      console.warn(`⚠️  Cannot set Slack status - bot token doesn't have permission (requires user token)`);
+      return;
+    }
     console.error('Error setting Slack status:', error);
   }
 };
@@ -557,7 +564,13 @@ const clearSlackStatus = async (userId: string) => {
         status_expiration: 0
       })
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Don't crash on permission errors - bot token may not have permission to set user status
+    // This requires a user token (xoxp-) not a bot token (xoxb-)
+    if (error?.data?.error === 'not_allowed_token_type') {
+      console.warn(`⚠️  Cannot clear Slack status - bot token doesn't have permission (requires user token)`);
+      return;
+    }
     console.error('Error clearing Slack status:', error);
   }
 };
