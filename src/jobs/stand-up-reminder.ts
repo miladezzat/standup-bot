@@ -4,6 +4,7 @@ import { CHANNEL_ID, APP_TIMEZONE } from "../config";
 import StandupThread from '../models/standupThread';
 import { format } from "date-fns";
 import { logInfo, logError } from '../utils/logger';
+import { retryAsync } from '../utils/retry';
 
 let currentStandupThreadTs: string | null = null;
 const TIMEZONE = APP_TIMEZONE;
@@ -12,7 +13,8 @@ export const standupReminder = new CronJob(
     process.env.DAILY_REMINDER_CRON || '0 9 * * 0-4', // Default: 9:00 AM Sun-Thu
     async () => {
         try {
-            const result = await slackApp.client.chat.postMessage({
+            const result = await retryAsync(
+              () => slackApp.client.chat.postMessage({
                 channel: CHANNEL_ID,
                 text: `Good morning, team! :sunny:\n\nIt's time for our daily standup. Please submit your standup using the /standup command.`,
                 blocks: [
@@ -47,7 +49,9 @@ export const standupReminder = new CronJob(
                         ]
                     }
                 ]
-            });
+              }),
+              { maxAttempts: 3, delayMs: 60000 }
+            );
 
             currentStandupThreadTs = result.ts || null;
 

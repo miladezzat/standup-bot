@@ -3,6 +3,7 @@ import { slackApp } from '../singleton';
 import { getTeamMembersWhoHaventSubmitted } from '../service/team-members.service';
 import { APP_TIMEZONE } from '../config';
 import { logInfo, logError } from '../utils/logger';
+import { retryAsync } from '../utils/retry';
 
 // Reminder for non-submitters - runs at 10:05 AM Cairo time Sun-Thu (10 mins before standup)
 export const reminderNonSubmitters = new CronJob(
@@ -23,7 +24,8 @@ export const reminderNonSubmitters = new CronJob(
       // Send DM to each user who hasn't submitted
       for (const member of notSubmitted) {
         try {
-          await slackApp.client.chat.postMessage({
+          await retryAsync(
+            () => slackApp.client.chat.postMessage({
             channel: member.id,
             text: '👋 Friendly reminder: You haven\'t submitted your standup yet today!',
             blocks: [
@@ -56,7 +58,9 @@ export const reminderNonSubmitters = new CronJob(
                 ]
               }
             ]
-          });
+            }),
+            { maxAttempts: 3, delayMs: 60000 }
+          );
           
           logInfo(`✅ Sent reminder to ${member.realName} (${member.id})`);
         } catch (error) {

@@ -11,20 +11,20 @@
         "test": "npm run lint"
     },
     "dependencies": {
-        "@clerk/express": "^1.7.46",
-        "@linear/sdk": "^64.0.0",
-        "@slack/bolt": "^3.22.0",
+        "@clerk/express": "^1.7.68",
+        "@linear/sdk": "^73.0.0",
+        "@slack/bolt": "^4.6.0",
         "cookie-parser": "^1.4.7",
-        "cron": "^4.3.0",
+        "cron": "^4.4.0",
         "date-fns": "^4.1.0",
         "date-fns-tz": "^3.2.0",
-        "dotenv": "^16.5.0",
-        "express-handlebars": "^8.0.1",
+        "dotenv": "^17.2.3",
+        "express-handlebars": "^8.0.4",
         "express-rate-limit": "^8.2.1",
         "hbs": "^4.2.0",
         "helmet": "^8.1.0",
-        "mongoose": "^8.15.0",
-        "winston": "^3.18.3"
+        "mongoose": "^9.1.5",
+        "winston": "^3.19.0"
     },
     "keywords": [],
     "author": "",
@@ -32,10 +32,10 @@
     "description": "",
     "devDependencies": {
         "@types/cookie-parser": "^1.4.10",
-        "@types/mongoose": "^5.11.96",
-        "@types/node": "^22.15.20",
-        "nodemon": "^3.1.10",
+        "@types/mongoose": "^5.11.97",
+        "@types/node": "^25.2.0",
+        "nodemon": "^3.1.11",
         "ts-node": "^10.9.2",
-        "typescript": "^5.8.3"
+        "typescript": "^5.9.3"
     }
 }

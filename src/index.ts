@@ -339,7 +339,28 @@ if (ENABLE_TEST_ROUTES) {
 const PORT = Number(process.env.PORT) || 3001;
 
 // ============================================
-// 🚀 START APPLICATION
+// �️ GLOBAL ERROR HANDLERS
+// ============================================
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    logError('🚨 UNCAUGHT EXCEPTION - App will restart:', error);
+    console.error('Uncaught Exception:', error);
+    // Give time for logs to flush before exit
+    setTimeout(() => {
+        process.exit(1);
+    }, 1000);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    logError('🚨 UNHANDLED PROMISE REJECTION:', { reason, promise });
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't exit - let the app continue, but log it for monitoring
+});
+
+// ============================================
+// �🚀 START APPLICATION
 // ============================================
 
 (async () => {
