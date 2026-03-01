@@ -3,6 +3,7 @@ import { slackApp } from '../singleton';
 import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -33,7 +34,8 @@ export const generateMonthlyReport = async () => {
 
     // Fetch all standups from last month
     const standups = await StandupEntry.find({
-      date: { $gte: startDate, $lte: endDate }
+      date: { $gte: startDate, $lte: endDate },
+      ...getReportUserExclusionFilter()
     }).sort({ date: 1 });
 
     if (standups.length === 0) {

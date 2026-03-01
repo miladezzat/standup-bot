@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import { hasClerk } from '../index';
 import { APP_TIMEZONE } from '../config';
 import { createBaseViewData } from '../config/view-engine';
+import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -28,7 +29,8 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
     const workspaceId = process.env.SLACK_TEAM_ID || 'default';
     const teamMembers = await StandupEntry.distinct('slackUserId', {
       workspaceId,
-      date: { $gte: last30Days }
+            date: { $gte: last30Days },
+            ...getReportUserExclusionFilter()
     });
 
     // Get latest performance metrics for each team member
@@ -53,14 +55,15 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
     // Get active alerts
     const activeAlerts = await Alert.find({
       workspaceId,
-      status: 'active'
+            status: 'active',
+            ...getReportUserExclusionFilter('affectedUserId')
     }).sort({ priority: -1, createdAt: -1 }).limit(20).lean();
 
     // Identify at-risk members
     const atRiskMembers = validMetrics.filter(m => m?.riskLevel === 'high' || m?.riskLevel === 'medium');
 
     // Get today's submissions
-    const todaySubmissions = await StandupEntry.find({ date: todayStr });
+    const todaySubmissions = await StandupEntry.find({ date: todayStr, ...getReportUserExclusionFilter() });
     const submissionRate = teamMembers.length > 0 
       ? Math.round((todaySubmissions.length / teamMembers.length) * 100)
       : 0;
@@ -68,7 +71,8 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
     // Get all blockers from last 7 days
     const recentBlockers = await StandupEntry.find({
       date: { $gte: last7Days },
-      blockers: { $ne: '', $exists: true }
+            blockers: { $ne: '', $exists: true },
+            ...getReportUserExclusionFilter()
     }).sort({ date: -1 }).limit(10).lean();
 
     // Top performers (top 3)

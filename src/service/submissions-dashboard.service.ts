@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { hasClerk } from '../index';
 import { APP_TIMEZONE } from '../config';
 import { createBaseViewData } from '../config/view-engine';
+import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -56,7 +57,7 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
 
         let standupEntries;
         if (queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
-            standupEntries = await StandupEntry.find({ date: queryDate }).sort({ createdAt: -1 });
+            standupEntries = await StandupEntry.find({ date: queryDate, ...getReportUserExclusionFilter() }).sort({ createdAt: -1 });
         } else {
             // Get last 30 days of standups
             isAllTime = true;
@@ -65,7 +66,8 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                 'yyyy-MM-dd'
             );
             standupEntries = await StandupEntry.find({ 
-                date: { $gte: thirtyDaysAgo } 
+                date: { $gte: thirtyDaysAgo },
+                ...getReportUserExclusionFilter()
             }).sort({ date: -1, createdAt: -1 });
         }
 

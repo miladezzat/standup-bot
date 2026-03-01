@@ -29,3 +29,13 @@ export const BREAK_WARNING_THRESHOLD_MINUTES = parseInt(process.env.BREAK_WARNIN
 
 // Linear configuration
 export const LINEAR_API_KEY = process.env.LINEAR_API_KEY || '';
+
+const defaultExcludedReportUserIds = ['U015YV3MET0'];
+const configuredExcludedReportUserIds = (process.env.REPORT_EXCLUDED_SLACK_USER_IDS || '')
+	.split(',')
+	.map((id) => id.trim())
+	.filter(Boolean);
+
+export const REPORT_EXCLUDED_SLACK_USER_IDS = Array.from(
+	new Set([...defaultExcludedReportUserIds, ...configuredExcludedReportUserIds])
+);

@@ -7,6 +7,7 @@ import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
 import { APP_TIMEZONE } from '../config';
+import { appendReportUserExclusion } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -86,6 +87,8 @@ export const exportStandupsCSV = async (req: Request, res: Response) => {
       query.slackUserId = userId;
     }
 
+    appendReportUserExclusion(query);
+
     const standups = await StandupEntry.find(query)
       .sort({ date: -1, slackUserName: 1 })
       .lean();
@@ -148,6 +151,8 @@ export const exportPerformanceMetricsCSV = async (req: Request, res: Response) =
     if (userId) {
       query.slackUserId = userId;
     }
+
+    appendReportUserExclusion(query);
 
     const metrics = await PerformanceMetrics.find(query)
       .sort({ startDate: -1, slackUserName: 1 })
@@ -228,6 +233,8 @@ export const exportAlertsCSV = async (req: Request, res: Response) => {
       query.status = status;
     }
 
+    appendReportUserExclusion(query, 'affectedUserId');
+
     const alerts = await Alert.find(query)
       .sort({ createdAt: -1 })
       .lean();
@@ -296,6 +303,8 @@ export const exportAchievementsCSV = async (req: Request, res: Response) => {
     if (userId) {
       query.slackUserId = userId;
     }
+
+    appendReportUserExclusion(query);
 
     const achievements = await Achievement.find(query)
       .sort({ earnedAt: -1 })

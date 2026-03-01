@@ -5,6 +5,7 @@ import { formatCairoDate, formatStandupHTML, generateDateAnalytics, getUserName 
 import { slackWebClient } from '../singleton';
 import { CHANNEL_ID } from '../config';
 import { Request, Response } from 'express';
+import { isIncludedInReports } from '../utils/report-exclusions';
 
 
 export interface SlackMessage {
@@ -617,7 +618,7 @@ export const getStandupHistory =  async (req: Request, res: Response) => {
             }
 
             const grouped: Record<string, { text: string; ts: string }[]> = replies
-                .filter(m => m.user !== 'U08T0FLAJ11')
+              .filter(m => m.user !== 'U08T0FLAJ11' && isIncludedInReports(m.user))
                 .reduce((acc, m) => {
                     if (!m.user || !m.text || !m.ts) return acc;
                     acc[m.user] = acc[m.user] || [];

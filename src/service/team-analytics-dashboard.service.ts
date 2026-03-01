@@ -7,6 +7,7 @@ import { logger } from '../utils/logger';
 import { hasClerk } from '../index';
 import { APP_TIMEZONE } from '../config';
 import { createBaseViewData } from '../config/view-engine';
+import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -56,14 +57,16 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
     // Get all standups from last 30 days
     const standups = await StandupEntry.find({
       workspaceId,
-      date: { $gte: last30Days }
+            date: { $gte: last30Days },
+            ...getReportUserExclusionFilter()
     }).sort({ date: -1 }).lean();
 
     // Get performance metrics
     const metrics = await PerformanceMetrics.find({
       workspaceId,
       period: 'week',
-      startDate: { $gte: last60Days }
+            startDate: { $gte: last60Days },
+            ...getReportUserExclusionFilter()
     }).sort({ startDate: -1 }).lean();
 
     // Calculate velocity data (submissions per day)
@@ -92,7 +95,8 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
     // Blocker heatmap data (per user)
     const users = await StandupEntry.distinct('slackUserId', {
       workspaceId,
-      date: { $gte: last30Days }
+            date: { $gte: last30Days },
+            ...getReportUserExclusionFilter()
     });
 
     const blockerHeatmap: BlockerHeatmapItem[] = await Promise.all(

@@ -6,6 +6,7 @@ import { APP_TIMEZONE } from '../config';
 import { logInfo, logError } from '../utils/logger';
 import { hasClerk } from '../index';
 import { createBaseViewData } from '../config/view-engine';
+import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -194,13 +195,14 @@ export async function getBreaksDashboard(req: Request, res: Response) {
     const viewDate = dateParam || format(now, 'yyyy-MM-dd');
     
     // Get breaks for the selected date
-    const breaks = await Break.find({ date: viewDate }).sort({ createdAt: -1 });
+    const breaks = await Break.find({ date: viewDate, ...getReportUserExclusionFilter() }).sort({ createdAt: -1 });
     
     // Get weekly summary
     const weekStart = format(startOfWeek(new Date(viewDate), { weekStartsOn: 0 }), 'yyyy-MM-dd');
     const weekEnd = format(endOfWeek(new Date(viewDate), { weekStartsOn: 0 }), 'yyyy-MM-dd');
     const weeklyBreaks = await Break.find({
-      date: { $gte: weekStart, $lte: weekEnd }
+      date: { $gte: weekStart, $lte: weekEnd },
+      ...getReportUserExclusionFilter()
     });
     
     // Calculate stats - use actual minutes accounting for overlaps

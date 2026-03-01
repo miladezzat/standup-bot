@@ -7,6 +7,7 @@ import { APP_TIMEZONE } from '../config';
 import { logger } from '../utils/logger';
 import { createBaseViewData } from '../config/view-engine';
 import { hasClerk } from '../index';
+import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -121,7 +122,10 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
     }
     
     // Fetch all standup entries for this day
-    const entries = await StandupEntry.find({ date: queryDate }).sort({ createdAt: -1 });
+    const entries = await StandupEntry.find({
+      date: queryDate,
+      ...getReportUserExclusionFilter()
+    }).sort({ createdAt: -1 });
     
     // Group entries by user (keep only the latest per user)
     const userEntriesMap = new Map<string, typeof entries[0]>();
@@ -183,7 +187,7 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
     const weeklyEntries = await StandupEntry.find({
       date: { $in: weekDates },
       slackUserId: { $in: userIds }
-    });
+    }).find(getReportUserExclusionFilter());
     
     // Group weekly entries by user and date
     const weeklyEntriesMap = new Map<string, Map<string, typeof weeklyEntries[0]>>();

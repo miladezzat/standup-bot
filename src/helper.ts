@@ -6,6 +6,7 @@ import { slackWebClient } from './singleton';
 import { CHANNEL_ID, APP_TIMEZONE } from './config';
 import { SlackMessage } from './service/standup-history.service';
 import StandupEntry from './models/standupEntry';
+import { getReportUserExclusionFilter, isIncludedInReports } from './utils/report-exclusions';
 
 const timeZone = APP_TIMEZONE;
 
@@ -211,7 +212,7 @@ export async function generateDateAnalytics(thread: any) {
         const messageLengths: number[] = [];
 
         for (const reply of replies) {
-            if (!reply.text || reply.user === 'U08T0FLAJ11') continue;
+            if (!reply.text || reply.user === 'U08T0FLAJ11' || !isIncludedInReports(reply.user)) continue;
 
             // Calculate response time in hours
             const replyTime = parseFloat(reply.ts);
@@ -372,7 +373,7 @@ export async function generateDateAnalytics(thread: any) {
             }
         }
 
-        const standupsForDate = await StandupEntry.find({ date: thread.date }).lean();
+        const standupsForDate = await StandupEntry.find({ date: thread.date, ...getReportUserExclusionFilter() }).lean();
         const standupByUser = new Map<string, (typeof standupsForDate)[number]>();
         standupsForDate.forEach(entry => {
             standupByUser.set(entry.slackUserId, entry);

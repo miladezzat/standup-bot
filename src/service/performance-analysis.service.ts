@@ -4,6 +4,7 @@ import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } fro
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
 import { APP_TIMEZONE } from '../config';
+import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -290,7 +291,10 @@ export async function calculateTeamMetrics(
   logger.info(`Calculating team metrics for period: ${period}`);
 
   // Get all unique users
-  const users = await StandupEntry.distinct('slackUserId', { workspaceId });
+  const users = await StandupEntry.distinct('slackUserId', {
+    workspaceId,
+    ...getReportUserExclusionFilter()
+  });
 
   // Calculate metrics for each user
   const allMetrics = [];
