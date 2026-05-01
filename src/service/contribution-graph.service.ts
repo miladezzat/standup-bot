@@ -222,7 +222,6 @@ function formatTooltip(day: ContributionDay): string {
  */
 export function getContributionGraphCSS(): string {
   return `
-<style>
 .contribution-section {
     background: white;
     padding: 2.5rem;
@@ -463,7 +462,6 @@ export function getContributionGraphCSS(): string {
         height: 10px;
     }
 }
-</style>
 `;
 }
 

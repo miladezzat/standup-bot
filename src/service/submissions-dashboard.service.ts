@@ -238,6 +238,27 @@ const submissionsStyles = `
     background: var(--primary-dark);
 }
 
+.btn-export {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    background: white;
+    color: var(--primary);
+    border: 1px solid rgba(102, 126, 234, 0.22);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: all 0.2s;
+}
+
+.btn-export:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(102,126,234,0.16);
+}
+
 /* DATE HEADER */
 .date-header {
     display: flex;
@@ -505,32 +526,6 @@ const submissionsStyles = `
     background: var(--primary-dark);
 }
 
-/* QUICK LINKS */
-.quick-links {
-    display: flex;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-top: 2rem;
-    flex-wrap: wrap;
-}
-
-.quick-links a {
-    padding: 0.5rem 1rem;
-    background: white;
-    color: var(--gray-600);
-    text-decoration: none;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    transition: all 0.2s;
-}
-
-.quick-links a:hover {
-    background: var(--primary);
-    color: white;
-    transform: translateY(-2px);
-}
 
 /* RESPONSIVE */
 @media (max-width: 768px) {

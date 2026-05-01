@@ -482,6 +482,131 @@ const pageStyles = `
     border-radius: var(--radius-lg);
     color: #92400e;
   }
+
+  .notes-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .member-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .badge-success { background: rgba(16, 185, 129, 0.16); color: #047857; }
+  .badge-info { background: rgba(59, 130, 246, 0.16); color: #1d4ed8; }
+  .badge-primary { background: rgba(102, 126, 234, 0.16); color: #4f46e5; }
+
+  .count-badge {
+    margin-left: auto;
+    background: var(--gray-100);
+    color: var(--gray-600);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .issue-state-badge {
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: white;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+  }
+
+  .issue-card.new-issue {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+  }
+
+  .new-badge {
+    background: #fef3c7;
+    color: #b45309;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    margin-left: 0.5rem;
+  }
+
+  .comments-header {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--gray-700);
+    margin-bottom: 0.35rem;
+  }
+
+  .comment-time {
+    color: var(--gray-400);
+    margin-left: 0.5rem;
+  }
+
+  .comment-body {
+    margin: 0.2rem 0 0;
+    line-height: 1.5;
+  }
+
+  .empty-state.mini {
+    padding: 2rem 1rem;
+    background: var(--gray-50);
+    box-shadow: none;
+  }
+
+  .empty-state.mini .empty-icon {
+    font-size: 2rem;
+  }
+
+  .empty-state-card {
+    text-align: center;
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.45);
+    border-top-color: white;
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 768px) {
+    .notes-header-content,
+    .member-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .member-badges {
+      margin-left: 0;
+    }
+
+    .issue-card {
+      flex-direction: column;
+    }
+  }
 `;
 
 /**
@@ -494,7 +619,8 @@ export async function serveLinearNotes(req: Request, res: Response) {
         ...createBaseViewData('Linear Notes', 'linear-notes', !!hasClerk),
         linearEnabled: false,
         teamNotes: [],
-        stats: []
+        stats: [],
+        pageStyles
       });
     }
     
@@ -535,7 +661,8 @@ export async function serveLinearNotes(req: Request, res: Response) {
         { icon: '📅', value: totals.todayIssues, label: 'Today\'s Updates' },
         { icon: '📆', value: totals.yesterdayIssues, label: 'Yesterday\'s Updates' },
         { icon: '✅', value: totals.completedToday, label: 'Completed Today' }
-      ]
+      ],
+      pageStyles
     });
     
     logInfo('Linear notes dashboard viewed');

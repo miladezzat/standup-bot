@@ -3,6 +3,8 @@ import { engine } from 'express-handlebars';
 import { format } from 'date-fns';
 import path from 'path';
 
+const appPackage = require('../../package.json') as { version?: string };
+
 /**
  * Configure Handlebars view engine for Express
  */
@@ -174,6 +176,7 @@ export interface BaseViewData {
   title: string;
   currentPage: string;
   hasClerk: boolean;
+  appVersion: string;
   autoRefresh?: boolean;
   autoRefreshMs?: number;
   pageStyles?: string;
@@ -193,6 +196,7 @@ export function createBaseViewData(
     title,
     currentPage,
     hasClerk,
+    appVersion: appPackage.version || '1.0.0',
     autoRefresh: false,
     autoRefreshMs: 120000, // 2 minutes default
     ...options

@@ -24,6 +24,7 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
     const todayStr = format(now, 'yyyy-MM-dd');
     const last30Days = format(subDays(now, 30), 'yyyy-MM-dd');
     const last7Days = format(subDays(now, 7), 'yyyy-MM-dd');
+    const last7TrendStart = format(subDays(now, 6), 'yyyy-MM-dd');
 
     // Get all unique team members from last 30 days
     const workspaceId = process.env.SLACK_TEAM_ID || 'default';
@@ -68,6 +69,33 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
       ? Math.round((todaySubmissions.length / teamMembers.length) * 100)
       : 0;
 
+    // Submission trend for the last 7 days
+    const trendEntries = await StandupEntry.find({
+      workspaceId,
+      date: { $gte: last7TrendStart },
+      ...getReportUserExclusionFilter()
+    }).lean();
+
+    const trendDates = Array.from({ length: 7 }, (_, index) => {
+      const day = subDays(now, 6 - index);
+      return format(day, 'yyyy-MM-dd');
+    });
+
+    const submissionTrend = trendDates.map(date => ({
+      date,
+      label: format(new Date(`${date}T00:00:00`), 'EEE'),
+      count: trendEntries.filter(entry => entry.date === date).length
+    }));
+
+    const maxTrendCount = Math.max(...submissionTrend.map(day => day.count), 1);
+    const submissionTrendPoints = submissionTrend
+      .map((day, index) => {
+        const x = submissionTrend.length === 1 ? 0 : (index / (submissionTrend.length - 1)) * 100;
+        const y = 36 - (day.count / maxTrendCount) * 32;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(' ');
+
     // Get all blockers from last 7 days
     const recentBlockers = await StandupEntry.find({
       date: { $gte: last7Days },
@@ -92,6 +120,8 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
       activeAlerts,
       recentBlockers,
       topPerformers,
+      submissionTrend,
+      submissionTrendPoints,
       pageStyles: managerStyles
     });
   } catch (error) {
@@ -123,30 +153,24 @@ const managerStyles = `
     transform: translateX(-4px);
 }
 
-.page-header {
-    text-align: center;
-    margin-bottom: 2rem;
-    color: white;
-}
-
-.page-header h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
-    margin-bottom: 0.5rem;
-}
-
-.page-header p {
-    font-size: 1.125rem;
-    opacity: 0.9;
+.dashboard-actions-bar {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: -0.75rem 0 1.5rem;
+    flex-wrap: wrap;
 }
 
 /* Health Score Card */
 .health-score-card {
     background: white;
     border-radius: 16px;
-    padding: 3rem;
+    padding: 2rem;
     margin-bottom: 2rem;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
@@ -162,39 +186,49 @@ const managerStyles = `
     background: linear-gradient(90deg, #667eea, #764ba2);
 }
 
+.health-gauge {
+    --gauge-color: #667eea;
+    width: 172px;
+    height: 172px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background:
+        conic-gradient(var(--gauge-color) var(--score), #e2e8f0 0),
+        #f8fafc;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
+    flex: 0 0 auto;
+}
+
+.health-gauge.health-excellent { --gauge-color: #10b981; }
+.health-gauge.health-good { --gauge-color: #3b82f6; }
+.health-gauge.health-fair { --gauge-color: #f59e0b; }
+.health-gauge.health-low { --gauge-color: #ef4444; }
+
+.health-gauge-inner {
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
 .health-score {
-    font-size: 5rem;
+    font-size: 3.5rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
     line-height: 1;
-    margin-bottom: 0.5rem;
+    color: var(--gray-800);
 }
 
-.health-score.health-excellent {
-    background: linear-gradient(135deg, #10b981, #34d399);
-    -webkit-background-clip: text;
-    background-clip: text;
-}
-
-.health-score.health-good {
-    background: linear-gradient(135deg, #3b82f6, #60a5fa);
-    -webkit-background-clip: text;
-    background-clip: text;
-}
-
-.health-score.health-fair {
-    background: linear-gradient(135deg, #f59e0b, #fbbf24);
-    -webkit-background-clip: text;
-    background-clip: text;
-}
-
-.health-score.health-low {
-    background: linear-gradient(135deg, #ef4444, #f87171);
-    -webkit-background-clip: text;
-    background-clip: text;
+.health-score-unit {
+    color: var(--gray-500);
+    font-size: 0.75rem;
+    font-weight: 800;
+    margin-top: 0.2rem;
 }
 
 .health-label {
@@ -223,6 +257,13 @@ const managerStyles = `
     padding: 1.5rem;
     text-align: center;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
 }
 
 .metric-icon {
@@ -239,6 +280,14 @@ const managerStyles = `
 .metric-label {
     font-size: 0.875rem;
     color: var(--gray-600);
+}
+
+.metric-sparkline {
+    width: 100%;
+    height: 42px;
+    margin-top: 0.75rem;
+    color: var(--primary);
+    overflow: visible;
 }
 
 /* Section Styles */
@@ -486,8 +535,28 @@ const managerStyles = `
 
 /* Responsive */
 @media (max-width: 768px) {
+    .dashboard-actions-bar {
+        flex-direction: column;
+    }
+
+    .health-score-card {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+
+    .health-gauge {
+        width: 148px;
+        height: 148px;
+    }
+
+    .health-gauge-inner {
+        width: 108px;
+        height: 108px;
+    }
+
     .health-score {
-        font-size: 4rem;
+        font-size: 3rem;
     }
     
     .metrics-grid {

@@ -188,9 +188,43 @@ function getChartScripts(
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Velocity Chart
-    const velocityCtx = document.getElementById('velocityChart').getContext('2d');
-    new Chart(velocityCtx, {
+    if (!window.Chart) return;
+
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    Chart.defaults.color = '#475569';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#1e293b';
+    Chart.defaults.plugins.tooltip.titleColor = '#ffffff';
+    Chart.defaults.plugins.tooltip.bodyColor = '#e2e8f0';
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 10;
+    Chart.defaults.plugins.tooltip.displayColors = false;
+
+    const chartPalette = ['#667eea', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
+    const softGrid = 'rgba(148, 163, 184, 0.18)';
+
+    function areaGradient(context, color) {
+        const chart = context.chart;
+        const chartArea = chart.chartArea;
+        if (!chartArea) return color + '24';
+        const gradient = chart.ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+        gradient.addColorStop(0, color + '05');
+        gradient.addColorStop(1, color + '3d');
+        return gradient;
+    }
+
+    function horizontalGradient(context, color) {
+        const chart = context.chart;
+        const chartArea = chart.chartArea;
+        if (!chartArea) return color + 'cc';
+        const gradient = chart.ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+        gradient.addColorStop(0, color + 'a6');
+        gradient.addColorStop(1, color);
+        return gradient;
+    }
+
+    const velocityEl = document.getElementById('velocityChart');
+    if (velocityEl) {
+    new Chart(velocityEl.getContext('2d'), {
         type: 'line',
         data: {
             labels: ${JSON.stringify(velocityData.map(d => d.date))},
@@ -199,104 +233,137 @@ document.addEventListener('DOMContentLoaded', function() {
                     label: 'Submissions',
                     data: ${JSON.stringify(velocityData.map(d => d.submissions))},
                     borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    backgroundColor: (ctx) => areaGradient(ctx, '#667eea'),
                     borderWidth: 3,
                     fill: true,
-                    tension: 0.4
+                    tension: 0.42,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderWidth: 2
                 },
                 {
                     label: 'Tasks Completed',
                     data: ${JSON.stringify(velocityData.map(d => d.tasks))},
                     borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    backgroundColor: (ctx) => areaGradient(ctx, '#10b981'),
                     borderWidth: 3,
                     fill: true,
-                    tension: 0.4
+                    tension: 0.42,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderWidth: 2
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            animation: { duration: 1200, easing: 'easeInOutQuart' },
             plugins: {
                 legend: {
                     position: 'top',
                     labels: {
-                        font: { size: 14, weight: '600' },
-                        padding: 15
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        font: { size: 13, weight: '700' },
+                        padding: 18
                     }
                 }
             },
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: '#f1f5f9' }
+                    grid: { color: softGrid },
+                    border: { display: false },
+                    ticks: { precision: 0 }
                 },
                 x: {
-                    grid: { display: false }
+                    grid: { display: false },
+                    border: { display: false }
                 }
             }
         }
     });
-    
-    // Engagement Chart
-    const engagementCtx = document.getElementById('engagementChart').getContext('2d');
-    new Chart(engagementCtx, {
+    }
+
+    const engagementEl = document.getElementById('engagementChart');
+    if (engagementEl) {
+    new Chart(engagementEl.getContext('2d'), {
         type: 'bar',
         data: {
             labels: ${JSON.stringify(engagementData.map(d => d.userName))},
             datasets: [{
                 label: 'Engagement Score',
                 data: ${JSON.stringify(engagementData.map(d => d.score))},
-                backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                borderColor: '#667eea',
-                borderWidth: 2,
-                borderRadius: 8
+                backgroundColor: (ctx) => horizontalGradient(ctx, chartPalette[ctx.dataIndex % chartPalette.length]),
+                borderColor: 'rgba(255, 255, 255, 0.9)',
+                borderWidth: 1,
+                borderRadius: 10,
+                borderSkipped: false
             }]
         },
         options: {
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 1000, easing: 'easeInOutQuart' },
             plugins: { legend: { display: false } },
             scales: {
-                y: {
+                x: {
                     beginAtZero: true,
                     max: 100,
-                    grid: { color: '#f1f5f9' }
+                    grid: { color: softGrid },
+                    border: { display: false },
+                    ticks: { callback: (value) => value + '%' }
                 },
-                x: { grid: { display: false } }
+                y: {
+                    grid: { display: false },
+                    border: { display: false }
+                }
             }
         }
     });
-    
-    // Workload Chart
-    const workloadCtx = document.getElementById('workloadChart').getContext('2d');
-    new Chart(workloadCtx, {
+    }
+
+    const workloadEl = document.getElementById('workloadChart');
+    if (workloadEl) {
+    new Chart(workloadEl.getContext('2d'), {
         type: 'bar',
         data: {
             labels: ${JSON.stringify(workloadData.map(d => d.userName))},
             datasets: [{
                 label: 'Total Hours',
                 data: ${JSON.stringify(workloadData.map(d => d.totalHours))},
-                backgroundColor: 'rgba(118, 75, 162, 0.8)',
-                borderColor: '#764ba2',
-                borderWidth: 2,
-                borderRadius: 8
+                backgroundColor: (ctx) => horizontalGradient(ctx, chartPalette[(ctx.dataIndex + 2) % chartPalette.length]),
+                borderColor: 'rgba(255, 255, 255, 0.9)',
+                borderWidth: 1,
+                borderRadius: 10,
+                borderSkipped: false
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 1000, easing: 'easeInOutQuart' },
             plugins: { legend: { display: false } },
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: '#f1f5f9' }
+                    grid: { color: softGrid },
+                    border: { display: false },
+                    ticks: { precision: 0 }
                 },
-                x: { grid: { display: false } }
+                x: {
+                    grid: { display: false },
+                    border: { display: false }
+                }
             }
         }
     });
+    }
 });
 </script>`;
 }
@@ -324,21 +391,12 @@ const analyticsStyles = `
     transform: translateX(-4px);
 }
 
-.page-header {
-    text-align: center;
-    margin-bottom: 2rem;
-    color: white;
-}
-
-.page-header h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
-    margin-bottom: 0.5rem;
-}
-
-.page-header p {
-    font-size: 1.125rem;
-    opacity: 0.9;
+.dashboard-actions-bar {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: -0.75rem 0 1.5rem;
+    flex-wrap: wrap;
 }
 
 /* Summary Stats */
@@ -386,6 +444,13 @@ const analyticsStyles = `
     border-radius: 16px;
     padding: 1.5rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
 }
 
 .chart-card.full-width {
@@ -423,6 +488,10 @@ const analyticsStyles = `
 }
 
 .section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
     margin-bottom: 1.5rem;
 }
 
@@ -547,6 +616,9 @@ const analyticsStyles = `
 }
 
 .data-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     font-weight: 600;
     color: var(--gray-700);
     font-size: 0.875rem;
@@ -603,6 +675,19 @@ const analyticsStyles = `
 
 /* Responsive */
 @media (max-width: 768px) {
+    .dashboard-actions-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .dashboard-actions-bar .btn {
+        width: 100%;
+    }
+
+    .section-header {
+        flex-direction: column;
+    }
+
     .charts-grid {
         grid-template-columns: 1fr;
     }

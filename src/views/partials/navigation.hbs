@@ -1,23 +1,38 @@
-<nav class="nav-links">
-    <a href="/submissions" class="nav-link {{#if (eq currentPage 'submissions')}}active{{/if}}">
-        📝 Submissions
+<button class="topbar-menu-toggle" type="button" data-nav-toggle aria-label="Toggle navigation" aria-controls="primaryNavigation" aria-expanded="false">
+    <span class="topbar-menu-icon" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+    </span>
+</button>
+
+<nav class="topbar-nav" id="primaryNavigation" aria-label="Primary navigation">
+    <a href="/submissions" class="topbar-nav-link {{#if (eq currentPage 'submissions')}}is-active{{/if}}" {{#if (eq currentPage 'submissions')}}aria-current="page"{{/if}}>
+        <span class="topbar-nav-icon" aria-hidden="true">📝</span>
+        <span>Submissions</span>
     </a>
-    <a href="/breaks" class="nav-link {{#if (eq currentPage 'breaks')}}active{{/if}}">
-        ☕ Breaks
+    <a href="/breaks" class="topbar-nav-link {{#if (eq currentPage 'breaks')}}is-active{{/if}}" {{#if (eq currentPage 'breaks')}}aria-current="page"{{/if}}>
+        <span class="topbar-nav-icon" aria-hidden="true">☕</span>
+        <span>Breaks</span>
     </a>
-    <a href="/workflow" class="nav-link {{#if (eq currentPage 'workflow')}}active{{/if}}">
-        🔄 Workflow
+    <a href="/workflow" class="topbar-nav-link {{#if (eq currentPage 'workflow')}}is-active{{/if}}" {{#if (eq currentPage 'workflow')}}aria-current="page"{{/if}}>
+        <span class="topbar-nav-icon" aria-hidden="true">🔄</span>
+        <span>Workflow</span>
     </a>
-    <a href="/linear-notes" class="nav-link {{#if (eq currentPage 'linear-notes')}}active{{/if}}">
-        📋 Linear Notes
+    <a href="/linear-notes" class="topbar-nav-link {{#if (eq currentPage 'linear-notes')}}is-active{{/if}}" {{#if (eq currentPage 'linear-notes')}}aria-current="page"{{/if}}>
+        <span class="topbar-nav-icon" aria-hidden="true">📋</span>
+        <span>Linear Notes</span>
     </a>
-    <a href="/analytics" class="nav-link {{#if (eq currentPage 'analytics')}}active{{/if}}">
-        📊 Analytics
+    <a href="/analytics" class="topbar-nav-link {{#if (eq currentPage 'analytics')}}is-active{{/if}}" {{#if (eq currentPage 'analytics')}}aria-current="page"{{/if}}>
+        <span class="topbar-nav-icon" aria-hidden="true">📊</span>
+        <span>Analytics</span>
     </a>
-    <a href="/manager" class="nav-link {{#if (eq currentPage 'manager')}}active{{/if}}">
-        👔 Manager
+    <a href="/manager" class="topbar-nav-link {{#if (eq currentPage 'manager')}}is-active{{/if}}" {{#if (eq currentPage 'manager')}}aria-current="page"{{/if}}>
+        <span class="topbar-nav-icon" aria-hidden="true">👔</span>
+        <span>Manager</span>
     </a>
-    <a href="/history" class="nav-link {{#if (eq currentPage 'history')}}active{{/if}}">
-        📜 History
+    <a href="/history" class="topbar-nav-link {{#if (eq currentPage 'history')}}is-active{{/if}}" {{#if (eq currentPage 'history')}}aria-current="page"{{/if}}>
+        <span class="topbar-nav-icon" aria-hidden="true">📜</span>
+        <span>History</span>
     </a>
 </nav>

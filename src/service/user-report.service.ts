@@ -100,6 +100,9 @@ export const getUserReport = async (req: Request, res: Response) => {
         let performanceScore = 0;
         let velocityTrend = 'stable';
         let riskLevel = 'low';
+        let consistencyScore = 0;
+        let engagementScore = 0;
+        let velocityScore = 0;
 
         try {
             const perfMetrics = await PerformanceMetrics.findOne({
@@ -111,6 +114,9 @@ export const getUserReport = async (req: Request, res: Response) => {
                 performanceScore = perfMetrics.overallScore || 0;
                 velocityTrend = perfMetrics.velocityTrend || 'stable';
                 riskLevel = perfMetrics.riskLevel || 'low';
+                consistencyScore = perfMetrics.consistencyScore || 0;
+                engagementScore = perfMetrics.engagementScore || 0;
+                velocityScore = Math.min(100, Math.round(((perfMetrics.totalTasksCompleted || 0) / 20) * 100));
             }
 
         } catch (error) {
@@ -165,6 +171,17 @@ export const getUserReport = async (req: Request, res: Response) => {
             hasBlocker: !!(s.blockers && s.blockers.trim() && !s.blockers.toLowerCase().includes('none'))
         }));
 
+        const blockerFreeRate = totalSubmissions > 0
+            ? Math.round(((totalSubmissions - blockerCount) / totalSubmissions) * 100)
+            : 100;
+        const radarMetrics = {
+            consistency: consistencyScore,
+            engagement: engagementScore,
+            velocity: velocityScore || Math.min(100, Math.round(avgTasksPerDay * 20)),
+            blockerFree: blockerFreeRate,
+            performance: performanceScore
+        };
+
         // Render template
         res.render('user-report', {
             ...createBaseViewData(`${userName}'s Report`, 'user-report', !!hasClerk),
@@ -185,13 +202,91 @@ export const getUserReport = async (req: Request, res: Response) => {
             dayOffEntries,
             oooFilters,
             standups: standupViews,
-            pageStyles: userReportStyles + getContributionGraphCSS()
+            pageStyles: userReportStyles + getContributionGraphCSS(),
+            pageScripts: getUserReportScripts(radarMetrics)
         });
     } catch (error) {
         logger.error('Error generating user report:', error);
         res.status(500).send('Error generating report');
     }
 };
+
+function getUserReportScripts(radarMetrics: {
+    consistency: number;
+    engagement: number;
+    velocity: number;
+    blockerFree: number;
+    performance: number;
+}): string {
+    return `
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (!window.Chart) return;
+    const radarEl = document.getElementById('performanceRadar');
+    if (!radarEl) return;
+
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    new Chart(radarEl.getContext('2d'), {
+        type: 'radar',
+        data: {
+            labels: ['Consistency', 'Engagement', 'Velocity', 'Blocker-Free', 'Overall'],
+            datasets: [{
+                label: 'Score',
+                data: ${JSON.stringify([
+                    radarMetrics.consistency,
+                    radarMetrics.engagement,
+                    radarMetrics.velocity,
+                    radarMetrics.blockerFree,
+                    radarMetrics.performance
+                ])},
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                pointBackgroundColor: '#667eea',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 1000, easing: 'easeInOutQuart' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    padding: 12,
+                    cornerRadius: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: (context) => context.parsed.r + '%'
+                    }
+                }
+            },
+            scales: {
+                r: {
+                    min: 0,
+                    max: 100,
+                    ticks: {
+                        stepSize: 25,
+                        backdropColor: 'transparent',
+                        color: '#64748b'
+                    },
+                    grid: { color: 'rgba(148, 163, 184, 0.25)' },
+                    angleLines: { color: 'rgba(148, 163, 184, 0.25)' },
+                    pointLabels: {
+                        color: '#334155',
+                        font: { size: 12, weight: '700' }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>`;
+}
 
 const notFoundStyles = `
 .error-box {
@@ -321,6 +416,12 @@ const userReportStyles = `
 .performance-badge .trend.down { color: #ef4444; }
 .performance-badge .trend.stable { color: var(--gray-600); }
 
+.user-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
 /* Stats Grid */
 .stats-grid {
     display: grid;
@@ -356,6 +457,41 @@ const userReportStyles = `
 .stat-label {
     font-size: 0.75rem;
     color: var(--gray-600);
+}
+
+.performance-radar-section {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+}
+
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.section-heading h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin: 0 0 0.25rem;
+}
+
+.section-heading p {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.radar-chart-container {
+    position: relative;
+    height: 320px;
 }
 
 /* Contribution Section */
@@ -675,6 +811,15 @@ const userReportStyles = `
     
     .user-profile {
         flex-direction: column;
+    }
+
+    .user-actions {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .user-actions .btn {
+        width: 100%;
     }
     
     .stats-grid {

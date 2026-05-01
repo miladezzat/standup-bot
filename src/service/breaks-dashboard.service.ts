@@ -67,6 +67,26 @@ const pageStyles = `
     padding: 1rem;
     border-radius: var(--radius);
     border: 1px solid var(--gray-200);
+    border-left: 4px solid var(--primary);
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .break-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  }
+  
+  .break-card::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 1.25rem;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid white;
   }
   
   .break-header {
@@ -120,6 +140,12 @@ const pageStyles = `
     background: var(--gray-50);
     border-radius: var(--radius);
     border: 1px solid var(--gray-200);
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+  
+  .user-summary:hover {
+    background: white;
+    transform: translateX(2px);
   }
   
   .user-summary .user-name {
@@ -241,10 +267,10 @@ export async function getBreaksDashboard(req: Request, res: Response) {
     
     // Stats for template
     const stats = [
-      { value: totalBreaksToday, label: 'Breaks Today' },
-      { value: totalMinutesToday, label: 'Minutes Today' },
-      { value: uniqueUsersToday, label: 'Team Members' },
-      { value: totalBreaksWeek, label: 'Breaks This Week' }
+      { icon: '☕', value: totalBreaksToday, label: 'Breaks Today' },
+      { icon: '⏱', value: totalMinutesToday, label: 'Minutes Today' },
+      { icon: '👥', value: uniqueUsersToday, label: 'Team Members' },
+      { icon: '📅', value: totalBreaksWeek, label: 'Breaks This Week' }
     ];
 
     // Render with Handlebars

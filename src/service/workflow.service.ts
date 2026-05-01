@@ -309,7 +309,107 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
     res.status(500).render('error', {
       ...createBaseViewData('Error', 'workflow', !!hasClerk),
       message: 'Failed to load workflow dashboard',
-      error: process.env.NODE_ENV === 'development' ? error : undefined
+      error: process.env.NODE_ENV === 'development' ? error : undefined,
+      pageStyles: errorPageStyles
     });
   }
 }
+
+const errorPageStyles = `
+.error-container {
+    max-width: 600px;
+    margin: 80px auto;
+    text-align: center;
+    background: white;
+    border-radius: 20px;
+    padding: 60px 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+}
+
+.error-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px) rotate(-5deg); }
+    40% { transform: translateX(10px) rotate(5deg); }
+    60% { transform: translateX(-10px) rotate(-5deg); }
+    80% { transform: translateX(10px) rotate(5deg); }
+}
+
+.error-container h1 {
+    font-size: 28px;
+    color: #1e293b;
+    margin-bottom: 15px;
+}
+
+.error-message {
+    font-size: 18px;
+    color: #64748b;
+    margin-bottom: 30px;
+}
+
+.error-details {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 30px;
+    text-align: left;
+    overflow-x: auto;
+}
+
+.error-details pre {
+    font-family: 'Menlo', 'Monaco', monospace;
+    font-size: 12px;
+    color: #dc2626;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.error-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.error-actions .btn-primary,
+.error-actions .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 30px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.error-actions .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+
+.error-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.error-actions .btn-secondary {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.error-actions .btn-secondary:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+}
+`;

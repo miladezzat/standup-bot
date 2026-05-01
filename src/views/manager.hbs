@@ -7,11 +7,23 @@
     <p>Team health overview and insights</p>
 </div>
 
+<div class="dashboard-actions-bar">
+    <a href="/export/metrics?period=week" class="btn btn-glass">Export Metrics CSV</a>
+    <a href="/export/alerts?status=active" class="btn btn-glass">Export Alerts CSV</a>
+</div>
+
 {{!-- Health Score Card --}}
 <div class="health-score-card">
-    <div class="health-score {{healthScoreClass teamHealthScore}}">{{teamHealthScore}}</div>
-    <div class="health-label">Team Health Score</div>
-    <div class="health-description">Based on consistency, velocity, and engagement metrics</div>
+    <div class="health-gauge {{healthScoreClass teamHealthScore}}" style="--score: {{teamHealthScore}}%">
+        <div class="health-gauge-inner">
+            <div class="health-score">{{teamHealthScore}}</div>
+            <div class="health-score-unit">/100</div>
+        </div>
+    </div>
+    <div class="health-copy">
+        <div class="health-label">Team Health Score</div>
+        <div class="health-description">Based on consistency, velocity, and engagement metrics</div>
+    </div>
 </div>
 
 {{!-- Key Metrics --}}
@@ -25,6 +37,9 @@
         <div class="metric-icon">📊</div>
         <div class="metric-value">{{submissionRate}}%</div>
         <div class="metric-label">Today's Submission Rate</div>
+        <svg class="metric-sparkline" viewBox="0 0 100 40" role="img" aria-label="Seven day submission trend">
+            <polyline points="{{submissionTrendPoints}}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
     </div>
     <div class="metric-card">
         <div class="metric-icon">⚠️</div>

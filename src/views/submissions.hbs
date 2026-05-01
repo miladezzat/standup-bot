@@ -28,6 +28,7 @@
     <div class="date-picker-group">
         <input type="date" id="datePicker" value="{{queryDate}}" />
         <button onclick="goToDate()" class="btn-go">Go</button>
+        <a href="/export/standups?period=month" class="btn-export">Export CSV</a>
     </div>
 </div>
 
@@ -124,13 +125,8 @@
     {{/each}}
 {{/if}}
 
-{{!-- Quick Links Footer --}}
-<div class="quick-links">
-    <a href="/workflow">🔄 Workflow</a>
-    <a href="/analytics">📊 Analytics</a>
-    <a href="/manager">👔 Manager</a>
-    <a href="/breaks">☕ Breaks</a>
-</div>
+
+
 
 <script>
 function goToDate() {

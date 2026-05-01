@@ -7,6 +7,11 @@
     <p>Performance trends, velocity, and team insights</p>
 </div>
 
+<div class="dashboard-actions-bar">
+    <a href="/export/metrics?period=week" class="btn btn-glass">Export Metrics CSV</a>
+    <a href="/export/standups?period=month" class="btn btn-glass">Export Standups CSV</a>
+</div>
+
 {{!-- Summary Stats --}}
 <div class="summary-stats">
     <div class="stat-card">
@@ -70,8 +75,11 @@
 {{!-- Blocker Heatmap --}}
 <div class="heatmap-section">
     <div class="section-header">
-        <h3>🚧 Blocker Analysis</h3>
-        <p>Team members with blockers in the last 30 days</p>
+        <div>
+            <h3>🚧 Blocker Analysis</h3>
+            <p>Team members with blockers in the last 30 days</p>
+        </div>
+        <a href="/export/standups?period=month" class="btn btn-secondary">Export Standups</a>
     </div>
     <div class="heatmap-grid">
         {{#each blockerHeatmap}}
@@ -92,8 +100,11 @@
 {{!-- Engagement Table --}}
 <div class="table-section">
     <div class="section-header">
-        <h3>🏆 Team Performance</h3>
-        <p>Detailed performance metrics by team member</p>
+        <div>
+            <h3>🏆 Team Performance</h3>
+            <p>Detailed performance metrics by team member</p>
+        </div>
+        <a href="/export/metrics?period=week" class="btn btn-primary">Export Metrics</a>
     </div>
     <div class="table-container">
         <table class="data-table">

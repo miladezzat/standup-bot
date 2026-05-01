@@ -40,7 +40,7 @@ expressApp.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", 'fonts.googleapis.com'],
             fontSrc: ["'self'", 'fonts.gstatic.com'],
             imgSrc: ["'self'", 'data:', 'https:'],
-            scriptSrc: ["'self'", "'unsafe-inline'"], // Needed for Clerk
+            scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'], // Needed for Clerk and Chart.js
             connectSrc: ["'self'", 'https://clerk.com', 'https://*.clerk.accounts.dev'],
         },
     },

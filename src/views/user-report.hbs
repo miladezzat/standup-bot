@@ -26,6 +26,10 @@
             {{velocityTrend}}
         </div>
     </div>
+
+    <div class="user-actions">
+        <a href="/export/user/{{userId}}" class="btn btn-primary">Export CSV</a>
+    </div>
 </div>
 
 {{!-- Stats Grid --}}
@@ -49,6 +53,19 @@
         <div class="stat-icon">🚧</div>
         <div class="stat-value">{{blockerCount}}</div>
         <div class="stat-label">Days with Blockers</div>
+    </div>
+</div>
+
+{{!-- Performance Radar --}}
+<div class="performance-radar-section">
+    <div class="section-heading">
+        <div>
+            <h3>🎯 Performance Radar</h3>
+            <p>Consistency, engagement, velocity, and blocker-free rate</p>
+        </div>
+    </div>
+    <div class="radar-chart-container">
+        <canvas id="performanceRadar"></canvas>
     </div>
 </div>
 
