@@ -407,6 +407,9 @@ const userReportStyles = `
 }
 
 .performance-badge .trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     font-size: 0.875rem;
     font-weight: 600;
     margin-top: 0.5rem;
@@ -667,6 +670,9 @@ const userReportStyles = `
 }
 
 .filter-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     font-weight: 600;
     color: var(--gray-700);
 }
@@ -769,6 +775,9 @@ const userReportStyles = `
 }
 
 .section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--gray-600);

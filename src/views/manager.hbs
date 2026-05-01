@@ -3,13 +3,13 @@
 
 {{!-- Page Header --}}
 <div class="page-header">
-    <h1>👔 Manager Dashboard</h1>
+    <h1>{{{icon "briefcase-business" class="page-header-icon"}}} Manager Dashboard</h1>
     <p>Team health overview and insights</p>
 </div>
 
 <div class="dashboard-actions-bar">
-    <a href="/export/metrics?period=week" class="btn btn-glass">Export Metrics CSV</a>
-    <a href="/export/alerts?status=active" class="btn btn-glass">Export Alerts CSV</a>
+    <a href="/export/metrics?period=week" class="btn btn-glass">{{{icon "download" class="icon-sm"}}} Export Metrics CSV</a>
+    <a href="/export/alerts?status=active" class="btn btn-glass">{{{icon "download" class="icon-sm"}}} Export Alerts CSV</a>
 </div>
 
 {{!-- Health Score Card --}}
@@ -29,12 +29,12 @@
 {{!-- Key Metrics --}}
 <div class="metrics-grid">
     <div class="metric-card">
-        <div class="metric-icon">👥</div>
+        {{{icon "users" class="metric-icon"}}}
         <div class="metric-value">{{teamSize}}</div>
         <div class="metric-label">Team Members</div>
     </div>
     <div class="metric-card">
-        <div class="metric-icon">📊</div>
+        {{{icon "chart-column" class="metric-icon"}}}
         <div class="metric-value">{{submissionRate}}%</div>
         <div class="metric-label">Today's Submission Rate</div>
         <svg class="metric-sparkline" viewBox="0 0 100 40" role="img" aria-label="Seven day submission trend">
@@ -42,12 +42,12 @@
         </svg>
     </div>
     <div class="metric-card">
-        <div class="metric-icon">⚠️</div>
+        {{{icon "triangle-alert" class="metric-icon"}}}
         <div class="metric-value">{{atRiskCount}}</div>
         <div class="metric-label">At Risk Members</div>
     </div>
     <div class="metric-card">
-        <div class="metric-icon">🚨</div>
+        {{{icon "siren" class="metric-icon"}}}
         <div class="metric-value">{{alertCount}}</div>
         <div class="metric-label">Active Alerts</div>
     </div>
@@ -57,7 +57,7 @@
 {{#if (gt atRiskMembers.length 0)}}
 <div class="section">
     <div class="section-header">
-        <div class="section-title">⚠️ At-Risk Team Members</div>
+        <div class="section-title">{{{icon "triangle-alert" class="icon-md"}}} At-Risk Team Members</div>
     </div>
     <div class="risk-grid">
         {{#each atRiskMembers}}
@@ -93,16 +93,16 @@
 {{#if (gt activeAlerts.length 0)}}
 <div class="section">
     <div class="section-header">
-        <div class="section-title">🚨 Active Alerts</div>
+        <div class="section-title">{{{icon "siren" class="icon-md"}}} Active Alerts</div>
     </div>
     {{#each activeAlerts}}
         <div class="alert-card {{this.severity}}">
             <div class="alert-title">{{this.title}}</div>
             <div class="alert-description">{{this.description}}</div>
             <div class="alert-meta">
-                <span>📌 {{this.type}}</span>
-                <span>👤 {{this.affectedUserName}}</span>
-                <span>📅 {{formatDate this.createdAt 'MMM d, yyyy'}}</span>
+                <span>{{{icon "tag" class="icon-sm"}}} {{this.type}}</span>
+                <span>{{{icon "user" class="icon-sm"}}} {{this.affectedUserName}}</span>
+                <span>{{{icon "calendar-days" class="icon-sm"}}} {{formatDate this.createdAt 'MMM d, yyyy'}}</span>
             </div>
         </div>
     {{/each}}
@@ -113,7 +113,7 @@
 {{#if (gt recentBlockers.length 0)}}
 <div class="section">
     <div class="section-header">
-        <div class="section-title">🚧 Recent Blockers (Last 7 Days)</div>
+        <div class="section-title">{{{icon "octagon-alert" class="icon-md"}}} Recent Blockers (Last 7 Days)</div>
     </div>
     {{#each recentBlockers}}
         <div class="blocker-item">
@@ -131,7 +131,7 @@
 {{#if (gt topPerformers.length 0)}}
 <div class="section">
     <div class="section-header">
-        <div class="section-title">🏆 Top Performers This Week</div>
+        <div class="section-title">{{{icon "trophy" class="icon-md"}}} Top Performers This Week</div>
     </div>
     {{#each topPerformers}}
         <div class="performer-card">

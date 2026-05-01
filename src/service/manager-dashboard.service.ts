@@ -110,7 +110,7 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
 
     // Render template
     res.render('manager', {
-      ...createBaseViewData('👔 Manager Dashboard', 'manager', !!hasClerk),
+      ...createBaseViewData('Manager Dashboard', 'manager', !!hasClerk),
       teamHealthScore,
       teamSize: teamMembers.length,
       submissionRate,
@@ -304,6 +304,9 @@ const managerStyles = `
 }
 
 .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--gray-800);
@@ -453,9 +456,16 @@ const managerStyles = `
 
 .alert-meta {
     display: flex;
+    flex-wrap: wrap;
     gap: 1rem;
     font-size: 0.75rem;
     color: var(--gray-500);
+}
+
+.alert-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
 }
 
 /* Blocker Item */

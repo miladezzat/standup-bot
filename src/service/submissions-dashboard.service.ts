@@ -114,7 +114,7 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
 
         // Render template
         res.render('submissions', {
-            ...createBaseViewData('📝 Standup Submissions', 'submissions', !!hasClerk),
+            ...createBaseViewData('Standup Submissions', 'submissions', !!hasClerk),
             queryDate: queryDate || todayStr,
             yesterdayDate: yesterdayStr,
             isToday,
@@ -242,6 +242,7 @@ const submissionsStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.4rem;
     padding: 0.5rem 1rem;
     background: white;
     color: var(--primary);
@@ -360,6 +361,9 @@ const submissionsStyles = `
 }
 
 .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
     padding: 0.3rem 0.65rem;
     border-radius: 6px;
     font-size: 0.7rem;
@@ -513,6 +517,9 @@ const submissionsStyles = `
 }
 
 .btn-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     padding: 0.65rem 1.5rem;
     background: var(--primary);
     color: white;

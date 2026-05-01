@@ -28,18 +28,18 @@
     <div class="date-picker-group">
         <input type="date" id="datePicker" value="{{queryDate}}" />
         <button onclick="goToDate()" class="btn-go">Go</button>
-        <a href="/export/standups?period=month" class="btn-export">Export CSV</a>
+        <a href="/export/standups?period=month" class="btn-export">{{{icon "download" class="icon-sm"}}} Export CSV</a>
     </div>
 </div>
 
 {{!-- Main Content --}}
 {{#if (eq entriesByDate.length 0)}}
     <div class="empty-state">
-        <div class="empty-icon">📭</div>
+        {{{icon "inbox" class="empty-icon"}}}
         <h3>No standups yet</h3>
         <p>{{#if isToday}}Waiting for team submissions...{{else}}No standups on this date{{/if}}</p>
         {{#if isToday}}
-        <button onclick="location.reload()" class="btn-refresh">🔄 Refresh</button>
+        <button onclick="location.reload()" class="btn-refresh">{{{icon "refresh-cw" class="icon-sm"}}} Refresh</button>
         {{/if}}
     </div>
 {{else}}
@@ -67,7 +67,7 @@
                     </div>
                     <div class="badges">
                         {{#if this.hasBlocker}}
-                        <span class="badge danger">⚠ Blocked</span>
+                        <span class="badge danger">{{{icon "triangle-alert" class="icon-sm"}}} Blocked</span>
                         {{/if}}
                     </div>
                 </div>
@@ -75,7 +75,7 @@
                 {{!-- Day Off --}}
                 {{#if this.isDayOff}}
                 <div class="dayoff-box">
-                    <span>🏖️</span>
+                    {{{icon "plane" class="icon-md"}}}
                     <div>
                         <strong>Out of Office</strong>
                         <p>{{or this.dayOffReason 'Day off'}}</p>
@@ -85,7 +85,7 @@
                 {{!-- Work Sections --}}
                 <div class="section completed">
                     <div class="section-head">
-                        <span class="icon">✓</span>
+                        {{{icon "circle-check" class="icon"}}}
                         <span class="title">COMPLETED</span>
                     </div>
                     <div class="section-body">{{this.yesterday}}</div>
@@ -93,7 +93,7 @@
 
                 <div class="section planned">
                     <div class="section-head">
-                        <span class="icon">→</span>
+                        {{{icon "circle-arrow-right" class="icon"}}}
                         <span class="title">TODAY'S PLAN</span>
                     </div>
                     <div class="section-body">{{this.today}}</div>
@@ -102,7 +102,7 @@
                 {{#if this.hasBlocker}}
                 <div class="section blocker">
                     <div class="section-head">
-                        <span class="icon">!</span>
+                        {{{icon "triangle-alert" class="icon"}}}
                         <span class="title">BLOCKER</span>
                     </div>
                     <div class="section-body">{{this.blockers}}</div>
@@ -112,7 +112,7 @@
                 {{#if this.notes}}
                 <div class="section notes">
                     <div class="section-head">
-                        <span class="icon">📝</span>
+                        {{{icon "notebook-pen" class="icon"}}}
                         <span class="title">NOTES</span>
                     </div>
                     <div class="section-body">{{this.notes}}</div>

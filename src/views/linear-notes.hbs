@@ -1,7 +1,7 @@
 {{!-- Linear Notes Dashboard --}}
 
 <div class="page-header animate-fade-in-up">
-    <h1>📋 Linear Notes</h1>
+    <h1>{{{icon "notebook-tabs" class="page-header-icon"}}} Linear Notes</h1>
     <p>Team activity based on Linear tickets for today and yesterday</p>
 </div>
 
@@ -12,10 +12,10 @@
 <div class="notes-header card animate-fade-in-up">
     <div class="notes-header-content">
         <div>
-            <strong>📅 Today:</strong> {{today}} &nbsp;|&nbsp; <strong>📆 Yesterday:</strong> {{yesterday}}
+            <strong>{{{icon "calendar-days" class="icon-sm"}}} Today:</strong> {{today}} &nbsp;|&nbsp; <strong>{{{icon "history" class="icon-sm"}}} Yesterday:</strong> {{yesterday}}
         </div>
         <button class="btn btn-primary refresh-btn" id="refreshBtn">
-            <span class="btn-text">🔄 Refresh</span>
+            <span class="btn-text">{{{icon "refresh-cw" class="icon-sm"}}} Refresh</span>
             <span class="btn-loading" style="display: none;">
                 <span class="spinner"></span> Loading...
             </span>
@@ -37,12 +37,12 @@
             </div>
             <div class="member-badges">
                 {{#if this.summary.completedToday}}
-                <span class="badge badge-success">✅ {{this.summary.completedToday}} completed</span>
+                <span class="badge badge-success">{{{icon "circle-check" class="icon-sm"}}} {{this.summary.completedToday}} completed</span>
                 {{/if}}
                 {{#if this.summary.inProgressToday}}
-                <span class="badge badge-info">🔄 {{this.summary.inProgressToday}} in progress</span>
+                <span class="badge badge-info">{{{icon "refresh-cw" class="icon-sm"}}} {{this.summary.inProgressToday}} in progress</span>
                 {{/if}}
-                <span class="badge badge-primary">📊 {{this.summary.todayCount}} today</span>
+                <span class="badge badge-primary">{{{icon "chart-column" class="icon-sm"}}} {{this.summary.todayCount}} today</span>
             </div>
         </div>
         
@@ -50,7 +50,7 @@
             {{!-- Today's Issues --}}
             <div class="day-section">
                 <div class="day-header">
-                    <span>📅</span>
+                    {{{icon "calendar-days" class="icon-md"}}}
                     <h4>Today</h4>
                     <span class="count-badge">{{this.summary.todayCount}} issues</span>
                 </div>
@@ -70,14 +70,14 @@
                                 {{#if this.isNew}}<span class="new-badge">NEW</span>{{/if}}
                             </p>
                             <div class="issue-meta">
-                                <span>🏷️ {{this.priority}}</span>
-                                <span>🕐 Updated {{this.updatedAt}}</span>
-                                {{#if this.isNew}}<span>✨ Created {{this.createdAt}}</span>{{/if}}
+                                <span>{{{icon "tag" class="icon-sm"}}} {{this.priority}}</span>
+                                <span>{{{icon "clock" class="icon-sm"}}} Updated {{this.updatedAt}}</span>
+                                {{#if this.isNew}}<span>{{{icon "sparkles" class="icon-sm"}}} Created {{this.createdAt}}</span>{{/if}}
                             </div>
                             
                             {{#if this.comments.length}}
                             <div class="issue-comments">
-                                <div class="comments-header">💬 Recent Comments:</div>
+                                <div class="comments-header">{{{icon "message-circle" class="icon-sm"}}} Recent Comments:</div>
                                 {{#each this.comments}}
                                 <div class="comment-item">
                                     <span class="comment-author">{{this.userName}}</span>
@@ -93,7 +93,7 @@
                 </div>
                 {{else}}
                 <div class="empty-state mini">
-                    <span class="empty-icon">📭</span>
+                    {{{icon "inbox" class="empty-icon"}}}
                     <p>No issues updated today</p>
                 </div>
                 {{/if}}
@@ -102,7 +102,7 @@
             {{!-- Yesterday's Issues --}}
             <div class="day-section">
                 <div class="day-header">
-                    <span>📆</span>
+                    {{{icon "history" class="icon-md"}}}
                     <h4>Yesterday</h4>
                     <span class="count-badge">{{this.summary.yesterdayCount}} issues</span>
                 </div>
@@ -121,13 +121,13 @@
                                 </a>
                             </p>
                             <div class="issue-meta">
-                                <span>🏷️ {{this.priority}}</span>
-                                <span>🕐 Updated {{this.updatedAt}}</span>
+                                <span>{{{icon "tag" class="icon-sm"}}} {{this.priority}}</span>
+                                <span>{{{icon "clock" class="icon-sm"}}} Updated {{this.updatedAt}}</span>
                             </div>
                             
                             {{#if this.comments.length}}
                             <div class="issue-comments">
-                                <div class="comments-header">💬 Recent Comments:</div>
+                                <div class="comments-header">{{{icon "message-circle" class="icon-sm"}}} Recent Comments:</div>
                                 {{#each this.comments}}
                                 <div class="comment-item">
                                     <span class="comment-author">{{this.userName}}</span>
@@ -143,7 +143,7 @@
                 </div>
                 {{else}}
                 <div class="empty-state mini">
-                    <span class="empty-icon">📭</span>
+                    {{{icon "inbox" class="empty-icon"}}}
                     <p>No issues updated yesterday</p>
                 </div>
                 {{/if}}
@@ -155,7 +155,7 @@
 {{else}}
 <div class="card empty-state-card animate-fade-in-up">
     <div class="empty-state">
-        <span class="empty-icon">📭</span>
+        {{{icon "inbox" class="empty-icon"}}}
         <h3>No Activity Found</h3>
         <p>No team members had Linear activity in the last two days.</p>
     </div>
@@ -165,7 +165,7 @@
 {{else}}
 <div class="card linear-disabled animate-fade-in-up">
     <div class="empty-state">
-        <span class="empty-icon">⚠️</span>
+        {{{icon "triangle-alert" class="empty-icon"}}}
         <h3>Linear Integration Not Configured</h3>
         <p>Please set the <code>LINEAR_API_KEY</code> environment variable to enable this feature.</p>
     </div>

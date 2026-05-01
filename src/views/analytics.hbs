@@ -3,34 +3,34 @@
 
 {{!-- Page Header --}}
 <div class="page-header">
-    <h1>📈 Team Analytics</h1>
+    <h1>{{{icon "chart-line" class="page-header-icon"}}} Team Analytics</h1>
     <p>Performance trends, velocity, and team insights</p>
 </div>
 
 <div class="dashboard-actions-bar">
-    <a href="/export/metrics?period=week" class="btn btn-glass">Export Metrics CSV</a>
-    <a href="/export/standups?period=month" class="btn btn-glass">Export Standups CSV</a>
+    <a href="/export/metrics?period=week" class="btn btn-glass">{{{icon "download" class="icon-sm"}}} Export Metrics CSV</a>
+    <a href="/export/standups?period=month" class="btn btn-glass">{{{icon "download" class="icon-sm"}}} Export Standups CSV</a>
 </div>
 
 {{!-- Summary Stats --}}
 <div class="summary-stats">
     <div class="stat-card">
-        <div class="stat-icon">📊</div>
+        {{{icon "chart-column" class="stat-icon"}}}
         <div class="stat-value">{{totalSubmissions}}</div>
         <div class="stat-label">Submissions (30d)</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">👥</div>
+        {{{icon "users" class="stat-icon"}}}
         <div class="stat-value">{{totalUsers}}</div>
         <div class="stat-label">Active Users</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">⏱</div>
+        {{{icon "timer" class="stat-icon"}}}
         <div class="stat-value">{{totalHours}}</div>
         <div class="stat-label">Total Hours</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">📈</div>
+        {{{icon "trending-up" class="stat-icon"}}}
         <div class="stat-value">{{avgEngagement}}%</div>
         <div class="stat-label">Avg Engagement</div>
     </div>
@@ -41,7 +41,7 @@
     {{!-- Velocity Chart --}}
     <div class="chart-card full-width">
         <div class="chart-header">
-            <h3>📈 Velocity Trend</h3>
+            <h3>{{{icon "trending-up" class="icon-md"}}} Velocity Trend</h3>
             <p>Submissions and tasks completed over time</p>
         </div>
         <div class="chart-container">
@@ -52,7 +52,7 @@
     {{!-- Engagement Chart --}}
     <div class="chart-card">
         <div class="chart-header">
-            <h3>🎯 Engagement Scores</h3>
+            <h3>{{{icon "target" class="icon-md"}}} Engagement Scores</h3>
             <p>Team member engagement levels</p>
         </div>
         <div class="chart-container">
@@ -63,7 +63,7 @@
     {{!-- Workload Chart --}}
     <div class="chart-card">
         <div class="chart-header">
-            <h3>⏰ Workload Distribution</h3>
+            <h3>{{{icon "clock" class="icon-md"}}} Workload Distribution</h3>
             <p>Hours worked by team member</p>
         </div>
         <div class="chart-container">
@@ -76,10 +76,10 @@
 <div class="heatmap-section">
     <div class="section-header">
         <div>
-            <h3>🚧 Blocker Analysis</h3>
+            <h3>{{{icon "triangle-alert" class="icon-md"}}} Blocker Analysis</h3>
             <p>Team members with blockers in the last 30 days</p>
         </div>
-        <a href="/export/standups?period=month" class="btn btn-secondary">Export Standups</a>
+        <a href="/export/standups?period=month" class="btn btn-secondary">{{{icon "download" class="icon-sm"}}} Export Standups</a>
     </div>
     <div class="heatmap-grid">
         {{#each blockerHeatmap}}
@@ -101,10 +101,10 @@
 <div class="table-section">
     <div class="section-header">
         <div>
-            <h3>🏆 Team Performance</h3>
+            <h3>{{{icon "trophy" class="icon-md"}}} Team Performance</h3>
             <p>Detailed performance metrics by team member</p>
         </div>
-        <a href="/export/metrics?period=week" class="btn btn-primary">Export Metrics</a>
+        <a href="/export/metrics?period=week" class="btn btn-primary">{{{icon "download" class="icon-sm"}}} Export Metrics</a>
     </div>
     <div class="table-container">
         <table class="data-table">

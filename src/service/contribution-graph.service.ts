@@ -2,6 +2,7 @@ import StandupEntry from '../models/standupEntry';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { APP_TIMEZONE } from '../config';
+import { renderIcon } from '../config/view-engine';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -127,15 +128,15 @@ export function generateContributionGraphHTML(
     <div class="streak-stats">
         <div class="streak-stat">
             <div class="streak-number">${streak.current}</div>
-            <div class="streak-label">🔥 Current Streak</div>
+            <div class="streak-label">${renderIcon('zap', 'icon-sm')} Current Streak</div>
         </div>
         <div class="streak-stat">
             <div class="streak-number">${streak.longest}</div>
-            <div class="streak-label">🏆 Longest Streak</div>
+            <div class="streak-label">${renderIcon('trophy', 'icon-sm')} Longest Streak</div>
         </div>
         <div class="streak-stat">
             <div class="streak-number">${streak.total}</div>
-            <div class="streak-label">📊 Total Standups</div>
+            <div class="streak-label">${renderIcon('chart-column', 'icon-sm')} Total Standups</div>
         </div>
     </div>
 
@@ -211,7 +212,7 @@ function formatTooltip(day: ContributionDay): string {
   }
   
   if (day.hasBlockers) {
-    tooltip += ' ⚠️ Had blockers';
+    tooltip += ' - Had blockers';
   }
 
   return tooltip;
@@ -329,11 +330,6 @@ export function getContributionGraphCSS(): string {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-}
-
-.graph-label::before {
-    content: '📊';
-    font-size: 1.25rem;
 }
 
 .graph-grid {

@@ -1,7 +1,7 @@
 {{!-- User Report Dashboard Template --}}
 
 {{!-- Back Link --}}
-<a href="/submissions" class="back-link">← Back to All Submissions</a>
+<a href="/submissions" class="back-link">{{{icon "arrow-left" class="icon-sm"}}} Back to All Submissions</a>
 
 {{!-- User Header --}}
 <div class="user-header-card">
@@ -22,35 +22,35 @@
         <div class="score">{{performanceScore}}</div>
         <div class="label">Performance Score</div>
         <div class="trend {{velocityTrend}}">
-            {{#if (eq velocityTrend 'up')}}📈{{else if (eq velocityTrend 'down')}}📉{{else}}➡️{{/if}}
+            {{#if (eq velocityTrend 'up')}}{{{icon "trending-up" class="icon-sm"}}}{{else if (eq velocityTrend 'down')}}{{{icon "trending-down" class="icon-sm"}}}{{else}}{{{icon "move-right" class="icon-sm"}}}{{/if}}
             {{velocityTrend}}
         </div>
     </div>
 
     <div class="user-actions">
-        <a href="/export/user/{{userId}}" class="btn btn-primary">Export CSV</a>
+        <a href="/export/user/{{userId}}" class="btn btn-primary">{{{icon "download" class="icon-sm"}}} Export CSV</a>
     </div>
 </div>
 
 {{!-- Stats Grid --}}
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon">📊</div>
+        {{{icon "chart-column" class="stat-icon"}}}
         <div class="stat-value">{{totalSubmissions}}</div>
         <div class="stat-label">Total Submissions</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">📋</div>
+        {{{icon "clipboard-list" class="stat-icon"}}}
         <div class="stat-value">{{totalTasks}}</div>
         <div class="stat-label">Tasks Tracked</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon">⚡</div>
+        {{{icon "zap" class="stat-icon"}}}
         <div class="stat-value">{{avgTasksPerDay}}</div>
         <div class="stat-label">Avg Tasks/Day</div>
     </div>
     <div class="stat-card {{#if (gt blockerCount 0)}}warning{{/if}}">
-        <div class="stat-icon">🚧</div>
+        {{{icon "triangle-alert" class="stat-icon"}}}
         <div class="stat-value">{{blockerCount}}</div>
         <div class="stat-label">Days with Blockers</div>
     </div>
@@ -60,7 +60,7 @@
 <div class="performance-radar-section">
     <div class="section-heading">
         <div>
-            <h3>🎯 Performance Radar</h3>
+            <h3>{{{icon "target" class="icon-md"}}} Performance Radar</h3>
             <p>Consistency, engagement, velocity, and blocker-free rate</p>
         </div>
     </div>
@@ -71,7 +71,7 @@
 
 {{!-- Contribution Graph --}}
 <div class="contribution-section">
-    <h3>📅 Activity Overview</h3>
+    <h3>{{{icon "calendar-days" class="icon-md"}}} Activity Overview</h3>
     {{{contributionGraphHTML}}}
 </div>
 
@@ -79,7 +79,7 @@
 {{#if (gt dayOffEntries.length 0)}}
 <div class="ooo-section">
     <div class="ooo-header">
-        <h3>🛫 Day Off History</h3>
+        <h3>{{{icon "plane" class="icon-md"}}} Day Off History</h3>
         <div class="ooo-filters">
             {{#each oooFilters}}
                 <a href="{{this.url}}" class="ooo-filter-btn {{#if this.active}}active{{/if}}">{{this.label}}</a>
@@ -99,7 +99,7 @@
 
 {{!-- Time Period Filter --}}
 <div class="filters">
-    <span class="filter-label">📅 Time Period:</span>
+    <span class="filter-label">{{{icon "calendar-days" class="icon-sm"}}} Time Period:</span>
     <a href="/user/{{userId}}?period=week" class="filter-btn {{#if (eq period 'week')}}active{{/if}}">Last 7 Days</a>
     <a href="/user/{{userId}}?period=month" class="filter-btn {{#if (eq period 'month')}}active{{/if}}">This Month</a>
     <a href="/user/{{userId}}?period=all" class="filter-btn {{#if (eq period 'all')}}active{{/if}}">All Time</a>
@@ -119,32 +119,32 @@
             </div>
             
             <div class="section">
-                <div class="section-label">🕒 What I Did Yesterday</div>
+                <div class="section-label">{{{icon "clock" class="icon-sm"}}} What I Did Yesterday</div>
                 <div class="section-content">{{this.yesterday}}</div>
             </div>
             
             <div class="section">
-                <div class="section-label">🗓️ What I'll Do Today</div>
+                <div class="section-label">{{{icon "calendar-check" class="icon-sm"}}} What I'll Do Today</div>
                 <div class="section-content">{{this.today}}</div>
             </div>
             
             {{#if this.hasBlocker}}
             <div class="section">
-                <div class="section-label">🚧 Blockers</div>
+                <div class="section-label">{{{icon "triangle-alert" class="icon-sm"}}} Blockers</div>
                 <div class="section-content blocker-content">{{this.blockers}}</div>
             </div>
             {{/if}}
             
             {{#if this.notes}}
             <div class="section">
-                <div class="section-label">📝 Notes</div>
+                <div class="section-label">{{{icon "notebook-pen" class="icon-sm"}}} Notes</div>
                 <div class="section-content notes-content">{{this.notes}}</div>
             </div>
             {{/if}}
             
             {{#if this.isDayOff}}
             <div class="section">
-                <div class="section-label">🛫 Day Off</div>
+                <div class="section-label">{{{icon "plane" class="icon-sm"}}} Day Off</div>
                 <div class="section-content dayoff-content">{{or this.dayOffReason 'Marked as out of office'}}</div>
             </div>
             {{/if}}

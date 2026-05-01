@@ -1,43 +1,39 @@
 <button class="topbar-menu-toggle" type="button" data-nav-toggle aria-label="Toggle navigation" aria-controls="primaryNavigation" aria-expanded="false">
-    <span class="topbar-menu-icon" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-    </span>
+    {{{icon "menu" class="topbar-menu-icon"}}}
 </button>
 
 <nav class="topbar-nav" id="primaryNavigation" aria-label="Primary navigation">
     <a href="/submissions" class="topbar-nav-link {{#if (eq currentPage 'submissions')}}is-active{{/if}}" {{#if (eq currentPage 'submissions')}}aria-current="page"{{/if}}>
-        <span class="topbar-nav-icon" aria-hidden="true">📝</span>
+        {{{icon "notebook-pen" class="topbar-nav-icon"}}}
         <span>Submissions</span>
     </a>
     <a href="/breaks" class="topbar-nav-link {{#if (eq currentPage 'breaks')}}is-active{{/if}}" {{#if (eq currentPage 'breaks')}}aria-current="page"{{/if}}>
-        <span class="topbar-nav-icon" aria-hidden="true">☕</span>
+        {{{icon "coffee" class="topbar-nav-icon"}}}
         <span>Breaks</span>
     </a>
     <a href="/workflow" class="topbar-nav-link {{#if (eq currentPage 'workflow')}}is-active{{/if}}" {{#if (eq currentPage 'workflow')}}aria-current="page"{{/if}}>
-        <span class="topbar-nav-icon" aria-hidden="true">🔄</span>
+        {{{icon "workflow" class="topbar-nav-icon"}}}
         <span>Workflow</span>
     </a>
     <a href="/linear-notes" class="topbar-nav-link {{#if (eq currentPage 'linear-notes')}}is-active{{/if}}" {{#if (eq currentPage 'linear-notes')}}aria-current="page"{{/if}}>
-        <span class="topbar-nav-icon" aria-hidden="true">📋</span>
+        {{{icon "notebook-tabs" class="topbar-nav-icon"}}}
         <span>Linear Notes</span>
     </a>
     <a href="/analytics" class="topbar-nav-link {{#if (eq currentPage 'analytics')}}is-active{{/if}}" {{#if (eq currentPage 'analytics')}}aria-current="page"{{/if}}>
-        <span class="topbar-nav-icon" aria-hidden="true">📊</span>
+        {{{icon "chart-column" class="topbar-nav-icon"}}}
         <span>Analytics</span>
     </a>
     <a href="/manager" class="topbar-nav-link {{#if (eq currentPage 'manager')}}is-active{{/if}}" {{#if (eq currentPage 'manager')}}aria-current="page"{{/if}}>
-        <span class="topbar-nav-icon" aria-hidden="true">👔</span>
+        {{{icon "briefcase-business" class="topbar-nav-icon"}}}
         <span>Manager</span>
     </a>
     <a href="/history" class="topbar-nav-link {{#if (eq currentPage 'history')}}is-active{{/if}}" {{#if (eq currentPage 'history')}}aria-current="page"{{/if}}>
-        <span class="topbar-nav-icon" aria-hidden="true">📜</span>
+        {{{icon "history" class="topbar-nav-icon"}}}
         <span>History</span>
     </a>
     {{#if hasClerk}}
     <a href="/auth/sign-out" class="topbar-nav-link topbar-mobile-signout">
-        <span class="topbar-nav-icon" aria-hidden="true">↪</span>
+        {{{icon "log-out" class="topbar-nav-icon"}}}
         <span>Sign out</span>
     </a>
     {{/if}}

@@ -6,25 +6,25 @@
 
 {{!-- Page Header --}}
 <div class="page-header">
-    <h1>🔄 Task Workflow</h1>
+    <h1>{{{icon "workflow" class="page-header-icon"}}} Task Workflow</h1>
     <p>Visualize your team's task flow and connections</p>
 </div>
 
 {{!-- Controls Bar --}}
 <div class="workflow-controls">
     <div class="date-filter">
-        <strong>📅</strong>
+        {{{icon "calendar-days" class="icon-md"}}}
         <input type="date" id="datePicker" value="{{date}}">
         <button onclick="window.location.href='/workflow?date=' + document.getElementById('datePicker').value" class="filter-btn">Go</button>
         <button onclick="window.location.href='/workflow?date=today'" class="filter-btn secondary">Today</button>
     </div>
     <div class="view-toggle">
         <button class="view-btn active" data-view="graph" onclick="toggleView('graph')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="12" cy="18" r="3"/><line x1="7.5" y1="7.5" x2="10.5" y2="15.5"/><line x1="16.5" y1="7.5" x2="13.5" y2="15.5"/></svg>
+            {{{icon "network" class="icon-sm"}}}
             Graph
         </button>
         <button class="view-btn" data-view="timeline" onclick="toggleView('timeline')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            {{{icon "list" class="icon-sm"}}}
             Timeline
         </button>
     </div>
@@ -34,7 +34,7 @@
 <div class="workflow-stats">
     <div class="stat-card glass">
         <div class="stat-icon-wrap blue">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            {{{icon "users" class="icon-lg"}}}
         </div>
         <div class="stat-info">
             <span class="stat-value">{{teamMembers}}</span>
@@ -43,7 +43,7 @@
     </div>
     <div class="stat-card glass">
         <div class="stat-icon-wrap green">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            {{{icon "circle-check" class="icon-lg"}}}
         </div>
         <div class="stat-info">
             <span class="stat-value">{{completedTasks}}</span>
@@ -52,7 +52,7 @@
     </div>
     <div class="stat-card glass">
         <div class="stat-icon-wrap purple">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {{{icon "clock" class="icon-lg"}}}
         </div>
         <div class="stat-info">
             <span class="stat-value">{{plannedTasks}}</span>
@@ -62,7 +62,7 @@
     {{#if (gt blockerCount 0)}}
     <div class="stat-card glass warning">
         <div class="stat-icon-wrap orange">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{{icon "triangle-alert" class="icon-lg"}}}
         </div>
         <div class="stat-info">
             <span class="stat-value">{{blockerCount}}</span>
@@ -76,11 +76,11 @@
 <div class="workflow-view graph-view active" id="graphView">
     {{!-- Zoom Controls --}}
     <div class="zoom-controls">
-        <button class="zoom-btn" id="zoomInBtn" type="button" title="Zoom In">+</button>
+        <button class="zoom-btn" id="zoomInBtn" type="button" title="Zoom In" aria-label="Zoom in">{{{icon "plus" class="icon-sm"}}}</button>
         <span class="zoom-level" id="zoomLevel">100%</span>
-        <button class="zoom-btn" id="zoomOutBtn" type="button" title="Zoom Out">−</button>
-        <button class="zoom-btn" id="resetZoomBtn" type="button" title="Reset">⟲</button>
-        <button class="zoom-btn" id="fullscreenBtn" type="button" title="Fullscreen">⛶</button>
+        <button class="zoom-btn" id="zoomOutBtn" type="button" title="Zoom Out" aria-label="Zoom out">{{{icon "minus" class="icon-sm"}}}</button>
+        <button class="zoom-btn" id="resetZoomBtn" type="button" title="Reset" aria-label="Reset zoom">{{{icon "rotate-ccw" class="icon-sm"}}}</button>
+        <button class="zoom-btn" id="fullscreenBtn" type="button" title="Fullscreen" aria-label="Fullscreen">{{{icon "maximize" class="icon-sm"}}}</button>
     </div>
     
     <div class="graph-container" id="graphContainer">
@@ -91,7 +91,7 @@
             {{!-- Central Hub Node --}}
             <div class="hub-node" id="hubNode">
             <div class="hub-inner">
-                <span class="hub-icon">📅</span>
+                {{{icon "calendar-days" class="hub-icon"}}}
                 <span class="hub-date">{{formatDate date}}</span>
                 <span class="hub-label">Daily Standup</span>
             </div>
@@ -113,7 +113,7 @@
                         </span>
                     </div>
                     {{#if this.hasBlocker}}
-                    <div class="blocker-indicator" title="Has blocker">⚠️</div>
+                    <div class="blocker-indicator" title="Has blocker">{{{icon "triangle-alert" class="icon-sm"}}}</div>
                     {{/if}}
                     <div class="node-connector-point right"></div>
                 </div>
@@ -139,7 +139,7 @@
         
         {{#unless users.length}}
         <div class="empty-workflow">
-            <div class="empty-icon">📋</div>
+            {{{icon "clipboard-list" class="empty-icon"}}}
             <h3>No Workflow Data</h3>
             <p>No standup submissions found for this date.</p>
         </div>
@@ -156,16 +156,16 @@
             <div class="user-avatar-sm">{{userInitial this.userName}}</div>
             <span class="user-name-sm">{{this.userName}}</span>
             {{#if this.hasBlocker}}
-            <span class="blocker-badge-sm">⚠️</span>
+            <span class="blocker-badge-sm">{{{icon "triangle-alert" class="icon-sm"}}}</span>
             {{/if}}
-            <span class="click-hint">👁</span>
+            <span class="click-hint">{{{icon "eye" class="icon-sm"}}}</span>
         </div>
         
         <div class="timeline-flow">
             {{!-- Completed Tasks --}}
             <div class="timeline-section completed">
                 <div class="section-label">
-                    <span class="label-icon">✅</span>
+                    {{{icon "circle-check" class="label-icon"}}}
                     <span>Done</span>
                 </div>
                 <div class="task-chain">
@@ -203,7 +203,7 @@
             {{!-- Planned Tasks --}}
             <div class="timeline-section planned">
                 <div class="section-label">
-                    <span class="label-icon">🎯</span>
+                    {{{icon "target" class="label-icon"}}}
                     <span>Planned</span>
                 </div>
                 <div class="task-chain">
@@ -225,7 +225,7 @@
             {{!-- Blocker --}}
             {{#if this.hasBlocker}}
             <div class="timeline-blocker">
-                <div class="blocker-icon">🚧</div>
+                <div class="blocker-icon">{{{icon "octagon-alert" class="icon-md"}}}</div>
                 <div class="blocker-text">{{this.blockers}}</div>
             </div>
             {{/if}}
@@ -235,7 +235,7 @@
     
     {{#unless users.length}}
     <div class="empty-workflow">
-        <div class="empty-icon">📋</div>
+        {{{icon "clipboard-list" class="empty-icon"}}}
         <h3>No Workflow Data</h3>
         <p>No standup submissions found for this date.</p>
     </div>
@@ -246,12 +246,12 @@
 {{#if (gt users.length 0)}}
 <div class="summary-panel">
     <div class="panel-header">
-        <h3>📊 Team Overview</h3>
+        <h3>{{{icon "chart-column" class="icon-md"}}} Team Overview</h3>
     </div>
     <div class="panel-grid">
         {{!-- Top Contributors --}}
         <div class="panel-card">
-            <div class="card-title">🏆 Top Contributors</div>
+            <div class="card-title">{{{icon "trophy" class="icon-md"}}} Top Contributors</div>
             <div class="contributor-list">
                 {{#each topContributors}}
                 <div class="contributor-item">
@@ -266,7 +266,7 @@
         
         {{!-- Progress Ring --}}
         <div class="panel-card">
-            <div class="card-title">📈 Task Ratio</div>
+            <div class="card-title">{{{icon "trending-up" class="icon-md"}}} Task Ratio</div>
             <div class="progress-visual">
                 <div class="progress-ring-container">
                     <svg class="progress-ring" viewBox="0 0 100 100">
@@ -291,7 +291,7 @@
         {{!-- Active Blockers --}}
         {{#if (gt blockerCount 0)}}
         <div class="panel-card blockers">
-            <div class="card-title">⚠️ Active Blockers</div>
+            <div class="card-title">{{{icon "triangle-alert" class="icon-md"}}} Active Blockers</div>
             <div class="blocker-list">
                 {{#each blockerUsers}}
                 <div class="blocker-item">
@@ -339,6 +339,12 @@
 <script>
 // Parse user data
 const usersData = JSON.parse(document.getElementById('usersData').textContent || '[]');
+const workflowIcons = {
+    done: `{{{icon "circle-check" class="section-icon"}}}`,
+    planned: `{{{icon "target" class="section-icon"}}}`,
+    blocker: `{{{icon "octagon-alert" class="blocker-icon icon-md"}}}`,
+    inbox: `{{{icon "inbox" class="empty-icon"}}}`
+};
 
 // Position nodes in a circle
 function positionNodesInCircle() {
@@ -510,7 +516,7 @@ function openUserWeekView(userId, userName, index) {
                 <div class="day-content">
                     <div class="day-section completed">
                         <div class="section-header">
-                            <span class="section-icon">✅</span>
+                            ${workflowIcons.done}
                             <span>Done (${day.completedTasks.length})</span>
                         </div>
                         <div class="task-list">
@@ -529,7 +535,7 @@ function openUserWeekView(userId, userName, index) {
                     
                     <div class="day-section planned">
                         <div class="section-header">
-                            <span class="section-icon">🎯</span>
+                            ${workflowIcons.planned}
                             <span>Planned (${day.plannedTasks.length})</span>
                         </div>
                         <div class="task-list">
@@ -542,7 +548,7 @@ function openUserWeekView(userId, userName, index) {
                     
                     ${day.hasBlocker ? `
                     <div class="day-blocker">
-                        <span class="blocker-icon">🚧</span>
+                        ${workflowIcons.blocker}
                         <span class="blocker-text">${escapeHtml(day.blockers)}</span>
                     </div>
                     ` : ''}
@@ -550,7 +556,7 @@ function openUserWeekView(userId, userName, index) {
                 ` : `
                 <div class="day-content empty">
                     <div class="empty-day">
-                        <span class="empty-icon">📭</span>
+                        ${workflowIcons.inbox}
                         <span>No submission</span>
                     </div>
                 </div>

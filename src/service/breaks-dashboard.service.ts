@@ -267,10 +267,10 @@ export async function getBreaksDashboard(req: Request, res: Response) {
     
     // Stats for template
     const stats = [
-      { icon: '☕', value: totalBreaksToday, label: 'Breaks Today' },
-      { icon: '⏱', value: totalMinutesToday, label: 'Minutes Today' },
-      { icon: '👥', value: uniqueUsersToday, label: 'Team Members' },
-      { icon: '📅', value: totalBreaksWeek, label: 'Breaks This Week' }
+      { icon: 'coffee', value: totalBreaksToday, label: 'Breaks Today' },
+      { icon: 'timer', value: totalMinutesToday, label: 'Minutes Today' },
+      { icon: 'users', value: uniqueUsersToday, label: 'Team Members' },
+      { icon: 'calendar-days', value: totalBreaksWeek, label: 'Breaks This Week' }
     ];
 
     // Render with Handlebars

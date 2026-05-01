@@ -502,6 +502,7 @@ const pageStyles = `
   .badge {
     display: inline-flex;
     align-items: center;
+    gap: 0.3rem;
     padding: 0.35rem 0.75rem;
     border-radius: 100px;
     font-size: 0.75rem;
@@ -548,6 +549,9 @@ const pageStyles = `
   }
 
   .comments-header {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
     font-size: 0.75rem;
     font-weight: 800;
     color: var(--gray-700);
@@ -657,10 +661,10 @@ export async function serveLinearNotes(req: Request, res: Response) {
       today: format(now, 'EEEE, MMM d'),
       yesterday: format(subDays(now, 1), 'EEEE, MMM d'),
       stats: [
-        { icon: '👥', value: totals.members, label: 'Active Members' },
-        { icon: '📅', value: totals.todayIssues, label: 'Today\'s Updates' },
-        { icon: '📆', value: totals.yesterdayIssues, label: 'Yesterday\'s Updates' },
-        { icon: '✅', value: totals.completedToday, label: 'Completed Today' }
+        { icon: 'users', value: totals.members, label: 'Active Members' },
+        { icon: 'calendar-days', value: totals.todayIssues, label: 'Today\'s Updates' },
+        { icon: 'history', value: totals.yesterdayIssues, label: 'Yesterday\'s Updates' },
+        { icon: 'circle-check', value: totals.completedToday, label: 'Completed Today' }
       ],
       pageStyles
     });

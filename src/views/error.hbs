@@ -1,7 +1,7 @@
 {{!-- Error Page Template --}}
 
 <div class="error-container">
-    <div class="error-icon">⚠️</div>
+    {{{icon "triangle-alert" class="error-icon"}}}
     <h1>{{title}}</h1>
     <p class="error-message">{{message}}</p>
     
@@ -12,8 +12,7 @@
     {{/if}}
     
     <div class="error-actions">
-        <a href="/" class="btn-primary">🏠 Go Home</a>
-        <button onclick="window.history.back()" class="btn-secondary">← Go Back</button>
+        <a href="/" class="btn-primary">{{{icon "home" class="icon-sm"}}} Go Home</a>
+        <button onclick="window.history.back()" class="btn-secondary">{{{icon "arrow-left" class="icon-sm"}}} Go Back</button>
     </div>
 </div>
-

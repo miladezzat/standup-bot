@@ -2,11 +2,11 @@ import { WebClient } from '@slack/web-api';
 import dotenv from 'dotenv';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { slackWebClient } from './singleton';
-import { CHANNEL_ID, APP_TIMEZONE } from './config';
-import { SlackMessage } from './service/standup-history.service';
+import { APP_TIMEZONE } from './config';
+import type { SlackMessage } from './service/standup-history.service';
 import StandupEntry from './models/standupEntry';
 import { getReportUserExclusionFilter, isIncludedInReports } from './utils/report-exclusions';
+import { renderIcon } from './config/view-engine';
 
 const timeZone = APP_TIMEZONE;
 
@@ -14,7 +14,7 @@ dotenv.config();
 
 const userCache = new Map<string, any>();
 
-const escapeHtml = (text: string) =>
+export const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (ch) => {
     switch (ch) {
       case '&':
@@ -47,7 +47,7 @@ export function formatStandupHTML(input: string): string {
   const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   // Parse a section with flexible label(s) and next sections
-  function parseSection(labels: string[] | string, icon: string, nextSections: string[]): string {
+  function parseSection(labels: string[] | string, iconName: string, nextSections: string[]): string {
     // Convert single string label to array
     if (typeof labels === 'string') labels = [labels];
 
@@ -82,7 +82,7 @@ export function formatStandupHTML(input: string): string {
 
     return `
       <h3 style="margin-top: 1.5em; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; color: #2c3e50;">
-        <span style="font-size: 1.2em;">${icon}</span> ${displayLabel}
+        ${renderIcon(iconName, 'icon-sm')} ${displayLabel}
       </h3>
       <ul style="list-style-type: disc; padding-left: 1.5em;">
         ${formattedItems.map(item => `<li style="margin-bottom: 0.7em; line-height: 1.5;">${item}</li>`).join('\n')}
@@ -92,9 +92,9 @@ export function formatStandupHTML(input: string): string {
 
   return `
     <div style="font-family: 'Inter', Arial, sans-serif; line-height: 1.6; max-width: 700px; padding: 0.5em 1em; background-color: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-      ${parseSection(firstSectionLabels, '🕒', ['today', 'blockers'])}
-      ${parseSection('today', '🗓️', ['blockers'])}
-      ${parseSection('blockers', '🚧', [])}
+      ${parseSection(firstSectionLabels, 'clock', ['today', 'blockers'])}
+      ${parseSection('today', 'calendar-check', ['blockers'])}
+      ${parseSection('blockers', 'octagon-alert', [])}
     </div>
   `.trim();
 }
@@ -165,237 +165,236 @@ export function formatCairoDate(tsSeconds: number): string {
     }
 }
 
-export async function generateDateAnalytics(thread: any) {
-    try {
-        const result = await slackWebClient.conversations.replies({
-            channel: CHANNEL_ID,
-            ts: thread.threadTs,
-        });
+export interface HistoryStandupEntry {
+    slackUserId: string;
+    slackUserName: string;
+    date: string;
+    yesterday?: string;
+    today?: string;
+    blockers?: string;
+    notes?: string;
+    isDayOff?: boolean;
+    dayOffReason?: string;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+}
 
-        const replies = result.messages?.filter(
+interface GenerateDateAnalyticsOptions {
+    replies?: SlackMessage[];
+    standupEntries?: HistoryStandupEntry[];
+}
+
+const countTasksFromText = (text?: string) => {
+    if (!text) return 0;
+    const matches = text.match(/[•\-–]|\d+\./g);
+    if (matches && matches.length > 0) return matches.length;
+    return text.trim().length > 0 ? 1 : 0;
+};
+
+const hasMeaningfulBlocker = (blockers?: string) => {
+    const value = blockers?.trim().toLowerCase();
+    return Boolean(value && value !== 'none' && value !== 'n/a');
+};
+
+const collectTopics = (text: string, topics: Map<string, number>) => {
+    const stopWords = ['today', 'yesterday', 'blockers', 'working', 'going', 'about', 'with', 'this', 'that', 'have', 'from', 'will', 'would', 'should', 'could', 'been', 'were', 'they', 'their', 'there', 'what', 'when', 'where', 'which', 'while', 'whom', 'whose'];
+    const words = text.toLowerCase()
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
+        .split(/\s+/);
+
+    for (const word of words) {
+        if (word.length > 4 && !stopWords.includes(word)) {
+            topics.set(word, (topics.get(word) || 0) + 1);
+        }
+    }
+};
+
+export async function generateDateAnalytics(thread: any, options: GenerateDateAnalyticsOptions = {}) {
+    try {
+        const replies = (options.replies || []).filter(
             (m): m is SlackMessage =>
                 m.ts !== thread.threadTs && typeof m.user === 'string' && typeof m.text === 'string'
-        ) || [];
+        );
 
-        // Skip if no replies
-        if (replies.length === 0) {
+        const standupsForDate = options.standupEntries ||
+            await StandupEntry.find({ date: thread.date, ...getReportUserExclusionFilter() }).lean() as unknown as HistoryStandupEntry[];
+
+        if (replies.length === 0 && standupsForDate.length === 0) {
             return '';
         }
 
-        // Count unique participants (excluding the bot)
-        const participants = new Set();
-        const userTaskCounts = new Map();
-        const userBlockers = new Map();
-        const userStatuses = new Map();
+        const participants = new Set<string>();
+        const userTaskCounts = new Map<string, number>();
+        const userBlockers = new Map<string, string>();
+        const standupByUser = new Map<string, HistoryStandupEntry>();
 
-        // Track all team members (active and inactive)
-        // In a real implementation, you would fetch this from your user database or Slack API
-        const teamSize = 18; // Adjusted based on the design
+        standupsForDate.forEach(entry => {
+            standupByUser.set(entry.slackUserId, entry);
+        });
 
-        // Extract common topics and blockers
         const topics = new Map();
-        let blockerCount = 0;
         let totalMessageLength = 0;
         let yesterdayItemsCount = 0;
         let todayItemsCount = 0;
         let blockerItemsCount = 0;
 
-        // Track response times
-        const threadStartTime = parseFloat(thread.threadTs);
+        const threadStartTime = Number.parseFloat(thread.threadTs || '0');
         const responseTimes: number[] = [];
 
-        // Track days of the week for participation
-        const date = new Date(threadStartTime * 1000);
-        const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        for (const entry of standupsForDate) {
+            participants.add(entry.slackUserId);
+            const taskCount = entry.isDayOff
+                ? 0
+                : countTasksFromText(entry.yesterday) + countTasksFromText(entry.today);
 
-        // Track message lengths for distribution
-        const messageLengths: number[] = [];
+            userTaskCounts.set(entry.slackUserId, taskCount);
+            yesterdayItemsCount += entry.isDayOff ? 0 : countTasksFromText(entry.yesterday);
+            todayItemsCount += entry.isDayOff ? 0 : countTasksFromText(entry.today);
 
-        for (const reply of replies) {
-            if (!reply.text || reply.user === 'U08T0FLAJ11' || !isIncludedInReports(reply.user)) continue;
-
-            // Calculate response time in hours
-            const replyTime = parseFloat(reply.ts);
-            const responseTimeHours = (replyTime - threadStartTime) / 3600;
-            responseTimes.push(responseTimeHours);
-
-            // Track message length
-            totalMessageLength += reply.text.length;
-            messageLengths.push(reply.text.length);
-
-            // Track user status and participation
-            if (reply.user) {
-                participants.add(reply.user);
-                userStatuses.set(reply.user, 'submitted');
-
-                // Initialize task count if not exists
-                if (!userTaskCounts.has(reply.user)) {
-                    userTaskCounts.set(reply.user, 0);
-                }
+            if (hasMeaningfulBlocker(entry.blockers)) {
+                userBlockers.set(entry.slackUserId, entry.blockers || 'Has blockers');
+                blockerItemsCount += countTasksFromText(entry.blockers);
             }
 
-            // Count blockers
-            let hasBlocker = false;
+            const combinedText = [entry.yesterday, entry.today, entry.blockers, entry.notes].filter(Boolean).join(' ');
+            totalMessageLength += combinedText.length;
+            collectTopics(combinedText, topics);
+
+            if (entry.createdAt && Number.isFinite(threadStartTime) && threadStartTime > 0) {
+                const createdAtSeconds = new Date(entry.createdAt).getTime() / 1000;
+                responseTimes.push((createdAtSeconds - threadStartTime) / 3600);
+            }
+        }
+
+        for (const reply of replies) {
+            if (!reply.text || !reply.user || reply.user === 'U08T0FLAJ11' || !isIncludedInReports(reply.user)) continue;
+            const userId = reply.user;
+            const hasStoredEntry = standupByUser.has(userId);
+            participants.add(userId);
+
+            if (hasStoredEntry) {
+                continue;
+            }
+
+            const replyTime = parseFloat(reply.ts);
+            if (Number.isFinite(replyTime) && Number.isFinite(threadStartTime) && threadStartTime > 0) {
+                responseTimes.push((replyTime - threadStartTime) / 3600);
+            }
+
+            totalMessageLength += reply.text.length;
+            userTaskCounts.set(userId, userTaskCounts.get(userId) || 0);
+
             if (reply.text.toLowerCase().includes('blocker:') &&
                 !reply.text.toLowerCase().includes('blocker: none') &&
                 !reply.text.toLowerCase().includes('blockers: none')) {
-                blockerCount++;
-                hasBlocker = true;
-                if (reply.user) {
-                    userBlockers.set(reply.user, true);
-                }
+                userBlockers.set(userId, 'Having difficulties with current task');
             }
 
-            // Count section items
-            // Count section items
             const days = "yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday";
             const regex = new RegExp(`(${days}):([^]*?)(?=(\\b${days}:|\\bblockers:|$))`, "i");
 
-
-            if (reply.text.toLowerCase().includes('yesterday:')) { // You can keep or remove this check as optimization
+            if (reply.text.toLowerCase().includes('yesterday:')) {
                 const match = reply.text.match(regex);
                 if (match) {
-                    // match[1] is the day name ("yesterday" or "monday", etc)
-                    // match[2] is the section text we want to split into items
-                    const sectionText = match[2];
-
-                    // Split by common bullet characters or numbered lists
+                    const sectionText = match[2] || '';
                     const items = sectionText.split(/[•\-–]|\d+\./)
                         .map(item => item.trim())
                         .filter(item => item.length > 0);
 
                     yesterdayItemsCount += items.length;
-
-                    // Add to user's task count safely
-                    if (reply.user) {
-                        const currentCount = userTaskCounts.get(reply.user) || 0;
-                        userTaskCounts.set(reply.user, currentCount + items.length);
-                    }
+                    userTaskCounts.set(userId, (userTaskCounts.get(userId) || 0) + items.length);
                 }
             }
-
 
             if (reply.text.toLowerCase().includes('today:')) {
                 const match = reply.text.match(/today:([^]*?)(?=(\byesterday:|\bblockers:|$))/i);
                 if (match) {
-                    const items = match[1].split(/[•\-–]|\d+\./).filter(item => item.trim().length > 0);
+                    const items = (match[1] || '').split(/[•\-–]|\d+\./).filter(item => item.trim().length > 0);
                     todayItemsCount += items.length;
-
-                    // Add to user's task count
-                    if (reply.user) {
-                        userTaskCounts.set(reply.user, userTaskCounts.get(reply.user) + items.length);
-                    }
+                    userTaskCounts.set(userId, (userTaskCounts.get(userId) || 0) + items.length);
                 }
             }
 
             if (reply.text.toLowerCase().includes('blockers:')) {
                 const match = reply.text.match(/blockers:([^]*?)(?=(\byesterday:|\btoday:|$))/i);
                 if (match) {
-                    const blockerText = match[1].trim().toLowerCase();
-                    // Check if blocker is "none" or empty
+                    const blockerText = (match[1] || '').trim().toLowerCase();
                     if (blockerText !== 'none' && blockerText.length > 0) {
-                        const items = match[1].split(/[•\-–]|\d+\./).filter(item => item.trim().length > 0);
+                        const items = (match[1] || '').split(/[•\-–]|\d+\./).filter(item => item.trim().length > 0);
                         blockerItemsCount += items.length;
                     }
                 }
             }
 
-            // Extract keywords for topics (improved approach)
-            const words = reply.text.toLowerCase()
-                .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
-                .split(/\s+/);
-
-            const stopWords = ['today', 'yesterday', 'blockers', 'working', 'going', 'about', 'with', 'this', 'that', 'have', 'from', 'will', 'would', 'should', 'could', 'been', 'were', 'they', 'their', 'there', 'what', 'when', 'where', 'which', 'while', 'whom', 'whose'];
-
-            for (const word of words) {
-                // Only consider words of reasonable length that aren't common stopwords
-                if (word.length > 4 && !stopWords.includes(word)) {
-                    const count = topics.get(word) || 0;
-                    topics.set(word, count + 1);
-                }
-            }
+            collectTopics(reply.text, topics);
         }
 
-        // Get top topics
-        const topTopics = Array.from(topics.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 8)
-            .map(entry => ({ text: entry[0], count: entry[1] }));
-
-        // Calculate response rate
+        const teamSize = Math.max(standupsForDate.length, 18);
         const responseRate = Math.round((participants.size / teamSize) * 100);
-
-        // Calculate average message length
-        const avgMessageLength = Math.round(totalMessageLength / participants.size);
-
-        // Calculate response time distribution
-        const earlyResponses = responseTimes.filter(time => time <= 1).length;
-        const normalResponses = responseTimes.filter(time => time > 1 && time <= 3).length;
-        const lateResponses = responseTimes.filter(time => time > 3 && time <= 8).length;
-        const veryLateResponses = responseTimes.filter(time => time > 8).length;
-
-        // Calculate total tasks
         const totalTasks = yesterdayItemsCount + todayItemsCount;
+        const avgTasksPerPerson = participants.size > 0
+            ? Math.round((totalTasks / participants.size) * 10) / 10
+            : 0;
 
-        // Calculate average tasks per person
-        const avgTasksPerPerson = Math.round((totalTasks / participants.size) * 10) / 10;
-
-        // Generate recent submissions (last 5 users)
-        const recentUsers = Array.from(participants).slice(0, 5);
+        const recentStandups = [...standupsForDate]
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+            .slice(0, 5);
+        const recentReplyUsers = replies
+            .map(reply => reply.user)
+            .filter((userId): userId is string => Boolean(userId && !standupByUser.has(userId)))
+            .slice(0, Math.max(0, 5 - recentStandups.length));
         let recentSubmissionsHTML = '';
 
-        for (const userId of recentUsers) {
-            const { name, avatarUrl } = await getUserName(userId as string);
+        for (const entry of recentStandups) {
+            const name = entry.slackUserName || entry.slackUserId;
+            const submittedAt = entry.createdAt ? formatCairoDate(new Date(entry.createdAt).getTime() / 1000) : 'Stored submission';
             recentSubmissionsHTML += `
             <div class="submission-item">
-                <img src="${avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=2980b9&color=fff'}" alt="${name}" class="submission-avatar">
-                <div class="submission-name">${name}</div>
-                <div class="submission-time">Today</div>
+                <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2980b9&color=fff" alt="${escapeHtml(name)}" class="submission-avatar">
+                <div class="submission-name">${escapeHtml(name)}</div>
+                <div class="submission-time">${submittedAt}</div>
             </div>
             `;
         }
 
-        // Generate blockers list
-        let blockersHTML = '';
-
-        for (const [userId, hasBlocker] of userBlockers.entries()) {
-            if (hasBlocker) {
-                const { name, avatarUrl } = await getUserName(userId);
-                blockersHTML += `
-                <div class="blocker-item">
-                    <div class="blocker-user">
-                        <img src="${avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=2980b9&color=fff'}" alt="${name}" class="blocker-avatar">
-                        <div class="blocker-name">${name}</div>
-                    </div>
-                    <div class="blocker-text">Having difficulties with current task</div>
-                </div>
-                `;
-            }
+        for (const userId of recentReplyUsers) {
+            const { name, avatarUrl } = await getUserName(userId);
+            recentSubmissionsHTML += `
+            <div class="submission-item">
+                <img src="${avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=2980b9&color=fff'}" alt="${name}" class="submission-avatar">
+                <div class="submission-name">${name}</div>
+                <div class="submission-time">Slack reply</div>
+            </div>
+            `;
         }
 
-        const standupsForDate = await StandupEntry.find({ date: thread.date, ...getReportUserExclusionFilter() }).lean();
-        const standupByUser = new Map<string, (typeof standupsForDate)[number]>();
-        standupsForDate.forEach(entry => {
-            standupByUser.set(entry.slackUserId, entry);
-        });
+        let blockersHTML = '';
+
+        for (const [userId, blockerText] of userBlockers.entries()) {
+            const standupEntry = standupByUser.get(userId);
+            const name = standupEntry?.slackUserName || (await getUserName(userId)).name;
+            blockersHTML += `
+            <div class="blocker-item">
+                <div class="blocker-user">
+                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2980b9&color=fff" alt="${escapeHtml(name)}" class="blocker-avatar">
+                    <div class="blocker-name">${escapeHtml(name)}</div>
+                </div>
+                <div class="blocker-text">${escapeHtml(blockerText)}</div>
+            </div>
+            `;
+        }
 
         const teamMemberIds = new Set<string>(participants as Set<string>);
         for (const entry of standupsForDate) {
             teamMemberIds.add(entry.slackUserId);
         }
 
-        const countTasksFromText = (text?: string) => {
-            if (!text) return 0;
-            const matches = text.match(/[•\-–]|\d+\./g);
-            if (matches && matches.length > 0) return matches.length;
-            return text.trim().length > 0 ? 1 : 0;
-        };
-
-        // Generate team members table - DYNAMICALLY from actual participants and standup submissions
         let teamMembersHTML = '';
         for (const userId of teamMemberIds) {
-            const { name, avatarUrl } = await getUserName(userId as string);
-            const standupEntry = standupByUser.get(userId as string);
+            const standupEntry = standupByUser.get(userId);
+            const fallbackUser = standupEntry ? undefined : await getUserName(userId);
+            const name = standupEntry?.slackUserName || fallbackUser?.name || userId;
+            const avatarUrl = fallbackUser?.avatarUrl;
             const hasBlocker = userBlockers.has(userId);
             const isDayOff = Boolean(standupEntry?.isDayOff);
             const dayOffReason = standupEntry?.dayOffReason ? escapeHtml(standupEntry.dayOffReason) : '';
@@ -410,8 +409,8 @@ export async function generateDateAnalytics(thread: any) {
             teamMembersHTML += `
             <div class="team-member-card ${isDayOff ? 'team-member-dayoff' : ''}">
                 <div class="team-user">
-                    <img src="${avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=2980b9&color=fff'}" alt="${name}" class="team-avatar">
-                    <div class="team-name">${name}${isDayOff ? ' <span class="team-dayoff-label">🛫 OOO</span>' : ''}</div>
+                    <img src="${avatarUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=2980b9&color=fff'}" alt="${escapeHtml(name)}" class="team-avatar">
+                    <div class="team-name">${escapeHtml(name)}${isDayOff ? ` <span class="team-dayoff-label">${renderIcon('plane', 'icon-sm')} OOO</span>` : ''}</div>
                 </div>
                 <div class="team-member-details">
                     <div class="team-member-item">
@@ -441,7 +440,6 @@ export async function generateDateAnalytics(thread: any) {
             year: 'numeric'
         });
 
-        // Calculate pagination values
         const itemsPerPage = 5; // Number of team members per page
         const totalPages = Math.ceil(actualTeamSize / itemsPerPage);
         let paginationHTML = '';
@@ -465,12 +463,12 @@ export async function generateDateAnalytics(thread: any) {
         return `
         <div class="dashboard-header">
             <div>
-                <div class="dashboard-title">📆 Daily Standup Dashboard</div>
+                <div class="dashboard-title">${renderIcon('calendar-days', 'icon-md')} Daily Standup Dashboard</div>
                 <div class="dashboard-date">Track team progress and daily activities</div>
             </div>
             <div class="dashboard-actions">
                 <div class="dashboard-date">${formattedDate}</div>
-                <button class="dashboard-button">📊 Today's Report</button>
+                <button class="dashboard-button">${renderIcon('chart-column', 'icon-sm')} Daily Report</button>
             </div>
         </div>
         
@@ -478,7 +476,7 @@ export async function generateDateAnalytics(thread: any) {
             <div class="metric-card">
                 <div class="metric-header">
                     <div>Team Members</div>
-                    <div class="metric-icon" style="background-color: #3498db;">👥</div>
+                    <div class="metric-icon" style="background-color: #3498db;">${renderIcon('users', 'icon-sm')}</div>
                 </div>
                 <div class="metric-value">${actualTeamSize}</div>
                 <div class="metric-label">Total active members</div>
@@ -490,7 +488,7 @@ export async function generateDateAnalytics(thread: any) {
             <div class="metric-card">
                 <div class="metric-header">
                     <div>Submissions Today</div>
-                    <div class="metric-icon" style="background-color: #2ecc71;">✅</div>
+                    <div class="metric-icon" style="background-color: #2ecc71;">${renderIcon('circle-check', 'icon-sm')}</div>
                 </div>
                 <div class="metric-value">${participants.size}/${teamSize}</div>
                 <div class="metric-label">${responseRate}% completion rate</div>
@@ -502,7 +500,7 @@ export async function generateDateAnalytics(thread: any) {
             <div class="metric-card">
                 <div class="metric-header">
                     <div>Avg Tasks/Day</div>
-                    <div class="metric-icon" style="background-color: #9b59b6;">📝</div>
+                    <div class="metric-icon" style="background-color: #9b59b6;">${renderIcon('notebook-pen', 'icon-sm')}</div>
                 </div>
                 <div class="metric-value">${avgTasksPerPerson}</div>
                 <div class="metric-label">Tasks completed per person</div>
@@ -514,32 +512,32 @@ export async function generateDateAnalytics(thread: any) {
             <div class="metric-card">
                 <div class="metric-header">
                     <div>Active Blockers</div>
-                    <div class="metric-icon" style="background-color: #e74c3c;">🚧</div>
+                    <div class="metric-icon" style="background-color: #e74c3c;">${renderIcon('octagon-alert', 'icon-sm')}</div>
                 </div>
-                <div class="metric-value">${blockerCount}</div>
+                <div class="metric-value">${userBlockers.size}</div>
                 <div class="metric-label">Requiring attention</div>
                 <div class="metric-progress">
-                    <div class="metric-progress-bar" style="width: ${Math.min(blockerCount * 25, 100)}%; background-color: #e74c3c;"></div>
+                    <div class="metric-progress-bar" style="width: ${Math.min(userBlockers.size * 25, 100)}%; background-color: #e74c3c;"></div>
                 </div>
             </div>
         </div>
         
         <div class="submissions-section">
-            <div class="submissions-header">🔄 Recent Submissions</div>
+            <div class="submissions-header">${renderIcon('refresh-cw', 'icon-sm')} Recent Submissions</div>
             <div class="submission-list">
                 ${recentSubmissionsHTML || '<div>No recent submissions</div>'}
             </div>
         </div>
         
         <div class="blockers-section">
-            <div class="blockers-header">⚠️ Active Blockers</div>
+            <div class="blockers-header">${renderIcon('triangle-alert', 'icon-sm')} Active Blockers</div>
             <div class="blocker-list">
                 ${blockersHTML || '<div>No active blockers</div>'}
             </div>
         </div>
         
         <div class="team-section">
-            <div class="team-header">👥 Team Members (${actualTeamSize})</div>
+            <div class="team-header">${renderIcon('users', 'icon-sm')} Team Members (${actualTeamSize})</div>
             <div class="team-members-grid">
                 ${teamMembersHTML}
             </div>
@@ -627,4 +625,3 @@ export function escapeHtmlChars(text: string): string {
 export function sanitizeInput(input: string): string {
   return escapeHtmlChars(input.trim());
 }
-

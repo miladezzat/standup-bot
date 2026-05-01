@@ -76,6 +76,34 @@
             font: inherit;
         }
 
+        .icon {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            stroke: currentColor;
+            fill: none;
+            flex-shrink: 0;
+            vertical-align: -0.125em;
+        }
+
+        .icon-sm {
+            font-size: 0.9rem;
+        }
+
+        .icon-md {
+            font-size: 1.15rem;
+        }
+
+        .icon-lg {
+            font-size: 1.6rem;
+        }
+
+        .page-header-icon {
+            font-size: 0.9em;
+            margin-right: 0.35rem;
+            vertical-align: -0.08em;
+        }
+
         .topbar-wrap {
             position: sticky;
             top: 0;
@@ -160,37 +188,7 @@
         }
 
         .topbar-menu-icon {
-            position: relative;
-            width: 18px;
-            height: 14px;
-        }
-
-        .topbar-menu-icon span {
-            position: absolute;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            border-radius: 999px;
-            background: currentColor;
-            transition: transform var(--transition-smooth), opacity var(--transition-smooth), top var(--transition-smooth);
-        }
-
-        .topbar-menu-icon span:nth-child(1) { top: 0; }
-        .topbar-menu-icon span:nth-child(2) { top: 6px; }
-        .topbar-menu-icon span:nth-child(3) { top: 12px; }
-
-        .topbar-menu-toggle[aria-expanded="true"] .topbar-menu-icon span:nth-child(1) {
-            top: 6px;
-            transform: rotate(45deg);
-        }
-
-        .topbar-menu-toggle[aria-expanded="true"] .topbar-menu-icon span:nth-child(2) {
-            opacity: 0;
-        }
-
-        .topbar-menu-toggle[aria-expanded="true"] .topbar-menu-icon span:nth-child(3) {
-            top: 6px;
-            transform: rotate(-45deg);
+            font-size: 1.1rem;
         }
 
         .topbar-nav {
@@ -350,6 +348,9 @@
         }
 
         .card-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             font-size: 1.18rem;
             font-weight: 800;
             color: var(--gray-800);
@@ -381,6 +382,7 @@
         .stat-icon {
             font-size: 1.45rem;
             margin-bottom: 0.45rem;
+            color: var(--primary);
         }
 
         .stat-value {
@@ -657,6 +659,10 @@
                 height: 42px;
             }
 
+            .topbar-user-button > .icon {
+                display: none;
+            }
+
             .topbar-nav {
                 display: none;
                 order: 4;
@@ -695,6 +701,29 @@
             .card-header {
                 align-items: flex-start;
                 flex-direction: column;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .topbar {
+                position: relative;
+                width: calc(100vw - 1.5rem);
+                max-width: calc(100vw - 1.5rem);
+                padding-right: 3.75rem;
+            }
+
+            .topbar-menu-toggle {
+                position: absolute;
+                top: 0.625rem;
+                right: 0.75rem;
+            }
+
+            .topbar-actions {
+                display: none;
+            }
+
+            .topbar-mobile-signout {
+                display: inline-flex;
             }
         }
 
@@ -811,6 +840,7 @@
                         <span class="topbar-user-title">Account</span>
                         <span class="topbar-user-action">Sign out</span>
                     </span>
+                    {{{icon "log-out" class="icon-sm"}}}
                 </a>
             </div>
             {{/if}}

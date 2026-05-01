@@ -1,9 +1,57 @@
 import { Express } from 'express';
 import { engine } from 'express-handlebars';
 import { format } from 'date-fns';
+import fs from 'fs';
 import path from 'path';
 
 const appPackage = require('../../package.json') as { version?: string };
+const lucidePackageRoot = path.dirname(require.resolve('lucide-static/package.json'));
+const lucideIconsDir = path.join(lucidePackageRoot, 'icons');
+const iconCache = new Map<string, string>();
+
+function sanitizeIconClass(className?: string): string {
+  if (!className) return '';
+
+  return className
+    .split(/\s+/)
+    .filter((token) => /^[A-Za-z0-9_:-]+$/.test(token))
+    .join(' ');
+}
+
+/**
+ * Render a Lucide SVG from lucide-static.
+ * Icon names must be server-controlled slugs, never user input.
+ */
+export function renderIcon(name: string, className?: string): string {
+  if (!name || !/^[a-z0-9-]+$/.test(name)) {
+    return '';
+  }
+
+  const classes = ['icon', sanitizeIconClass(className)].filter(Boolean).join(' ');
+  const cacheKey = `${name}:${classes}`;
+  const cached = iconCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const iconPath = path.join(lucideIconsDir, `${name}.svg`);
+
+  if (!iconPath.startsWith(lucideIconsDir) || !fs.existsSync(iconPath)) {
+    return '';
+  }
+
+  const source = fs.readFileSync(iconPath, 'utf8')
+    .trim()
+    .replace(/<svg\b/, '<svg aria-hidden="true" focusable="false"');
+
+  const svg = source.includes('class="')
+    ? source.replace(/\bclass="([^"]*)"/, `class="${classes} $1"`)
+    : source.replace(/<svg\b/, `<svg class="${classes}"`);
+
+  iconCache.set(cacheKey, svg);
+  return svg;
+}
 
 /**
  * Configure Handlebars view engine for Express
@@ -45,6 +93,11 @@ export function configureViewEngine(app: Express): void {
       
       // JSON stringify helper
       json: (context: any) => JSON.stringify(context),
+
+      // Render a server-controlled Lucide SVG icon
+      icon: (name: string, options?: { hash?: { class?: string } }) => {
+        return renderIcon(name, options?.hash?.class);
+      },
       
       // Format date helper with date-fns
       formatDate: (date: string | Date, formatStr?: string) => {

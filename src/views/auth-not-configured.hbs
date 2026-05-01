@@ -36,9 +36,19 @@
         }
         
         .icon { 
-            font-size: 4rem; 
-            margin-bottom: 1.5rem;
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            stroke: currentColor;
+            fill: none;
+            flex-shrink: 0;
+            vertical-align: -0.125em;
+        }
+
+        .auth-icon {
             display: block;
+            font-size: 4rem; 
+            margin: 0 auto 1.5rem;
         }
         
         h1 { 
@@ -133,7 +143,7 @@
 </head>
 <body>
     <div class="container">
-        <span class="icon">⚠️</span>
+        {{{icon "triangle-alert" class="auth-icon"}}}
         <h1>Authentication Not Configured</h1>
         <p>Clerk authentication is not set up. The dashboards are currently <strong>publicly accessible</strong> without authentication.</p>
         
@@ -148,9 +158,7 @@
         </p>
         
         <a href="/" class="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
+            {{{icon "home" class="icon-sm"}}}
             Go to Dashboard
         </a>
     </div>

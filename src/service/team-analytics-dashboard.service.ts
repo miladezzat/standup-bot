@@ -157,7 +157,7 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
 
     // Render template
     res.render('analytics', {
-      ...createBaseViewData('📈 Team Analytics', 'analytics', !!hasClerk),
+      ...createBaseViewData('Team Analytics', 'analytics', !!hasClerk),
       velocityData,
       velocityDataJson: JSON.stringify(velocityData),
       blockerHeatmap,
@@ -462,6 +462,9 @@ const analyticsStyles = `
 }
 
 .chart-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--gray-800);
@@ -496,6 +499,9 @@ const analyticsStyles = `
 }
 
 .section-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--gray-800);

@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import { clerkMiddleware } from '@clerk/express';
 import { connectToDatabase } from './db/connection';
 import { expressApp, slackApp } from './singleton';
-import { configureViewEngine } from './config/view-engine';
+import { configureViewEngine, renderIcon } from './config/view-engine';
 import { runJobs } from './jobs';
 import { getStandupHistory } from './service/standup-history.service';
 import { mentionApp } from './service/app-mention.service';
@@ -23,6 +23,18 @@ import { apiLimiter } from './middleware/security.middleware';
 import { checkAuth } from './middleware/clerk-auth.middleware';
 import { logger, logInfo, logError, logWarn } from './utils/logger';
 import { CLERK_SIGN_IN_URL, ALLOW_PUBLIC_DASHBOARD, ENABLE_TEST_ROUTES } from './config';
+
+// Clerk is optional - if provided, authentication is enabled
+// Check if keys are real (not just placeholders)
+const hasValidClerkKeys = 
+    process.env.CLERK_PUBLISHABLE_KEY && 
+    process.env.CLERK_SECRET_KEY &&
+    process.env.CLERK_PUBLISHABLE_KEY.startsWith('pk_') &&
+    process.env.CLERK_SECRET_KEY.startsWith('sk_') &&
+    process.env.CLERK_PUBLISHABLE_KEY.length > 20 &&
+    process.env.CLERK_SECRET_KEY.length > 20;
+
+export const hasClerk = hasValidClerkKeys;
 
 // ============================================
 // 🔒 SECURITY MIDDLEWARE
@@ -50,7 +62,9 @@ expressApp.use(helmet({
 expressApp.use(cookieParser());
 
 // Clerk authentication middleware
-expressApp.use(clerkMiddleware());
+if (hasClerk) {
+    expressApp.use(clerkMiddleware());
+}
 
 // Rate limiting on dashboard routes
 expressApp.use(apiLimiter);
@@ -73,18 +87,6 @@ export const requiredEnvVars = [
     'CHANNEL_ID',
     'MONGODB_URI',
 ];
-
-// Clerk is optional - if provided, authentication is enabled
-// Check if keys are real (not just placeholders)
-const hasValidClerkKeys = 
-    process.env.CLERK_PUBLISHABLE_KEY && 
-    process.env.CLERK_SECRET_KEY &&
-    process.env.CLERK_PUBLISHABLE_KEY.startsWith('pk_') &&
-    process.env.CLERK_SECRET_KEY.startsWith('sk_') &&
-    process.env.CLERK_PUBLISHABLE_KEY.length > 20 &&
-    process.env.CLERK_SECRET_KEY.length > 20;
-
-export const hasClerk = hasValidClerkKeys;
 
 if (hasClerk) {
     logInfo('🔐 Clerk authentication enabled');
@@ -191,7 +193,15 @@ expressApp.get('/auth/sign-out', async (req, res) => {
                             from { opacity: 0; transform: translateY(20px); }
                             to { opacity: 1; transform: translateY(0); }
                         }
-                        .icon { font-size: 4rem; margin-bottom: 1rem; }
+                        .icon {
+                            display: inline-block;
+                            width: 1em;
+                            height: 1em;
+                            stroke: currentColor;
+                            fill: none;
+                            font-size: 4rem;
+                            margin-bottom: 1rem;
+                        }
                         h1 { color: #27ae60; margin-bottom: 0.5rem; font-size: 2rem; }
                         p { color: #7f8c8d; line-height: 1.6; margin-bottom: 1rem; font-size: 1.1rem; }
                         .redirect-msg { color: #95a5a6; font-size: 0.9rem; margin-top: 1rem; }
@@ -199,7 +209,7 @@ expressApp.get('/auth/sign-out', async (req, res) => {
                 </head>
                 <body>
                     <div class="container">
-                        <div class="icon">👋</div>
+                        ${renderIcon('circle-check', 'icon')}
                         <h1>Signed Out Successfully</h1>
                         <p>You've been signed out. See you next time!</p>
                         <p class="redirect-msg">Redirecting to dashboard...</p>

@@ -1,5 +1,5 @@
 <div class="page-header animate-fade-in-up">
-    <h1>☕ Breaks Dashboard</h1>
+    <h1>{{{icon "coffee" class="page-header-icon"}}} Breaks Dashboard</h1>
     <p>Track team break times and patterns</p>
 </div>
 
@@ -16,14 +16,14 @@
 <div class="content-grid">
     <div class="card animate-fade-in-up">
         <div class="card-header">
-            <h2 class="card-title">📋 Today's Breaks</h2>
+            <h2 class="card-title">{{{icon "clipboard-list" class="icon-md"}}} Today's Breaks</h2>
         </div>
         <div class="breaks-list">
             {{#if breaks.length}}
                 {{#each breaks}}
                 <div class="break-card">
                     <div class="break-header">
-                        <span class="break-user">☕ {{this.slackUserName}}</span>
+                        <span class="break-user">{{{icon "coffee" class="icon-sm"}}} {{this.slackUserName}}</span>
                         <span class="break-time">{{this.startTime}} - {{this.endTime}}</span>
                     </div>
                     <div class="break-details">
@@ -36,7 +36,7 @@
                 {{/each}}
             {{else}}
                 <div class="empty-state">
-                    <span class="empty-icon">☕</span>
+                    {{{icon "coffee" class="empty-icon"}}}
                     <p>No breaks logged for this day</p>
                 </div>
             {{/if}}
@@ -45,7 +45,7 @@
     
     <div class="card animate-fade-in-up">
         <div class="card-header">
-            <h2 class="card-title">👥 By Team Member</h2>
+            <h2 class="card-title">{{{icon "users" class="icon-md"}}} By Team Member</h2>
         </div>
         <div class="user-summaries">
             {{#if userBreaks.length}}
