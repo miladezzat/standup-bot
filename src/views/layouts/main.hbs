@@ -63,6 +63,7 @@
             background-attachment: fixed;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
         }
 
         a {
@@ -225,6 +226,10 @@
         .topbar-nav-icon {
             font-size: 0.95rem;
             line-height: 1;
+        }
+
+        .topbar-mobile-signout {
+            display: none;
         }
 
         .topbar-actions {
@@ -605,6 +610,7 @@
             }
 
             .topbar {
+                width: 100%;
                 flex-wrap: wrap;
                 align-items: center;
                 border-radius: 14px;
@@ -612,6 +618,17 @@
 
             .topbar-logo {
                 flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            .topbar-logo-copy {
+                min-width: 0;
+            }
+
+            .topbar-logo-title {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .topbar-logo-subtitle {
@@ -620,12 +637,14 @@
 
             .topbar-menu-toggle {
                 display: inline-flex;
+                flex: 0 0 40px;
                 order: 2;
             }
 
             .topbar-actions {
                 order: 3;
                 margin-left: 0;
+                flex: 0 0 auto;
             }
 
             .topbar-user-meta {
@@ -634,6 +653,8 @@
 
             .topbar-user-button {
                 padding: 0.35rem;
+                width: 42px;
+                height: 42px;
             }
 
             .topbar-nav {
@@ -678,6 +699,27 @@
         }
 
         @media (max-width: 460px) {
+            .topbar {
+                position: relative;
+                width: calc(100vw - 1.5rem);
+                max-width: calc(100vw - 1.5rem);
+                padding-right: 3.75rem;
+            }
+
+            .topbar-menu-toggle {
+                position: absolute;
+                top: 0.625rem;
+                right: 0.75rem;
+            }
+
+            .topbar-actions {
+                display: none;
+            }
+
+            .topbar-mobile-signout {
+                display: inline-flex;
+            }
+
             .topbar-logo-title {
                 font-size: 0.95rem;
             }
@@ -759,7 +801,7 @@
                 </span>
             </a>
 
-            {{> navigation currentPage=currentPage}}
+            {{> navigation currentPage=currentPage hasClerk=hasClerk}}
 
             {{#if hasClerk}}
             <div class="topbar-actions">

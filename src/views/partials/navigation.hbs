@@ -35,4 +35,10 @@
         <span class="topbar-nav-icon" aria-hidden="true">📜</span>
         <span>History</span>
     </a>
+    {{#if hasClerk}}
+    <a href="/auth/sign-out" class="topbar-nav-link topbar-mobile-signout">
+        <span class="topbar-nav-icon" aria-hidden="true">↪</span>
+        <span>Sign out</span>
+    </a>
+    {{/if}}
 </nav>

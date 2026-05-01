@@ -532,6 +532,14 @@ const submissionsStyles = `
     .stats-bar {
         gap: 1.5rem;
         padding: 0.75rem 1.5rem;
+        border-radius: 18px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .stat-item {
+        flex: 1 1 130px;
     }
     
     .date-nav {
@@ -545,6 +553,19 @@ const submissionsStyles = `
     
     .date-picker-group {
         justify-content: center;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .date-picker-group input {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .btn-go,
+    .btn-export {
+        flex: 1 1 100%;
+        width: 100%;
     }
     
     .cards-grid {
