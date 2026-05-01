@@ -967,12 +967,22 @@
         }
 
         @media (max-width: 500px) {
+            html,
+            body {
+                width: 100%;
+                overflow-x: hidden;
+            }
+
             .login-shell {
-                width: min(100% - 20px, 420px);
+                display: block;
+                width: 100%;
                 padding: 0.65rem 0 0.9rem;
             }
 
             .auth-panel {
+                width: auto;
+                max-width: none;
+                margin: 0 10px;
                 border-radius: 20px;
                 padding: 1.15rem;
             }
@@ -983,6 +993,11 @@
 
             .feature-description {
                 display: none;
+            }
+
+            .feature-title,
+            .sign-in-btn {
+                min-width: 0;
             }
 
             .dashboard-preview {
