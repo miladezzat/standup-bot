@@ -1,116 +1,59 @@
 import { Request, Response, NextFunction } from 'express';
-import { clerkClient, requireAuth } from '@clerk/express';
+import { clerkClient, requireAuth, getAuth } from '@clerk/express';
 import { logger } from '../utils/logger';
+import { SLACK_TEAM_ID } from '../config';
 
-/**
- * Clerk authentication middleware
- * Ensures user is authenticated before accessing protected routes
- */
-export const clerkAuthMiddleware = requireAuth({
-  // Redirect unauthenticated users to sign-in page
-  signInUrl: '/auth/sign-in',
-});
+export interface DashboardAccess {
+  workspaceId: string;
+  slackUserId: string;
+  role: 'member' | 'manager';
+}
 
-/**
- * Custom middleware to check if user is authenticated
- * More flexible than requireAuth for API endpoints
- */
-export const checkAuth = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+declare global {
+  namespace Express {
+    interface Request { dashboardAccess?: DashboardAccess; }
+  }
+}
+
+// Only server-managed Clerk private metadata is trusted. User-editable metadata
+// and request parameters must never grant workspace membership or manager access.
+export function parseDashboardAccess(metadata: Record<string, unknown>): DashboardAccess | null {
+  const value = metadata.standup as Partial<DashboardAccess> | null;
+  if (!value || typeof value !== 'object' || value.workspaceId !== SLACK_TEAM_ID ||
+      !/^T[A-Z0-9]+$/.test(value.workspaceId) ||
+      typeof value.slackUserId !== 'string' || !/^[UW][A-Z0-9]+$/.test(value.slackUserId) ||
+      (value.role !== 'member' && value.role !== 'manager')) return null;
+  return value as DashboardAccess;
+}
+
+export const clerkAuthMiddleware = requireAuth({ signInUrl: '/auth/sign-in' });
+
+export const checkAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // @ts-ignore - Clerk adds auth to request
-    const userId = req.auth()?.userId;
-
+    const userId = getAuth(req).userId;
     if (!userId) {
-      logger.warn('Unauthenticated access attempt', {
-        path: req.path,
-        ip: req.ip,
-      });
-      
-      // Redirect to sign-in page instead of returning JSON
-      const returnUrl = encodeURIComponent(req.originalUrl || req.path);
-      return res.redirect(`/auth/sign-in?redirect_url=${returnUrl}`);
+      return res.redirect(`/auth/sign-in?redirect_url=${encodeURIComponent(req.originalUrl || req.path)}`);
     }
-
-    // Get user details from Clerk
     const user = await clerkClient.users.getUser(userId);
-
-    // Attach user to request for downstream use
-    // @ts-ignore
-    req.clerkUser = user;
-
-    logger.debug('User authenticated', {
-      userId,
-      email: user.emailAddresses[0]?.emailAddress,
-    });
-
+    const access = parseDashboardAccess(user.privateMetadata);
+    if (!access) return res.status(403).send('Access to this workspace has not been granted.');
+    req.dashboardAccess = access;
     next();
   } catch (error) {
     logger.error('Auth middleware error', error);
-    // Redirect on error too
     return res.redirect('/auth/sign-in');
   }
 };
 
-/**
- * Optional auth - attaches user if authenticated but doesn't require it
- */
-export const optionalAuth = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    // @ts-ignore
-    const userId = req.auth()?.userId;
-
-    if (userId) {
-      const user = await clerkClient.users.getUser(userId);
-      // @ts-ignore
-      req.clerkUser = user;
-    }
-
-    next();
-  } catch (error) {
-    logger.error('Optional auth error', error);
-    next(); // Continue even if there's an error
-  }
+export const requireManager = (req: Request, res: Response, next: NextFunction) => {
+  if (req.dashboardAccess?.role !== 'manager') return res.status(403).send('Manager access required.');
+  next();
 };
 
-/**
- * Check if user has access to view another user's data
- * (For now, all authenticated users can view all data - can be customized)
- */
-export const canViewUserData = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    // @ts-ignore
-    const currentUserId = req.auth()?.userId;
-    const targetUserId = req.params.userId;
-
-    if (!currentUserId) {
-      const returnUrl = encodeURIComponent(req.originalUrl || req.path);
-      return res.redirect(`/auth/sign-in?redirect_url=${returnUrl}`);
-    }
-
-    // For now, all authenticated users can view all data
-    // You can add custom logic here (e.g., same workspace, admin role, etc.)
-    
-    logger.debug('User data access check', {
-      currentUserId,
-      targetUserId,
-    });
-
-    next();
-  } catch (error) {
-    logger.error('Access check error', error);
-    return res.redirect('/auth/sign-in');
+export const canViewUserData = (req: Request, res: Response, next: NextFunction) => {
+  const access = req.dashboardAccess;
+  if (!access || (access.role !== 'manager' && access.slackUserId !== req.params.userId)) {
+    return res.status(403).send('You can only view your own report.');
   }
+  next();
 };
-

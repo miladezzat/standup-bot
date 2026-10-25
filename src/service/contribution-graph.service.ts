@@ -1,7 +1,8 @@
+import { reportedHours, hasBlockers } from '../utils/standup-metrics';
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import StandupEntry from '../models/standupEntry';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { APP_TIMEZONE } from '../config';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -12,15 +13,17 @@ const TIMEZONE = APP_TIMEZONE;
  */
 export async function getUserContributions(
   slackUserId: string,
-  days: number = 90
+  days: number = 90,
+  workspaceId: string = SLACK_TEAM_ID
 ): Promise<ContributionDay[]> {
   const now = toZonedTime(new Date(), TIMEZONE);
   const startDate = format(subDays(now, days - 1), 'yyyy-MM-dd');
   
   // Fetch all standups for the date range in ONE query
   const standups = await StandupEntry.find({
+    workspaceId,
     slackUserId,
-    date: { $gte: startDate },
+    date: { $gte: startDate, $lte: format(now, 'yyyy-MM-dd') },
   }).lean();
 
   // Create a map for quick lookup
@@ -39,8 +42,8 @@ export async function getUserContributions(
       date: dateString,
       count: standup ? 1 : 0,
       hasSubmission: !!standup,
-      hasBlockers: standup?.blockers ? standup.blockers.trim().length > 0 : false,
-      estimatedHours: (standup?.yesterdayHoursEstimate || 0) + (standup?.todayHoursEstimate || 0),
+      hasBlockers: standup ? hasBlockers(standup) : false,
+      estimatedHours: standup ? reportedHours(standup) : 0,
     });
   }
 
@@ -51,14 +54,15 @@ export async function getUserContributions(
  * Get user's current streak
  * OPTIMIZED: Uses single query instead of 365 queries
  */
-export async function getUserStreak(slackUserId: string): Promise<StreakInfo> {
+export async function getUserStreak(slackUserId: string, workspaceId: string = SLACK_TEAM_ID): Promise<StreakInfo> {
   const now = toZonedTime(new Date(), TIMEZONE);
   const startDate = format(subDays(now, 364), 'yyyy-MM-dd');
   
   // Fetch all standups for the last 365 days in ONE query
   const standups = await StandupEntry.find({
+    workspaceId,
     slackUserId,
-    date: { $gte: startDate },
+    date: { $gte: startDate, $lte: format(now, 'yyyy-MM-dd') },
   })
     .select('date')
     .lean();

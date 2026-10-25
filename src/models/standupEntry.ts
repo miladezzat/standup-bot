@@ -95,8 +95,8 @@ const StandupEntrySchema: Schema = new Schema(
   }
 );
 
-// Compound index to ensure one standup per user per day
-StandupEntrySchema.index({ slackUserId: 1, date: 1 }, { unique: true });
+// Compound index to ensure one standup per workspace, user and day
+StandupEntrySchema.index({ workspaceId: 1, slackUserId: 1, date: 1 }, { unique: true });
 
 // Additional indexes for performance
 StandupEntrySchema.index({ date: -1 }); // Daily submissions view

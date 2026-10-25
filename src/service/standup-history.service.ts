@@ -25,9 +25,9 @@ export const getStandupHistory =  async (req: Request, res: Response) => {
 
     let standupThreads;
     if (queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
-        standupThreads = await StandupThread.find({ date: queryDate }).sort({ date: -1 });
+        standupThreads = await StandupThread.find({ channelId: CHANNEL_ID, date: queryDate }).sort({ date: -1 });
     } else {
-        standupThreads = await StandupThread.find().sort({ date: -1 });
+        standupThreads = await StandupThread.find({ channelId: CHANNEL_ID }).sort({ date: -1 });
     }
 
     // Update the CSS styles in the HTML template

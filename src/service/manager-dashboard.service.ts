@@ -1,3 +1,5 @@
+import { hasBlockers } from '../utils/standup-metrics';
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
@@ -6,7 +8,6 @@ import { format, subDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
 import { hasClerk } from '../index';
-import { APP_TIMEZONE } from '../config';
 import { createBaseViewData } from '../config/view-engine';
 import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
@@ -22,14 +23,14 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
 
     const now = toZonedTime(new Date(), TIMEZONE);
     const todayStr = format(now, 'yyyy-MM-dd');
-    const last30Days = format(subDays(now, 30), 'yyyy-MM-dd');
-    const last7Days = format(subDays(now, 7), 'yyyy-MM-dd');
+    const last30Days = format(subDays(now, 29), 'yyyy-MM-dd');
+    const last7Days = format(subDays(now, 6), 'yyyy-MM-dd');
 
     // Get all unique team members from last 30 days
     const workspaceId = process.env.SLACK_TEAM_ID || 'default';
     const teamMembers = await StandupEntry.distinct('slackUserId', {
       workspaceId,
-            date: { $gte: last30Days },
+            date: { $gte: last30Days, $lte: todayStr },
             ...getReportUserExclusionFilter()
     });
 
@@ -37,6 +38,7 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
     const teamMetrics = await Promise.all(
       teamMembers.map(async (userId) => {
         const metrics = await PerformanceMetrics.findOne({
+          workspaceId: SLACK_TEAM_ID,
           slackUserId: userId,
           period: 'week'
         }).sort({ startDate: -1 }).lean();
@@ -63,17 +65,19 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
     const atRiskMembers = validMetrics.filter(m => m?.riskLevel === 'high' || m?.riskLevel === 'medium');
 
     // Get today's submissions
-    const todaySubmissions = await StandupEntry.find({ date: todayStr, ...getReportUserExclusionFilter() });
+    const todaySubmissions = await StandupEntry.find({ workspaceId: SLACK_TEAM_ID, date: todayStr, ...getReportUserExclusionFilter() });
     const submissionRate = teamMembers.length > 0 
       ? Math.round((todaySubmissions.length / teamMembers.length) * 100)
       : 0;
 
     // Get all blockers from last 7 days
     const recentBlockers = await StandupEntry.find({
-      date: { $gte: last7Days },
+      workspaceId: SLACK_TEAM_ID,
+      date: { $gte: last7Days, $lte: todayStr },
             blockers: { $ne: '', $exists: true },
             ...getReportUserExclusionFilter()
-    }).sort({ date: -1 }).limit(10).lean();
+    }).sort({ date: -1 }).lean();
+    const actionableBlockers = recentBlockers.filter(hasBlockers).slice(0, 10);
 
     // Top performers (top 3)
     const topPerformers = [...validMetrics]
@@ -90,7 +94,7 @@ export const getManagerDashboard = async (req: Request, res: Response) => {
       alertCount: activeAlerts.length,
       atRiskMembers,
       activeAlerts,
-      recentBlockers,
+      recentBlockers: actionableBlockers,
       topPerformers,
       pageStyles: managerStyles
     });

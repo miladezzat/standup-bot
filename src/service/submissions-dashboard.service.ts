@@ -1,10 +1,10 @@
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
 import { hasClerk } from '../index';
-import { APP_TIMEZONE } from '../config';
 import { createBaseViewData } from '../config/view-engine';
 import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
@@ -57,7 +57,7 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
 
         let standupEntries;
         if (queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate)) {
-            standupEntries = await StandupEntry.find({ date: queryDate, ...getReportUserExclusionFilter() }).sort({ createdAt: -1 });
+            standupEntries = await StandupEntry.find({ workspaceId: SLACK_TEAM_ID, date: queryDate, ...getReportUserExclusionFilter() }).sort({ createdAt: -1 });
         } else {
             // Get last 30 days of standups
             isAllTime = true;
@@ -65,7 +65,8 @@ export const getSubmissionsDashboard = async (req: Request, res: Response) => {
                 toZonedTime(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), TIMEZONE),
                 'yyyy-MM-dd'
             );
-            standupEntries = await StandupEntry.find({ 
+            standupEntries = await StandupEntry.find({
+                workspaceId: SLACK_TEAM_ID,
                 date: { $gte: thirtyDaysAgo },
                 ...getReportUserExclusionFilter()
             }).sort({ date: -1, createdAt: -1 });

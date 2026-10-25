@@ -89,7 +89,7 @@ const AchievementSchema: Schema = new Schema(
 );
 
 // Compound indexes for efficient queries
-AchievementSchema.index({ slackUserId: 1, achievementType: 1, level: 1 }, { unique: true });
+AchievementSchema.index({ workspaceId: 1, slackUserId: 1, achievementType: 1, level: 1 }, { unique: true });
 AchievementSchema.index({ workspaceId: 1, earnedAt: -1 });
 AchievementSchema.index({ achievementType: 1, level: 1 });
 

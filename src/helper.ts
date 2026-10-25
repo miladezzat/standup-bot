@@ -1,9 +1,10 @@
+import { countReportedTasks, completedTasks } from './utils/standup-metrics';
 import { WebClient } from '@slack/web-api';
 import dotenv from 'dotenv';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { slackWebClient } from './singleton';
-import { CHANNEL_ID, APP_TIMEZONE } from './config';
+import { CHANNEL_ID, APP_TIMEZONE, SLACK_TEAM_ID } from './config';
 import { SlackMessage } from './service/standup-history.service';
 import StandupEntry from './models/standupEntry';
 import { getReportUserExclusionFilter, isIncludedInReports } from './utils/report-exclusions';
@@ -249,7 +250,7 @@ export async function generateDateAnalytics(thread: any) {
             // Count section items
             // Count section items
             const days = "yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday";
-            const regex = new RegExp(`(${days}):([^]*?)(?=(\\b${days}:|\\bblockers:|$))`, "i");
+            const regex = new RegExp(`(${days}):([^]*?)(?=\\b(?:${days}|today|blockers):|$)`, "i");
 
 
             if (reply.text.toLowerCase().includes('yesterday:')) { // You can keep or remove this check as optimization
@@ -259,17 +260,13 @@ export async function generateDateAnalytics(thread: any) {
                     // match[2] is the section text we want to split into items
                     const sectionText = match[2];
 
-                    // Split by common bullet characters or numbered lists
-                    const items = sectionText.split(/[•\-–]|\d+\./)
-                        .map(item => item.trim())
-                        .filter(item => item.length > 0);
-
-                    yesterdayItemsCount += items.length;
+                    const itemCount = countReportedTasks(sectionText);
+                    yesterdayItemsCount += itemCount;
 
                     // Add to user's task count safely
                     if (reply.user) {
                         const currentCount = userTaskCounts.get(reply.user) || 0;
-                        userTaskCounts.set(reply.user, currentCount + items.length);
+                        userTaskCounts.set(reply.user, currentCount + itemCount);
                     }
                 }
             }
@@ -278,13 +275,7 @@ export async function generateDateAnalytics(thread: any) {
             if (reply.text.toLowerCase().includes('today:')) {
                 const match = reply.text.match(/today:([^]*?)(?=(\byesterday:|\bblockers:|$))/i);
                 if (match) {
-                    const items = match[1].split(/[•\-–]|\d+\./).filter(item => item.trim().length > 0);
-                    todayItemsCount += items.length;
-
-                    // Add to user's task count
-                    if (reply.user) {
-                        userTaskCounts.set(reply.user, userTaskCounts.get(reply.user) + items.length);
-                    }
+                    todayItemsCount += countReportedTasks(match[1]);
                 }
             }
 
@@ -335,10 +326,10 @@ export async function generateDateAnalytics(thread: any) {
         const veryLateResponses = responseTimes.filter(time => time > 8).length;
 
         // Calculate total tasks
-        const totalTasks = yesterdayItemsCount + todayItemsCount;
+        const totalTasks = yesterdayItemsCount;
 
         // Calculate average tasks per person
-        const avgTasksPerPerson = Math.round((totalTasks / participants.size) * 10) / 10;
+        const avgTasksPerPerson = Math.round((totalTasks / Math.max(1, participants.size)) * 10) / 10;
 
         // Generate recent submissions (last 5 users)
         const recentUsers = Array.from(participants).slice(0, 5);
@@ -373,7 +364,7 @@ export async function generateDateAnalytics(thread: any) {
             }
         }
 
-        const standupsForDate = await StandupEntry.find({ date: thread.date, ...getReportUserExclusionFilter() }).lean();
+        const standupsForDate = await StandupEntry.find({ workspaceId: SLACK_TEAM_ID, date: thread.date, ...getReportUserExclusionFilter() }).lean();
         const standupByUser = new Map<string, (typeof standupsForDate)[number]>();
         standupsForDate.forEach(entry => {
             standupByUser.set(entry.slackUserId, entry);
@@ -384,13 +375,6 @@ export async function generateDateAnalytics(thread: any) {
             teamMemberIds.add(entry.slackUserId);
         }
 
-        const countTasksFromText = (text?: string) => {
-            if (!text) return 0;
-            const matches = text.match(/[•\-–]|\d+\./g);
-            if (matches && matches.length > 0) return matches.length;
-            return text.trim().length > 0 ? 1 : 0;
-        };
-
         // Generate team members table - DYNAMICALLY from actual participants and standup submissions
         let teamMembersHTML = '';
         for (const userId of teamMemberIds) {
@@ -400,7 +384,7 @@ export async function generateDateAnalytics(thread: any) {
             const isDayOff = Boolean(standupEntry?.isDayOff);
             const dayOffReason = standupEntry?.dayOffReason ? escapeHtml(standupEntry.dayOffReason) : '';
             const entryTaskCount = !isDayOff && standupEntry
-                ? countTasksFromText(standupEntry.yesterday) + countTasksFromText(standupEntry.today)
+                ? completedTasks(standupEntry)
                 : 0;
             const taskCount = userTaskCounts.get(userId) ?? entryTaskCount;
             const statusBadge = isDayOff

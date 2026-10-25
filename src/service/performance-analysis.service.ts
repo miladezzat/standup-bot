@@ -1,12 +1,15 @@
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, startOfWeek, startOfMonth, startOfQuarter } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
-import { APP_TIMEZONE } from '../config';
+import { APP_TIMEZONE, SLACK_TEAM_ID } from '../config';
 import { getReportUserExclusionFilter } from '../utils/report-exclusions';
 
+import { completedTasks, reportedHours, hasBlockers, isFullDayOff, submissionRate } from '../utils/standup-metrics';
+
 const TIMEZONE = APP_TIMEZONE;
+const WORKING_WEEK_START = 0;
 
 /**
  * Detect recurring blocker patterns
@@ -15,7 +18,7 @@ export function detectRecurringBlockers(standups: any[]): string[] {
   const blockerKeywords: Map<string, number> = new Map();
 
   standups.forEach(standup => {
-    if (!standup.blockers) return;
+    if (!hasBlockers(standup)) return;
 
     // Extract keywords from blockers
     const words = standup.blockers
@@ -24,7 +27,7 @@ export function detectRecurringBlockers(standups: any[]): string[] {
       .split(/\s+/)
       .filter((word: string) => word.length > 3); // Filter short words
 
-    words.forEach((word: string) => {
+    new Set<string>(words).forEach((word: string) => {
       blockerKeywords.set(word, (blockerKeywords.get(word) || 0) + 1);
     });
   });
@@ -42,37 +45,35 @@ export function detectRecurringBlockers(standups: any[]): string[] {
  */
 export async function assessRiskLevel(
   slackUserId: string,
-  days: number = 30
+  days: number = 30,
+  workspaceId: string = SLACK_TEAM_ID,
+  asOf: Date = new Date()
 ): Promise<{ level: 'low' | 'medium' | 'high'; factors: string[]; score: number }> {
-  const now = toZonedTime(new Date(), TIMEZONE);
-  const startDate = format(subDays(now, days), 'yyyy-MM-dd');
+  const now = toZonedTime(asOf, TIMEZONE);
+  const startDate = format(subDays(now, days - 1), 'yyyy-MM-dd');
 
   const standups = await StandupEntry.find({
+    workspaceId,
     slackUserId,
-    date: { $gte: startDate }
+    date: { $gte: startDate, $lte: format(now, 'yyyy-MM-dd') }
   }).sort({ date: -1 }).lean();
-
-  if (standups.length === 0) {
-    return { level: 'low', factors: [], score: 0 };
-  }
 
   const factors: string[] = [];
   let riskScore = 0;
 
   // Factor 1: Low submission rate
-  const expectedDays = days;
-  const submissionRate = standups.length / expectedDays;
-  if (submissionRate < 0.5) {
-    factors.push(`Low submission rate (${Math.round(submissionRate * 100)}%)`);
+  const rate = submissionRate(standups, startDate, format(now, 'yyyy-MM-dd')).rate;
+  if (rate < 0.5) {
+    factors.push(`Low submission rate (${Math.round(rate * 100)}%)`);
     riskScore += 30;
-  } else if (submissionRate < 0.7) {
-    factors.push(`Inconsistent submissions (${Math.round(submissionRate * 100)}%)`);
+  } else if (rate < 0.7) {
+    factors.push(`Inconsistent submissions (${Math.round(rate * 100)}%)`);
     riskScore += 15;
   }
 
   // Factor 2: High blocker frequency
-  const blockerCount = standups.filter(s => s.blockers && s.blockers.trim()).length;
-  const blockerRate = blockerCount / standups.length;
+  const blockerCount = standups.filter(hasBlockers).length;
+  const blockerRate = blockerCount / Math.max(1, standups.filter(s => !isFullDayOff(s)).length);
   if (blockerRate > 0.5) {
     factors.push(`Frequent blockers (${Math.round(blockerRate * 100)}% of days)`);
     riskScore += 25;
@@ -81,26 +82,20 @@ export async function assessRiskLevel(
     riskScore += 10;
   }
 
-  // Factor 3: Declining activity (comparing first half vs second half)
-  const midpoint = Math.floor(standups.length / 2);
-  const recentStandups = standups.slice(0, midpoint);
-  const olderStandups = standups.slice(midpoint);
-  
-  if (recentStandups.length > 0 && olderStandups.length > 0) {
-    const recentRate = recentStandups.length / (days / 2);
-    const olderRate = olderStandups.length / (days / 2);
-    
-    if (recentRate < olderRate * 0.7) {
-      factors.push('Declining submission frequency');
-      riskScore += 20;
-    }
+  // Compare disjoint date windows, including days with no submission.
+  const splitDate = format(subDays(now, Math.ceil(days / 2) - 1), 'yyyy-MM-dd');
+  const olderEnd = format(subDays(now, Math.ceil(days / 2)), 'yyyy-MM-dd');
+  const endDate = format(now, 'yyyy-MM-dd');
+  const recentRate = submissionRate(standups, splitDate, endDate);
+  const olderRate = submissionRate(standups, startDate, olderEnd);
+  if (recentRate.expected && olderRate.expected && olderRate.count > 0 && recentRate.rate < olderRate.rate * 0.7) {
+    factors.push('Declining submission frequency');
+    riskScore += 20;
   }
 
-  // Factor 5: Overwork indicators
-  const recentHours = recentStandups
-    .slice(0, 7)
-    .reduce((sum, s) => sum + (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0), 0);
-  
+  const lastWeekStart = format(subDays(now, 6), 'yyyy-MM-dd');
+  const recentHours = standups.filter(s => s.date >= lastWeekStart).reduce((sum, s) => sum + reportedHours(s), 0);
+
   if (recentHours > 70) {
     factors.push(`High workload (${recentHours}h in last week)`);
     riskScore += 15;
@@ -123,23 +118,14 @@ export async function assessRiskLevel(
  * Calculate velocity trend
  */
 export function calculateVelocityTrend(standups: any[]): 'increasing' | 'stable' | 'decreasing' {
-  if (standups.length < 10) return 'stable';
-
-  const midpoint = Math.floor(standups.length / 2);
-  const recentStandups = standups.slice(0, midpoint);
-  const olderStandups = standups.slice(midpoint);
-
-  // Count tasks (bullet points) in each period
-  const countTasks = (list: any[]) => {
-    return list.reduce((total, s) => {
-      const yesterdayTasks = (s.yesterday.match(/[•\-–*]|\d+\./g) || []).length || 1;
-      const todayTasks = (s.today.match(/[•\-–*]|\d+\./g) || []).length || 1;
-      return total + yesterdayTasks + todayTasks;
-    }, 0);
-  };
-
-  const recentTaskCount = countTasks(recentStandups);
-  const olderTaskCount = countTasks(olderStandups);
+  const sorted = standups.filter(s => !isFullDayOff(s)).sort((a, b) => b.date.localeCompare(a.date));
+  if (sorted.length < 10) return 'stable';
+  const midpoint = Math.floor(sorted.length / 2);
+  if (!midpoint) return 'stable';
+  const recentStandups = sorted.slice(0, midpoint);
+  const olderStandups = sorted.slice(midpoint);
+  const recentTaskCount = recentStandups.reduce((sum, s) => sum + completedTasks(s), 0);
+  const olderTaskCount = olderStandups.reduce((sum, s) => sum + completedTasks(s), 0);
 
   const recentAvg = recentTaskCount / Math.max(1, recentStandups.length);
   const olderAvg = olderTaskCount / Math.max(1, olderStandups.length);
@@ -157,81 +143,67 @@ export function calculateVelocityTrend(standups: any[]): 'increasing' | 'stable'
 export async function calculatePerformanceMetrics(
   slackUserId: string,
   period: 'week' | 'month' | 'quarter',
-  workspaceId: string
+  workspaceId: string,
+  asOf: Date = new Date()
 ): Promise<any> {
-  const now = toZonedTime(new Date(), TIMEZONE);
-  let startDate: Date;
-  let endDate: Date;
-  let expectedSubmissions: number;
-
-  if (period === 'week') {
-    startDate = startOfWeek(now, { weekStartsOn: 1 });
-    endDate = endOfWeek(now, { weekStartsOn: 1 });
-    expectedSubmissions = 5; // Weekdays
-  } else if (period === 'month') {
-    startDate = startOfMonth(now);
-    endDate = endOfMonth(now);
-    expectedSubmissions = 22; // Approximate workdays
-  } else {
-    startDate = subDays(now, 90);
-    endDate = now;
-    expectedSubmissions = 65; // Approximate workdays in quarter
-  }
+  const now = toZonedTime(asOf, TIMEZONE);
+  const startDate = period === 'week' ? startOfWeek(now, { weekStartsOn: WORKING_WEEK_START })
+    : period === 'month' ? startOfMonth(now) : startOfQuarter(now);
+  // Current periods are measured only through today, not against future days.
+  const endDate = now;
 
   const startDateStr = format(startDate, 'yyyy-MM-dd');
   const endDateStr = format(endDate, 'yyyy-MM-dd');
 
   // Fetch standups
   const standups = await StandupEntry.find({
+    workspaceId,
     slackUserId,
     date: { $gte: startDateStr, $lte: endDateStr }
   }).sort({ date: -1 }).lean();
 
-  if (standups.length === 0) {
-    return null; // No data
-  }
-
-  const userName = standups[0].slackUserName;
+  // Keep active members with a missed period in current metrics. Otherwise the
+  // dashboard silently retains their last (possibly high) historical score.
+  const latestEntry = standups[0] || await StandupEntry.findOne({
+    workspaceId, slackUserId, date: { $lte: endDateStr }
+  }).sort({ date: -1 }).lean();
+  if (!latestEntry) return null;
+  const userName = latestEntry.slackUserName;
 
   // Calculate metrics
-  const totalSubmissions = standups.length;
-  const consistencyScore = Math.round((totalSubmissions / expectedSubmissions) * 100);
-
-  // Task counting
-  const totalTasks = standups.reduce((total, s) => {
-    const yesterdayTasks = (s.yesterday.match(/[•\-–*]|\d+\./g) || []).length || 1;
-    const todayTasks = (s.today.match(/[•\-–*]|\d+\./g) || []).length || 1;
-    return total + yesterdayTasks + todayTasks;
-  }, 0);
-
-  const totalHoursEstimated = standups.reduce((total, s) => {
-    return total + (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0);
-  }, 0);
-
+  const workEntries = standups.filter(s => !isFullDayOff(s));
+  const totalSubmissions = workEntries.length;
+  const attendance = submissionRate(standups, startDateStr, endDateStr);
+  const expectedSubmissions = attendance.expected;
+  const consistencyScore = Math.min(100, Math.round(attendance.rate * 100));
+  const totalTasks = workEntries.reduce((sum, s) => sum + completedTasks(s), 0);
+  const totalHoursEstimated = workEntries.reduce((sum, s) => sum + reportedHours(s), 0);
   const averageTasksPerDay = totalTasks / Math.max(1, totalSubmissions);
 
   // Blocker metrics
-  const blockerStandups = standups.filter(s => s.blockers && s.blockers.trim());
+  const blockerStandups = standups.filter(hasBlockers);
   const blockerCount = blockerStandups.length;
-  const blockerFrequency = (blockerCount / totalSubmissions) * 100;
+  const blockerFrequency = (blockerCount / Math.max(1, totalSubmissions)) * 100;
   const recurringBlockers = detectRecurringBlockers(standups);
 
   // Submission time analysis
-  const submissionTimes = standups.map(s => {
-    const hour = new Date(s.createdAt).getHours();
-    const minute = new Date(s.createdAt).getMinutes();
+  const submissionTimes = workEntries.map(s => {
+    const local = toZonedTime(new Date(s.createdAt), TIMEZONE);
+    const hour = local.getHours();
+    const minute = local.getMinutes();
     return hour * 60 + minute; // Minutes since midnight
   });
   
-  const avgSubmissionMinutes = submissionTimes.reduce((sum, t) => sum + t, 0) / submissionTimes.length;
-  const avgHour = Math.floor(avgSubmissionMinutes / 60);
-  const avgMinute = Math.round(avgSubmissionMinutes % 60);
+  const avgSubmissionMinutes = submissionTimes.reduce((sum, t) => sum + t, 0) / Math.max(1, submissionTimes.length);
+  const roundedMinutes = Math.round(avgSubmissionMinutes) % 1440;
+  const avgHour = Math.floor(roundedMinutes / 60);
+  const avgMinute = roundedMinutes % 60;
   const averageSubmissionTime = `${String(avgHour).padStart(2, '0')}:${String(avgMinute).padStart(2, '0')}`;
   
   const lateSubmissions = submissionTimes.filter(t => t > 12 * 60).length; // After 12pm
 
   // Sentiment & Risk
-  const riskAssessment = await assessRiskLevel(slackUserId, 30);
+  const riskAssessment = await assessRiskLevel(slackUserId, 30, workspaceId, asOf);
   
   // Velocity trend
   const velocityTrend = calculateVelocityTrend(standups);
@@ -249,6 +221,11 @@ export async function calculatePerformanceMetrics(
   overallScore += Math.min(25, engagementScore * 0.25); // 25% weight
   overallScore += velocityTrend === 'increasing' ? 20 : velocityTrend === 'stable' ? 15 : 5; // 20% weight
   overallScore += riskAssessment.level === 'low' ? 25 : riskAssessment.level === 'medium' ? 15 : 5; // 25% weight
+
+  if (totalSubmissions === 0 && expectedSubmissions > 0) {
+    engagementScore = 0;
+    overallScore = 0;
+  }
 
   return {
     slackUserId,
@@ -286,20 +263,27 @@ export async function calculatePerformanceMetrics(
  */
 export async function calculateTeamMetrics(
   workspaceId: string,
-  period: 'week' | 'month' | 'quarter'
+  period: 'week' | 'month' | 'quarter',
+  asOf: Date = new Date()
 ): Promise<void> {
   logger.info(`Calculating team metrics for period: ${period}`);
 
-  // Get all unique users
+  // Use the same instant for every member. Include the period's participants
+  // and members active in the last 30 days, without reviving departed users.
+  const now = toZonedTime(asOf, TIMEZONE);
+  const periodStart = period === 'week' ? startOfWeek(now, { weekStartsOn: WORKING_WEEK_START })
+    : period === 'month' ? startOfMonth(now) : startOfQuarter(now);
+  const cohortStart = format(new Date(Math.min(periodStart.getTime(), subDays(now, 29).getTime())), 'yyyy-MM-dd');
   const users = await StandupEntry.distinct('slackUserId', {
     workspaceId,
+    date: { $gte: cohortStart, $lte: format(now, 'yyyy-MM-dd') },
     ...getReportUserExclusionFilter()
   });
 
   // Calculate metrics for each user
   const allMetrics = [];
   for (const userId of users) {
-    const metrics = await calculatePerformanceMetrics(userId, period, workspaceId);
+    const metrics = await calculatePerformanceMetrics(userId, period, workspaceId, asOf);
     if (metrics) {
       allMetrics.push(metrics);
     }
@@ -313,10 +297,16 @@ export async function calculateTeamMetrics(
   // Sort by overall score for percentile calculation
   allMetrics.sort((a, b) => b.overallScore - a.overallScore);
 
+  // Ties must receive the same rank, independent of MongoDB roster ordering.
+  const ranks = new Map<number, number>();
+  allMetrics.forEach((metric, index) => {
+    if (!ranks.has(metric.overallScore)) ranks.set(metric.overallScore, ((allMetrics.length - index) / allMetrics.length) * 100);
+  });
+
   // Update each metric with team average and percentile
   for (let i = 0; i < allMetrics.length; i++) {
     const metrics = allMetrics[i];
-    const percentileRank = ((allMetrics.length - i) / allMetrics.length) * 100;
+    const percentileRank = ranks.get(metrics.overallScore)!;
 
     metrics.teamAverageScore = Math.round(teamAverageScore);
     metrics.percentileRank = Math.round(percentileRank);
@@ -324,6 +314,7 @@ export async function calculateTeamMetrics(
     // Save or update in database
     await PerformanceMetrics.findOneAndUpdate(
       {
+        workspaceId,
         slackUserId: metrics.slackUserId,
         period: metrics.period,
         startDate: metrics.startDate
