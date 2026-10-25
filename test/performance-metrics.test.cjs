@@ -7,13 +7,14 @@ const Entry = require('../src/models/standupEntry').default;
 const Metrics = require('../src/models/performanceMetrics').default;
 const { calculatePerformanceMetrics, assessRiskLevel, calculateVelocityTrend, detectRecurringBlockers, calculateTeamMetrics } = require('../src/service/performance-analysis.service');
 const { completedTasks, countReportedTasks, reportedHours, submissionRate, workingDates, hasBlockers } = require('../src/utils/standup-metrics');
-afterEach(() => mock.restoreAll());
+afterEach(() => { mock.restoreAll(); mock.timers.reset(); });
 const entry = (date, extra = {}) => ({ workspaceId: 'TTEAM', slackUserId: 'UALICE', slackUserName: 'Alice',
   date, yesterday: '- Fixed BOT-123\n- Reviewed https://example.com/a-b', today: '- Plan one\n- Plan two\n- Plan three',
   blockers: 'None', createdAt: new Date(`${date}T09:00:00Z`), yesterdayHoursEstimate: 7, todayHoursEstimate: 8, ...extra });
 function useRows(rows) {
   const filters = [];
   mock.method(Entry, 'find', filter => { filters.push(filter); return query(rows, filter); });
+  mock.method(Entry, 'findOne', filter => query(rows, filter, true));
   return filters;
 }
 
@@ -97,7 +98,7 @@ test('velocity sorts dates and uses completed work, independent of plans and inp
 });
 
 test('blocker placeholders are ignored and repeated words count once per day', () => {
-  for (const blockers of ['None', 'n/a', 'No blockers.', '']) assert.equal(hasBlockers(entry('2026-10-19', { blockers })), false);
+  for (const blockers of ['None', 'n/a', 'No', 'No blockers.', '']) assert.equal(hasBlockers(entry('2026-10-19', { blockers })), false);
   assert.equal(hasBlockers(entry('2026-10-19', { blockers: 'None of the API requests succeed' })), true);
   assert.deepEqual(detectRecurringBlockers([entry('2026-10-19', { blockers: 'database database database' })]), []);
   assert.deepEqual(detectRecurringBlockers([18,19,20].map(d => entry(`2026-10-${d}`, { blockers: 'database' }))), ['database']);
@@ -123,4 +124,41 @@ test('local date rollover and rounded submission times respect the configured ti
  const rollover = await calculatePerformanceMetrics('UALICE','week','TTEAM',new Date('2026-10-17T22:00:00Z'));
  assert.equal(rollover.endDate,'2026-10-18');
  assert.equal(rollover.totalSubmissions,1);
+});
+
+test('known members with no current submissions receive fresh zero metrics instead of retaining old scores', async () => {
+  useRows([entry('2026-09-30'), entry('2026-10-18', { workspaceId: 'TOTHER' })]);
+  const result = await calculatePerformanceMetrics('UALICE', 'week', 'TTEAM', new Date('2026-10-20T16:00:00Z'));
+  assert.ok(result);
+  assert.equal(result.totalSubmissions, 0);
+  assert.equal(result.totalTasksCompleted, 0);
+  assert.equal(result.consistencyScore, 0);
+  assert.equal(result.overallScore, 0);
+  assert.equal(result.expectedSubmissions, 3);
+  assert.ok(result.riskFactors.some(factor => factor.startsWith('Low submission rate')));
+});
+
+test('a completely missing risk window is assessed against expected workdays', async () => {
+  useRows([]);
+  const result = await assessRiskLevel('UALICE',14,'TTEAM',new Date('2026-10-20T16:00:00Z'));
+  assert.equal(result.level,'medium');
+  assert.ok(result.factors.includes('Low submission rate (0%)'));
+});
+
+test('leave records cannot satisfy the minimum sample size for velocity', () => {
+  const rows = Array.from({length:10}, (_,i)=>entry(`2026-10-${String(i+1).padStart(2,'0')}`, {isDayOff:i<8,yesterday:i===8?'- One':'- One\n- Two\n- Three'}));
+  assert.equal(calculateVelocityTrend(rows),'stable');
+});
+
+test('equal performance scores receive equal percentile ranks regardless of roster order', async () => {
+  mock.timers.enable({apis:['Date'],now:new Date('2026-10-20T16:00:00Z')});
+  const today = '2026-10-20';
+  useRows([entry(today),entry(today,{slackUserId:'UBOB',slackUserName:'Bob'})]);
+  mock.method(Entry,'distinct',async()=>['UBOB','UALICE']);
+  const saved=[];
+  mock.method(Metrics,'findOneAndUpdate',async (_filter,data)=>saved.push(data));
+  await calculateTeamMetrics('TTEAM','week',new Date('2026-10-20T16:00:00Z'));
+  assert.equal(saved.length,2);
+  assert.equal(saved[0].overallScore,saved[1].overallScore);
+  assert.equal(saved[0].percentileRank,saved[1].percentileRank);
 });

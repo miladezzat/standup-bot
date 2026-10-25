@@ -291,6 +291,9 @@ exercise the real services and route middleware. Run `npm run lint` and
   minus configured `METRICS_HOLIDAYS` and full-day OOO entries. Partial-day OOO
   remains an expected submission day. Rates never exceed 100%. Configure holidays
   explicitly; reporting does not fetch holiday dates over the network.
+- Known members active in the period or preceding 30 days receive current zero
+  totals and zero attendance when they miss a period, instead of retaining an old
+  score. Equal scores receive equal percentile ranks.
 - Decline risk compares submission rates in disjoint date windows, including
   missed dates. Recent workload considers the last seven calendar dates and
   reported hours only. Submission times use `APP_TIMEZONE`.

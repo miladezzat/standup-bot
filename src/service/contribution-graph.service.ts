@@ -1,4 +1,4 @@
-import { reportedHours } from '../utils/standup-metrics';
+import { reportedHours, hasBlockers } from '../utils/standup-metrics';
 import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import StandupEntry from '../models/standupEntry';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -23,7 +23,7 @@ export async function getUserContributions(
   const standups = await StandupEntry.find({
     workspaceId,
     slackUserId,
-    date: { $gte: startDate },
+    date: { $gte: startDate, $lte: format(now, 'yyyy-MM-dd') },
   }).lean();
 
   // Create a map for quick lookup
@@ -42,7 +42,7 @@ export async function getUserContributions(
       date: dateString,
       count: standup ? 1 : 0,
       hasSubmission: !!standup,
-      hasBlockers: standup?.blockers ? standup.blockers.trim().length > 0 : false,
+      hasBlockers: standup ? hasBlockers(standup) : false,
       estimatedHours: standup ? reportedHours(standup) : 0,
     });
   }
@@ -62,7 +62,7 @@ export async function getUserStreak(slackUserId: string, workspaceId: string = S
   const standups = await StandupEntry.find({
     workspaceId,
     slackUserId,
-    date: { $gte: startDate },
+    date: { $gte: startDate, $lte: format(now, 'yyyy-MM-dd') },
   })
     .select('date')
     .lean();

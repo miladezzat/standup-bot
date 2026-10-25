@@ -1,4 +1,4 @@
-import { completedTasks, reportedHours, hasBlockers } from '../utils/standup-metrics';
+import { completedTasks, reportedHours, hasBlockers, isFullDayOff } from '../utils/standup-metrics';
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
@@ -50,7 +50,7 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
     logger.info('Team analytics dashboard accessed');
 
     const now = toZonedTime(new Date(), TIMEZONE);
-    const last30Days = format(subDays(now, 30), 'yyyy-MM-dd');
+    const last30Days = format(subDays(now, 29), 'yyyy-MM-dd');
     const last60Days = format(subDays(now, 60), 'yyyy-MM-dd');
 
     const workspaceId = process.env.SLACK_TEAM_ID || 'default';
@@ -58,7 +58,7 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
     // Get all standups from last 30 days
     const standups = await StandupEntry.find({
       workspaceId,
-            date: { $gte: last30Days },
+            date: { $gte: last30Days, $lte: format(now, 'yyyy-MM-dd') },
             ...getReportUserExclusionFilter()
     }).sort({ date: -1 }).lean();
 
@@ -72,7 +72,7 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
 
     // Calculate velocity data (submissions per day)
     const dateRange = eachDayOfInterval({
-      start: subDays(now, 30),
+      start: subDays(now, 29),
       end: now
     });
 
@@ -94,14 +94,15 @@ export const getTeamAnalyticsDashboard = async (req: Request, res: Response) => 
     // Blocker heatmap data (per user)
     const users = await StandupEntry.distinct('slackUserId', {
       workspaceId,
-            date: { $gte: last30Days },
+            date: { $gte: last30Days, $lte: format(now, 'yyyy-MM-dd') },
             ...getReportUserExclusionFilter()
     });
 
     const blockerHeatmap: BlockerHeatmapItem[] = await Promise.all(
       users.map(async (userId) => {
-        const userStandups = standups.filter(s => s.slackUserId === userId);
-        const userName = userStandups[0]?.slackUserName || 'Unknown';
+        const allUserStandups = standups.filter(s => s.slackUserId === userId);
+        const userStandups = allUserStandups.filter(s => !isFullDayOff(s));
+        const userName = allUserStandups[0]?.slackUserName || 'Unknown';
         const blockerDays = userStandups.filter(hasBlockers).length;
         const blockerRate = userStandups.length > 0 ? (blockerDays / userStandups.length) * 100 : 0;
         

@@ -13,14 +13,18 @@ export interface MetricEntry {
   todayHoursEstimate?: number;
 }
 
-const EMPTY_TEXT = /^(?:none|n\/?a|nothing|no (?:tasks?|updates?|blockers?)(?: today)?|day off|ooo|out of office)[.!\s]*$/i;
+const EMPTY_TEXT = /^(?:none|n\/?a|nothing|no(?: (?:tasks?|updates?|blockers?)(?: today)?)?|day off|ooo|out of office)[.!\s]*$/i;
 
 // Tasks are reported text items, not verified issue completions. Only line prefixes
 // are stripped: hyphens in issue IDs, URLs and prose do not create extra tasks.
-export function countReportedTasks(text = ''): number {
+export function parseReportedTasks(text = ''): string[] {
   return text.split(/\r?\n/)
-    .map(line => line.trim().replace(/^(?:[-–•*]|\d+[.)])\s+/, '').trim())
-    .filter(line => line && !EMPTY_TEXT.test(line)).length;
+    .map(line => line.trim().replace(/^(?:[-–•*]|\d+[.)])(?:\s+|$)/, '').trim())
+    .filter(line => !!line && !EMPTY_TEXT.test(line));
+}
+
+export function countReportedTasks(text = ''): number {
+  return parseReportedTasks(text).length;
 }
 
 export function isFullDayOff(entry: MetricEntry): boolean {

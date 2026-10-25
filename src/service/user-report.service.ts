@@ -1,4 +1,4 @@
-import { completedTasks, isFullDayOff } from '../utils/standup-metrics';
+import { completedTasks, isFullDayOff, hasBlockers } from '../utils/standup-metrics';
 import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
@@ -78,10 +78,7 @@ export const getUserReport = async (req: Request, res: Response) => {
 
         // Calculate statistics
         const totalSubmissions = standups.length;
-        const blockerCount = standups.filter(s => 
-            s.blockers && s.blockers.trim() && 
-            !s.blockers.toLowerCase().includes('none')
-        ).length;
+        const blockerCount = standups.filter(hasBlockers).length;
         const dayOffCount = standups.filter(s => s.isDayOff).length;
 
         // Count total tasks
@@ -164,7 +161,7 @@ export const getUserReport = async (req: Request, res: Response) => {
             isDayOff: s.isDayOff,
             dayOffReason: s.dayOffReason,
             createdAt: s.createdAt,
-            hasBlocker: !!(s.blockers && s.blockers.trim() && !s.blockers.toLowerCase().includes('none'))
+            hasBlocker: hasBlockers(s)
         }));
 
         // Render template

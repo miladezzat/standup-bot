@@ -58,10 +58,6 @@ export async function assessRiskLevel(
     date: { $gte: startDate, $lte: format(now, 'yyyy-MM-dd') }
   }).sort({ date: -1 }).lean();
 
-  if (standups.length === 0) {
-    return { level: 'low', factors: [], score: 0 };
-  }
-
   const factors: string[] = [];
   let riskScore = 0;
 
@@ -122,9 +118,8 @@ export async function assessRiskLevel(
  * Calculate velocity trend
  */
 export function calculateVelocityTrend(standups: any[]): 'increasing' | 'stable' | 'decreasing' {
-  if (standups.length < 10) return 'stable';
-
   const sorted = standups.filter(s => !isFullDayOff(s)).sort((a, b) => b.date.localeCompare(a.date));
+  if (sorted.length < 10) return 'stable';
   const midpoint = Math.floor(sorted.length / 2);
   if (!midpoint) return 'stable';
   const recentStandups = sorted.slice(0, midpoint);
@@ -167,11 +162,13 @@ export async function calculatePerformanceMetrics(
     date: { $gte: startDateStr, $lte: endDateStr }
   }).sort({ date: -1 }).lean();
 
-  if (standups.length === 0) {
-    return null; // No data
-  }
-
-  const userName = standups[0].slackUserName;
+  // Keep active members with a missed period in current metrics. Otherwise the
+  // dashboard silently retains their last (possibly high) historical score.
+  const latestEntry = standups[0] || await StandupEntry.findOne({
+    workspaceId, slackUserId, date: { $lte: endDateStr }
+  }).sort({ date: -1 }).lean();
+  if (!latestEntry) return null;
+  const userName = latestEntry.slackUserName;
 
   // Calculate metrics
   const workEntries = standups.filter(s => !isFullDayOff(s));
@@ -225,6 +222,11 @@ export async function calculatePerformanceMetrics(
   overallScore += velocityTrend === 'increasing' ? 20 : velocityTrend === 'stable' ? 15 : 5; // 20% weight
   overallScore += riskAssessment.level === 'low' ? 25 : riskAssessment.level === 'medium' ? 15 : 5; // 25% weight
 
+  if (totalSubmissions === 0 && expectedSubmissions > 0) {
+    engagementScore = 0;
+    overallScore = 0;
+  }
+
   return {
     slackUserId,
     slackUserName: userName,
@@ -261,20 +263,27 @@ export async function calculatePerformanceMetrics(
  */
 export async function calculateTeamMetrics(
   workspaceId: string,
-  period: 'week' | 'month' | 'quarter'
+  period: 'week' | 'month' | 'quarter',
+  asOf: Date = new Date()
 ): Promise<void> {
   logger.info(`Calculating team metrics for period: ${period}`);
 
-  // Get all unique users
+  // Use the same instant for every member. Include the period's participants
+  // and members active in the last 30 days, without reviving departed users.
+  const now = toZonedTime(asOf, TIMEZONE);
+  const periodStart = period === 'week' ? startOfWeek(now, { weekStartsOn: WORKING_WEEK_START })
+    : period === 'month' ? startOfMonth(now) : startOfQuarter(now);
+  const cohortStart = format(new Date(Math.min(periodStart.getTime(), subDays(now, 29).getTime())), 'yyyy-MM-dd');
   const users = await StandupEntry.distinct('slackUserId', {
     workspaceId,
+    date: { $gte: cohortStart, $lte: format(now, 'yyyy-MM-dd') },
     ...getReportUserExclusionFilter()
   });
 
   // Calculate metrics for each user
   const allMetrics = [];
   for (const userId of users) {
-    const metrics = await calculatePerformanceMetrics(userId, period, workspaceId);
+    const metrics = await calculatePerformanceMetrics(userId, period, workspaceId, asOf);
     if (metrics) {
       allMetrics.push(metrics);
     }
@@ -288,10 +297,16 @@ export async function calculateTeamMetrics(
   // Sort by overall score for percentile calculation
   allMetrics.sort((a, b) => b.overallScore - a.overallScore);
 
+  // Ties must receive the same rank, independent of MongoDB roster ordering.
+  const ranks = new Map<number, number>();
+  allMetrics.forEach((metric, index) => {
+    if (!ranks.has(metric.overallScore)) ranks.set(metric.overallScore, ((allMetrics.length - index) / allMetrics.length) * 100);
+  });
+
   // Update each metric with team average and percentile
   for (let i = 0; i < allMetrics.length; i++) {
     const metrics = allMetrics[i];
-    const percentileRank = ((allMetrics.length - i) / allMetrics.length) * 100;
+    const percentileRank = ranks.get(metrics.overallScore)!;
 
     metrics.teamAverageScore = Math.round(teamAverageScore);
     metrics.percentileRank = Math.round(percentileRank);

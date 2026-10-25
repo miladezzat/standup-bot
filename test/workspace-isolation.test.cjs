@@ -78,3 +78,30 @@ test('legacy history uses configured channel, including all-history query', asyn
  assert.equal(filters.length,2);
  assert.ok(filters.every(f => f.channelId === 'CTEAM'));
 });
+
+test('scheduled future leave does not inflate current analytics, active roster or streak totals', async()=>{
+ freeze(); models([base,{...base,date:'2026-12-01',slackUserId:'UFUTURE',slackUserName:'Future member',isDayOff:true}]);
+ const analytics=response(); await getTeamAnalyticsDashboard(req(),analytics);
+ assert.equal(analytics.data.totalSubmissions,1);
+ assert.equal(analytics.data.totalUsers,1);
+ const manager=response(); await getManagerDashboard(req(),manager);
+ assert.equal(manager.data.teamSize,1);
+ assert.equal((await getUserStreak('UFUTURE')).total,0);
+});
+
+test('workflow excludes empty placeholders and full-day leave from completed/planned task counts',async()=>{
+ freeze(); models([{...base,yesterday:'None',today:'N/A',blockers:'No blockers'}, {...base,slackUserId:'UBOB',isDayOff:true,yesterday:'Day off',today:'Day off'}]);
+ const res=response(); await serveWorkflowDashboard(req(),res);
+ assert.equal(res.statusCode,200);
+ assert.equal(res.data.completedTasks,0);
+ assert.equal(res.data.plannedTasks,0);
+ assert.equal(res.data.blockerCount,0);
+});
+
+test('blocker heatmap preserves member names when all submissions are leave',async()=>{
+ freeze(); models([{...base,isDayOff:true,blockers:'Vacation'}]);
+ const res=response(); await getTeamAnalyticsDashboard(req(),res);
+ assert.equal(res.data.blockerHeatmap[0].userName,'Alice');
+ assert.equal(res.data.blockerHeatmap[0].totalDays,0);
+ assert.equal(res.data.blockerHeatmap[0].blockerRate,0);
+});

@@ -1,10 +1,10 @@
-import { reportedHours } from '../utils/standup-metrics';
+import { reportedHours, hasBlockers } from '../utils/standup-metrics';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
 import Alert from '../models/alerts';
 import { format, subDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { assessRiskLevel } from './performance-analysis.service';
+import { detectRecurringBlockers } from './performance-analysis.service';
 import { logger } from '../utils/logger';
 import { APP_TIMEZONE } from '../config';
 
@@ -42,7 +42,13 @@ async function createOrUpdateAlert(
     });
 
     if (existingAlert) {
-      // Update existing alert
+      // Refresh the measurement as well as the occurrence counter; otherwise
+      // corrected calculations leave an active alert displaying stale numbers.
+      Object.assign(existingAlert, {
+        severity, title, description, affectedUserName: userName, suggestedActions,
+        metric, currentValue, threshold,
+        priority: severity === 'critical' ? 10 : severity === 'warning' ? 7 : 5,
+      });
       existingAlert.occurrenceCount += 1;
       existingAlert.lastOccurrence = new Date();
       existingAlert.isRecurring = existingAlert.occurrenceCount >= 2;
@@ -178,13 +184,13 @@ async function checkRepeatedBlockers(workspaceId: string) {
 
   const standups = await StandupEntry.find({
     workspaceId,
-    date: { $gte: last14Days },
+    date: { $gte: last14Days, $lte: format(now, 'yyyy-MM-dd') },
     blockers: { $ne: '', $exists: true }
   }).lean();
 
   // Group by user
   const userBlockers = new Map<string, any[]>();
-  standups.forEach(standup => {
+  standups.filter(hasBlockers).forEach(standup => {
     if (!userBlockers.has(standup.slackUserId)) {
       userBlockers.set(standup.slackUserId, []);
     }
@@ -195,23 +201,7 @@ async function checkRepeatedBlockers(workspaceId: string) {
   for (const [userId, userStandups] of userBlockers.entries()) {
     if (userStandups.length >= 3) {
       const userName = userStandups[0].slackUserName;
-      const blockerTexts = userStandups.map(s => s.blockers.toLowerCase());
-      
-      // Simple keyword matching for recurring blockers
-      const keywords = new Set<string>();
-      blockerTexts.forEach(text => {
-        const words = text
-          .replace(/[^\w\s]/g, ' ')
-          .split(/\s+/)
-          .filter((w: string) => w.length > 4);
-        words.forEach((w: string) => keywords.add(w));
-      });
-
-      // Find words that appear in multiple blockers
-      const recurringKeywords = Array.from(keywords).filter(keyword => {
-        const count = blockerTexts.filter(text => text.includes(keyword)).length;
-        return count >= 3;
-      });
+      const recurringKeywords = detectRecurringBlockers(userStandups);
 
       if (recurringKeywords.length > 0) {
         const standupIds = userStandups.map(s => s._id.toString());

@@ -74,3 +74,35 @@ test('reminder thread upsert is channel scoped and uses the local date', async (
  assert.deepEqual(writes[0].filter,{channelId:'CTEAM',date:'2026-10-18'});
  assert.equal(writes[0].data.channelId,'CTEAM');
 });
+
+test('no-blocker placeholders do not generate recurring blocker alerts',async()=>{
+ freeze();
+ const rows=['18','19','20'].map(day=>({_id:day,workspaceId:'TTEAM',slackUserId:'UALICE',slackUserName:'Alice',date:`2026-10-${day}`,yesterday:'Work',blockers:'No blockers'}));
+ mock.method(Entry,'distinct',async(_field,filter)=>[...new Set(rows.filter(row=>matches(row,filter)).map(row=>row.slackUserId))]);
+ mock.method(Entry,'find',filter=>query(rows,filter));
+ mock.method(Entry,'countDocuments',async filter=>rows.filter(row=>matches(row,filter)).length);
+ mock.method(Entry,'findOne',filter=>query(rows,filter,true));
+ mock.method(Alert,'findOne',async()=>null);
+ const alerts=[];
+ mock.method(Alert,'create',async data=>{alerts.push(data);return data;});
+ mock.method(Alert,'updateMany',async()=>({modifiedCount:0}));
+ await runAlertChecks('TTEAM');
+ assert.ok(!alerts.some(alert=>alert.type==='blocker'));
+});
+
+test('recurring workload alerts refresh their current values and severity',async()=>{
+ freeze();
+ const rows=['15','16','17','18','19','20'].map(day=>({_id:day,workspaceId:'TTEAM',slackUserId:'UALICE',slackUserName:'Alice',date:`2026-10-${day}`,yesterday:'Work',yesterdayHoursEstimate:10,blockers:''}));
+ mock.method(Entry,'distinct',async(_field,filter)=>[...new Set(rows.filter(row=>matches(row,filter)).map(row=>row.slackUserId))]);
+ mock.method(Entry,'find',filter=>query(rows,filter));
+ mock.method(Entry,'countDocuments',async filter=>rows.filter(row=>matches(row,filter)).length);
+ mock.method(Entry,'findOne',filter=>query(rows,filter,true));
+ const existing={occurrenceCount:1,relatedStandupIds:[],currentValue:52,severity:'info',description:'Old calculation',save:async()=>{}};
+ mock.method(Alert,'findOne',async()=>existing);
+ mock.method(Alert,'updateMany',async()=>({modifiedCount:0}));
+ await runAlertChecks('TTEAM');
+ assert.equal(existing.currentValue,60);
+ assert.equal(existing.severity,'warning');
+ assert.ok(existing.description.includes('60h'));
+ assert.equal(existing.occurrenceCount,2);
+});

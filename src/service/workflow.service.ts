@@ -1,3 +1,4 @@
+import { parseReportedTasks, isFullDayOff, hasBlockers as entryHasBlockers } from '../utils/standup-metrics';
 import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import type { Request, Response } from 'express';
 import { format, parseISO, isValid, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
@@ -80,27 +81,7 @@ async function getUserDisplayName(userId: string): Promise<string> {
 /**
  * Parse tasks from standup text - splits by common delimiters
  */
-function parseTasks(text: string): string[] {
-  if (!text || text.trim() === '') return [];
-  
-  // Split by newlines, bullet points, numbers, or dashes
-  const lines = text
-    .split(/[\n\r]+/)
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
-    .map(line => {
-      // Remove common prefixes like "- ", "• ", "1. ", "* "
-      return line.replace(/^[-•*]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
-    })
-    .filter(line => line.length > 0);
-  
-  // If no line breaks, just return the whole text as one task
-  if (lines.length === 0 && text.trim()) {
-    return [text.trim()];
-  }
-  
-  return lines;
-}
+const parseTasks = parseReportedTasks;
 
 /**
  * Serve the task workflow dashboard
@@ -163,9 +144,9 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
     // Build user workflow data
     for (const [userId, entry] of userEntriesMap) {
       const userName = userNames.get(userId) || userId;
-      const yesterdayTasks = parseTasks(entry.yesterday || '');
-      const todayTasks = parseTasks(entry.today || '');
-      const hasBlocker = !!(entry.blockers && entry.blockers.trim() && entry.blockers.toLowerCase() !== 'none' && entry.blockers.toLowerCase() !== 'no' && entry.blockers.toLowerCase() !== 'n/a');
+      const yesterdayTasks = isFullDayOff(entry) ? [] : parseTasks(entry.yesterday || '');
+      const todayTasks = isFullDayOff(entry) ? [] : parseTasks(entry.today || '');
+      const hasBlocker = entryHasBlockers(entry);
       
       users.push({
         userId,
@@ -216,10 +197,10 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
         const dateStr = format(day, 'yyyy-MM-dd');
         const entry = userWeeklyMap.get(dateStr);
         
-        const completedTasks = entry ? parseTasks(entry.yesterday || '') : [];
-        const plannedTasks = entry ? parseTasks(entry.today || '') : [];
+        const completedTasks = entry && !isFullDayOff(entry) ? parseTasks(entry.yesterday || '') : [];
+        const plannedTasks = entry && !isFullDayOff(entry) ? parseTasks(entry.today || '') : [];
         const blockers = entry?.blockers || '';
-        const hasBlockerDay = !!(blockers && blockers.trim() && blockers.toLowerCase() !== 'none' && blockers.toLowerCase() !== 'no' && blockers.toLowerCase() !== 'n/a');
+        const hasBlockerDay = entry ? entryHasBlockers(entry) : false;
         
         if (entry) {
           submissionDays++;
