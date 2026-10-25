@@ -1,9 +1,9 @@
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import type { Request, Response } from 'express';
 import { format, parseISO, isValid, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import StandupEntry from '../models/standupEntry';
 import { slackWebClient } from '../singleton';
-import { APP_TIMEZONE } from '../config';
 import { logger } from '../utils/logger';
 import { createBaseViewData } from '../config/view-engine';
 import { hasClerk } from '../index';
@@ -123,6 +123,7 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
     
     // Fetch all standup entries for this day
     const entries = await StandupEntry.find({
+      workspaceId: SLACK_TEAM_ID,
       date: queryDate,
       ...getReportUserExclusionFilter()
     }).sort({ createdAt: -1 });
@@ -185,6 +186,7 @@ export async function serveWorkflowDashboard(req: Request, res: Response): Promi
     // Get all entries for the week for all users
     const weekDates = weekDays.map(d => format(d, 'yyyy-MM-dd'));
     const weeklyEntries = await StandupEntry.find({
+      workspaceId: SLACK_TEAM_ID,
       date: { $in: weekDates },
       slackUserId: { $in: userIds }
     }).find(getReportUserExclusionFilter());

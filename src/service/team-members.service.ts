@@ -1,5 +1,5 @@
+import { SLACK_TEAM_ID, CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { slackWebClient } from '../singleton';
-import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import StandupEntry from '../models/standupEntry';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
@@ -73,7 +73,7 @@ export async function getTeamMembersWhoHaventSubmitted(): Promise<TeamMember[]> 
   const allMembers = await getTeamMembers();
   
   // Get users who have submitted today
-  const submissions = await StandupEntry.find({ date: today });
+  const submissions = await StandupEntry.find({ workspaceId: SLACK_TEAM_ID, date: today });
   const submittedUserIds = new Set(submissions.map(s => s.slackUserId));
   
   // Filter out those who have submitted

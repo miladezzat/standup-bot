@@ -193,7 +193,7 @@ const PerformanceMetricsSchema: Schema = new Schema(
 );
 
 // Compound indexes for efficient queries
-PerformanceMetricsSchema.index({ slackUserId: 1, period: 1, startDate: -1 });
+PerformanceMetricsSchema.index({ workspaceId: 1, slackUserId: 1, period: 1, startDate: -1 });
 PerformanceMetricsSchema.index({ workspaceId: 1, startDate: -1 });
 PerformanceMetricsSchema.index({ riskLevel: 1, startDate: -1 });
 PerformanceMetricsSchema.index({ overallScore: -1 });

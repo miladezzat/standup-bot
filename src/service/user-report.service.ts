@@ -1,3 +1,5 @@
+import { completedTasks, isFullDayOff } from '../utils/standup-metrics';
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
@@ -6,7 +8,6 @@ import { toZonedTime } from 'date-fns-tz';
 import { getUserName } from '../helper';
 import { getUserContributions, getUserStreak, generateContributionGraphHTML, getContributionGraphCSS } from './contribution-graph.service';
 import { hasClerk } from '../index';
-import { APP_TIMEZONE } from '../config';
 import { createBaseViewData } from '../config/view-engine';
 import { logger } from '../utils/logger';
 
@@ -59,6 +60,7 @@ export const getUserReport = async (req: Request, res: Response) => {
 
         // Fetch user's standups
         const standups = await StandupEntry.find({
+            workspaceId: SLACK_TEAM_ID,
             slackUserId: userId,
             date: { $gte: startDate, $lte: endDate }
         }).sort({ date: -1 });
@@ -85,11 +87,9 @@ export const getUserReport = async (req: Request, res: Response) => {
         // Count total tasks
         let totalTasks = 0;
         for (const standup of standups) {
-            const yesterdayTasks = (standup.yesterday.match(/[•\-–]|\d+\./g) || []).length || 1;
-            const todayTasks = (standup.today.match(/[•\-–]|\d+\./g) || []).length || 1;
-            totalTasks += yesterdayTasks + todayTasks;
+            totalTasks += completedTasks(standup);
         }
-        const avgTasksPerDay = Math.round((totalTasks / totalSubmissions) * 10) / 10;
+        const avgTasksPerDay = Math.round((totalTasks / Math.max(1, standups.filter(s => !isFullDayOff(s)).length)) * 10) / 10;
 
         // Generate contribution graph data
         const contributions = await getUserContributions(userId, 90);
@@ -103,6 +103,7 @@ export const getUserReport = async (req: Request, res: Response) => {
 
         try {
             const perfMetrics = await PerformanceMetrics.findOne({
+                workspaceId: SLACK_TEAM_ID,
                 slackUserId: userId,
                 period: 'week'
             }).sort({ startDate: -1 }).lean();
@@ -140,6 +141,7 @@ export const getUserReport = async (req: Request, res: Response) => {
         }
 
         const dayOffEntries = await StandupEntry.find({
+            workspaceId: SLACK_TEAM_ID,
             slackUserId: userId,
             isDayOff: true,
             date: { $gte: oooStartStr, $lte: oooEndStr }

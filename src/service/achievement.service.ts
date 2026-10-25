@@ -1,10 +1,11 @@
+import { completedTasks, submissionRate as getSubmissionRate, isFullDayOff } from '../utils/standup-metrics';
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import Achievement from '../models/achievements';
 import StandupEntry from '../models/standupEntry';
 import { format, subDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { getUserStreak } from './contribution-graph.service';
 import { logger } from '../utils/logger';
-import { APP_TIMEZONE } from '../config';
 
 const TIMEZONE = APP_TIMEZONE;
 
@@ -29,6 +30,7 @@ async function awardAchievement(
   try {
     const achievement = await Achievement.findOneAndUpdate(
       {
+        workspaceId,
         slackUserId: userId,
         achievementType,
         level
@@ -65,8 +67,8 @@ async function awardAchievement(
  */
 export async function checkStreakAchievements(userId: string, workspaceId: string) {
   try {
-    const streak = await getUserStreak(userId);
-    const userName = (await StandupEntry.findOne({ slackUserId: userId }))?.slackUserName || 'Unknown';
+    const streak = await getUserStreak(userId, workspaceId);
+    const userName = (await StandupEntry.findOne({ workspaceId, slackUserId: userId }))?.slackUserName || 'Unknown';
 
     // Bronze: 7 day streak
     if (streak.current >= 7) {
@@ -141,8 +143,9 @@ export async function checkVelocityAchievements(userId: string, workspaceId: str
     const last30Days = format(subDays(now, 30), 'yyyy-MM-dd');
 
     const standups = await StandupEntry.find({
+      workspaceId,
       slackUserId: userId,
-      date: { $gte: last30Days }
+      date: { $gte: last30Days, $lte: format(now, 'yyyy-MM-dd') }
     }).lean();
 
     if (standups.length < 20) return; // Need at least 20 days of data
@@ -151,12 +154,10 @@ export async function checkVelocityAchievements(userId: string, workspaceId: str
 
     // Count total tasks
     const totalTasks = standups.reduce((sum, s) => {
-      const yesterdayTasks = (s.yesterday.match(/[•\-–*]|\d+\./g) || []).length || 1;
-      const todayTasks = (s.today.match(/[•\-–*]|\d+\./g) || []).length || 1;
-      return sum + yesterdayTasks + todayTasks;
+      return sum + completedTasks(s);
     }, 0);
 
-    const avgTasksPerDay = totalTasks / standups.length;
+    const avgTasksPerDay = totalTasks / Math.max(1, standups.filter(s => !isFullDayOff(s)).length);
 
     // Bronze: 3+ tasks/day average
     if (avgTasksPerDay >= 3) {
@@ -216,8 +217,9 @@ export async function checkEarlyBirdAchievements(userId: string, workspaceId: st
     const last30Days = format(subDays(now, 30), 'yyyy-MM-dd');
 
     const standups = await StandupEntry.find({
+      workspaceId,
       slackUserId: userId,
-      date: { $gte: last30Days }
+      date: { $gte: last30Days, $lte: format(now, 'yyyy-MM-dd') }
     }).lean();
 
     if (standups.length < 15) return;
@@ -226,7 +228,7 @@ export async function checkEarlyBirdAchievements(userId: string, workspaceId: st
 
     // Count early submissions (before 9am)
     const earlySubmissions = standups.filter(s => {
-      const hour = new Date(s.createdAt).getHours();
+      const hour = toZonedTime(new Date(s.createdAt), TIMEZONE).getHours();
       return hour < 9;
     }).length;
 
@@ -290,8 +292,9 @@ export async function checkConsistencyAchievements(userId: string, workspaceId: 
     const last30Days = format(subDays(now, 30), 'yyyy-MM-dd');
 
     const standups = await StandupEntry.find({
+      workspaceId,
       slackUserId: userId,
-      date: { $gte: last30Days }
+      date: { $gte: last30Days, $lte: format(now, 'yyyy-MM-dd') }
     }).lean();
 
     if (standups.length < 20) return;
@@ -299,8 +302,7 @@ export async function checkConsistencyAchievements(userId: string, workspaceId: 
     const userName = standups[0].slackUserName;
 
     // Expected workdays (Sun-Thu): ~22 days per month
-    const expectedDays = 22;
-    const submissionRate = (standups.length / expectedDays) * 100;
+    const submissionRate = getSubmissionRate(standups, last30Days, format(now, 'yyyy-MM-dd')).rate * 100;
 
     // Bronze: 80% consistency
     if (submissionRate >= 80) {
@@ -421,9 +423,10 @@ export async function getLeaderboard(workspaceId: string) {
 /**
  * Get user badges
  */
-export async function getUserBadges(userId: string) {
+export async function getUserBadges(userId: string, workspaceId: string = SLACK_TEAM_ID) {
   try {
     const badges = await Achievement.find({
+      workspaceId,
       slackUserId: userId,
       isActive: true
     }).sort({ earnedAt: -1 }).lean();

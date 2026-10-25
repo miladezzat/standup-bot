@@ -1,3 +1,4 @@
+import { SLACK_TEAM_ID, CHANNEL_ID, APP_TIMEZONE } from '../config';
 import type { SayFn } from '@slack/bolt';
 import type { WebClient } from '@slack/web-api';
 import { format, subDays } from 'date-fns';
@@ -9,7 +10,6 @@ import PerformanceMetrics from '../models/performanceMetrics';
 import Achievement from '../models/achievements';
 import Alert from '../models/alerts';
 import { getUserName } from '../helper';
-import { APP_TIMEZONE } from '../config';
 import {
     formatIssueSummary,
     getActiveIssuesForUser,
@@ -58,6 +58,7 @@ const describeMemberStatus = async (userId: string, checkDate?: string) => {
     const isFuture = queryDate > todayStr;
 
     const todayEntry = await StandupEntry.findOne({
+        workspaceId: SLACK_TEAM_ID,
         slackUserId: userId,
         date: queryDate
     }).lean();
@@ -110,6 +111,7 @@ const describeMemberStatus = async (userId: string, checkDate?: string) => {
             statusEmoji = '❓';
             statusLine = `${displayName} hasn't submitted a standup yet today.`;
             const lastEntry = await StandupEntry.findOne({
+                workspaceId: SLACK_TEAM_ID,
                 slackUserId: userId,
                 date: { $lt: todayStr }
             }).sort({ date: -1 }).lean();
@@ -139,6 +141,7 @@ const describeMemberStatus = async (userId: string, checkDate?: string) => {
     }
 
     const nextEntry = await StandupEntry.findOne({
+        workspaceId: SLACK_TEAM_ID,
         slackUserId: userId,
         isDayOff: true,
         date: { $gt: todayStr }
@@ -197,6 +200,7 @@ const getTodayStandupContent = async (userId: string) => {
     const todayStr = format(now, 'yyyy-MM-dd');
     
     const entry = await StandupEntry.findOne({
+        workspaceId: SLACK_TEAM_ID,
         slackUserId: userId,
         date: todayStr
     }).lean();
@@ -416,6 +420,7 @@ const getRecentStandupHistory = async (userId: string, days: number = 7) => {
     const startDateStr = format(startDate, 'yyyy-MM-dd');
     
     const entries = await StandupEntry.find({
+        workspaceId: SLACK_TEAM_ID,
         slackUserId: userId,
         date: { $gte: startDateStr }
     }).sort({ date: -1 }).limit(10).lean();
@@ -425,11 +430,13 @@ const getRecentStandupHistory = async (userId: string, days: number = 7) => {
 
 const getUserPerformanceMetrics = async (userId: string) => {
     const weekMetrics = await PerformanceMetrics.findOne({
+        workspaceId: SLACK_TEAM_ID,
         slackUserId: userId,
         period: 'week'
     }).sort({ startDate: -1 }).lean();
 
     const monthMetrics = await PerformanceMetrics.findOne({
+        workspaceId: SLACK_TEAM_ID,
         slackUserId: userId,
         period: 'month'
     }).sort({ startDate: -1 }).lean();
@@ -439,6 +446,7 @@ const getUserPerformanceMetrics = async (userId: string) => {
 
 const getUserAchievements = async (userId: string) => {
     const achievements = await Achievement.find({
+        workspaceId: SLACK_TEAM_ID,
         slackUserId: userId,
         isActive: true
     }).sort({ earnedAt: -1 }).limit(5).lean();
@@ -451,6 +459,7 @@ const getUserAlerts = async (userId: string) => {
     const last7Days = subDays(now, 7);
     
     const alerts = await Alert.find({
+        workspaceId: SLACK_TEAM_ID,
         affectedUserId: userId,
         createdAt: { $gte: last7Days },
         status: { $in: ['active', 'acknowledged'] }
@@ -468,6 +477,7 @@ const calculateStreak = async (userId: string) => {
     while (true) {
         const dateStr = format(checkDate, 'yyyy-MM-dd');
         const entry = await StandupEntry.findOne({
+            workspaceId: SLACK_TEAM_ID,
             slackUserId: userId,
             date: dateStr,
             isDayOff: false
@@ -577,6 +587,7 @@ const buildGeneralContext = async (text: string, mentionedUsers: string[]) => {
             const now = toZonedTime(new Date(), TIMEZONE);
             const todayStr = format(now, 'yyyy-MM-dd');
             const recentEntries = await StandupEntry.find({
+                workspaceId: SLACK_TEAM_ID,
                 date: todayStr
             }).lean();
             
@@ -611,7 +622,7 @@ export const mentionApp = async ({
     const normalized = text.toLowerCase();
     const now = new Date();
     const queryDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const standupThreads = await standupThread.findOne({ date: queryDate }).sort({ date: -1 }).lean();
+    const standupThreads = await standupThread.findOne({ channelId: CHANNEL_ID, date: queryDate }).sort({ date: -1 }).lean();
 
     const threadTs = standupThreads?.threadTs || event.thread_ts || event.ts;
 

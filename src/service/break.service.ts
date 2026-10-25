@@ -1,7 +1,7 @@
+import { SLACK_TEAM_ID, APP_TIMEZONE, CHANNEL_ID, MAX_BREAK_DURATION_MINUTES, BREAK_WARNING_THRESHOLD_MINUTES } from '../config';
 import Break, { IBreak } from '../models/break';
 import { format, addMinutes, parse } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { APP_TIMEZONE, CHANNEL_ID, MAX_BREAK_DURATION_MINUTES, BREAK_WARNING_THRESHOLD_MINUTES } from '../config';
 import { slackWebClient } from '../singleton';
 import { logInfo, logError, logWarn } from '../utils/logger';
 
@@ -126,7 +126,7 @@ export async function createBreak(
  * Get all breaks for a user on a specific date
  */
 export async function getUserBreaksForDate(userId: string, date: string): Promise<IBreak[]> {
-  return Break.find({ slackUserId: userId, date }).sort({ createdAt: -1 });
+  return Break.find({ workspaceId: SLACK_TEAM_ID, slackUserId: userId, date }).sort({ createdAt: -1 });
 }
 
 /**
@@ -148,14 +148,14 @@ export async function getUserTotalBreakMinutes(userId: string, date: string): Pr
  * Mark a break as inactive (ended)
  */
 export async function endBreak(breakId: string): Promise<IBreak | null> {
-  return Break.findByIdAndUpdate(breakId, { isActive: false }, { new: true });
+  return Break.findOneAndUpdate({ _id: breakId, workspaceId: SLACK_TEAM_ID }, { isActive: false }, { new: true });
 }
 
 /**
  * Get active breaks for a user
  */
 export async function getActiveBreaks(userId: string): Promise<IBreak[]> {
-  return Break.find({ slackUserId: userId, isActive: true });
+  return Break.find({ workspaceId: SLACK_TEAM_ID, slackUserId: userId, isActive: true });
 }
 
 /**
@@ -164,7 +164,7 @@ export async function getActiveBreaks(userId: string): Promise<IBreak[]> {
 export async function handleBreakCommand({ body, client, respond, text }: any): Promise<void> {
   const userId = body.user_id;
   const userName = body.user_name || 'Unknown';
-  const workspaceId = body.team_id || '';
+  const workspaceId = SLACK_TEAM_ID;
 
   try {
     // Parse the break command
@@ -232,6 +232,7 @@ export async function handleBreakCommand({ body, client, respond, text }: any): 
  */
 export async function getUserBreakStats(userId: string, startDate: string, endDate: string) {
   const breaks = await Break.find({
+    workspaceId: SLACK_TEAM_ID,
     slackUserId: userId,
     date: { $gte: startDate, $lte: endDate }
   });

@@ -2,25 +2,17 @@ import dotenv from 'dotenv';
 dotenv.config(); // Load env first!
 
 import helmet from 'helmet';
+import { registerDashboardRoutes } from './routes/dashboard.routes';
 import cookieParser from 'cookie-parser';
 import { clerkMiddleware } from '@clerk/express';
 import { connectToDatabase } from './db/connection';
 import { expressApp, slackApp } from './singleton';
 import { configureViewEngine } from './config/view-engine';
 import { runJobs } from './jobs';
-import { getStandupHistory } from './service/standup-history.service';
 import { mentionApp } from './service/app-mention.service';
 import { openStandupModal, handleStandupSubmission, handleStandupSlashCommand } from './service/standup-submission.service';
-import { getSubmissionsDashboard } from './service/submissions-dashboard.service';
-import { getUserReport } from './service/user-report.service';
-import { getManagerDashboard } from './service/manager-dashboard.service';
-import { getTeamAnalyticsDashboard } from './service/team-analytics-dashboard.service';
-import { getBreaksDashboard } from './service/breaks-dashboard.service';
-import { serveWorkflowDashboard } from './service/workflow.service';
-import { serveLinearNotes } from './service/linear-notes.service';
-import { exportStandupsCSV, exportPerformanceMetricsCSV, exportAlertsCSV, exportAchievementsCSV, exportUserReportCSV } from './service/export.service';
+import { checkAuth, requireManager } from './middleware/clerk-auth.middleware';
 import { apiLimiter } from './middleware/security.middleware';
-import { checkAuth } from './middleware/clerk-auth.middleware';
 import { logger, logInfo, logError, logWarn } from './utils/logger';
 import { CLERK_SIGN_IN_URL, ALLOW_PUBLIC_DASHBOARD, ENABLE_TEST_ROUTES } from './config';
 
@@ -49,9 +41,6 @@ expressApp.use(helmet({
 // Cookie parser for Clerk sessions
 expressApp.use(cookieParser());
 
-// Clerk authentication middleware
-expressApp.use(clerkMiddleware());
-
 // Rate limiting on dashboard routes
 expressApp.use(apiLimiter);
 
@@ -71,6 +60,7 @@ export const requiredEnvVars = [
     'SLACK_SIGNING_SECRET',
     'SLACK_APP_TOKEN',
     'CHANNEL_ID',
+    'SLACK_TEAM_ID',
     'MONGODB_URI',
 ];
 
@@ -102,6 +92,13 @@ for (const key of requiredEnvVars) {
         throw new Error(`Missing required environment variable: ${key}`);
     }
 }
+
+if (!/^T[A-Z0-9]+$/.test(process.env.SLACK_TEAM_ID!)) {
+    throw new Error('SLACK_TEAM_ID must be a Slack workspace ID (T...).');
+}
+
+// Public mode must not invoke Clerk without keys.
+if (hasClerk) expressApp.use(clerkMiddleware());
 
 logInfo('✅ Environment variables validated');
 
@@ -262,32 +259,14 @@ expressApp.get('/auth/sign-in', (req, res) => {
     });
 });
 
-// Protected dashboard routes (require auth if Clerk is configured)
-const authMiddleware = hasClerk ? checkAuth : (req: any, res: any, next: any) => next();
-
-expressApp.get('/', authMiddleware, getSubmissionsDashboard);
-expressApp.get('/submissions', authMiddleware, getSubmissionsDashboard);
-expressApp.get('/user/:userId', authMiddleware, getUserReport); // Individual user report
-expressApp.get('/history', authMiddleware, getStandupHistory); // Legacy thread-based view
-expressApp.get('/manager', authMiddleware, getManagerDashboard); // Manager insights dashboard
-expressApp.get('/analytics', authMiddleware, getTeamAnalyticsDashboard); // Team analytics with charts
-expressApp.get('/breaks', authMiddleware, getBreaksDashboard); // Breaks tracking dashboard
-expressApp.get('/workflow', authMiddleware, serveWorkflowDashboard); // Task workflow visualization
-expressApp.get('/linear-notes', authMiddleware, serveLinearNotes); // Linear notes dashboard
-
-// Export routes
-expressApp.get('/export/standups', authMiddleware, exportStandupsCSV); // Export standups to CSV
-expressApp.get('/export/metrics', authMiddleware, exportPerformanceMetricsCSV); // Export performance metrics to CSV
-expressApp.get('/export/alerts', authMiddleware, exportAlertsCSV); // Export alerts to CSV
-expressApp.get('/export/achievements', authMiddleware, exportAchievementsCSV); // Export achievements to CSV
-expressApp.get('/export/user/:userId', authMiddleware, exportUserReportCSV); // Export comprehensive user report to CSV
+registerDashboardRoutes(expressApp, !!hasClerk);
 
 // ============================================
 // 🧪 TEST ENDPOINTS (Remove in production)
 // ============================================
 if (ENABLE_TEST_ROUTES) {
     // Test trigger - Send standup reminder now
-    expressApp.get('/trigger/standup-reminder', async (_, res) => {
+    expressApp.get('/trigger/standup-reminder', ...(hasClerk ? [checkAuth, requireManager] : []), async (_, res) => {
         try {
             await slackApp.client.chat.postMessage({
                 channel: process.env.CHANNEL_ID!,

@@ -8,7 +8,8 @@
         "copy-views": "cp -r src/views dist/",
         "start": "node dist/index.js",
         "lint": "tsc --noEmit",
-        "test": "npm run lint"
+        "test": "node --require ts-node/register/transpile-only --test test/*.test.cjs",
+        "migrate:workspace-indexes": "ts-node src/migrations/workspace-indexes.ts"
     },
     "dependencies": {
         "@clerk/express": "^1.7.68",

@@ -1,8 +1,8 @@
+import { SLACK_TEAM_ID, CHANNEL_ID, APP_TIMEZONE } from '../config';
 import StandupEntry from '../models/standupEntry';
 import { format, parseISO, isValid, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { handleBreakCommand } from './break.service';
-import { CHANNEL_ID, APP_TIMEZONE } from '../config';
 import { slackWebClient } from '../singleton';
 
 const TIMEZONE = APP_TIMEZONE;
@@ -43,7 +43,8 @@ export const openStandupModal = async ({ client, body }: any) => {
     
     // Check if user already submitted today
     const existingEntry = await StandupEntry.findOne({
-      slackUserId: body.user_id,
+      workspaceId: SLACK_TEAM_ID,
+      slackUserId: body.user_id || body.user?.id,
       date: today
     });
 
@@ -302,7 +303,7 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
   try {
     const userId = body.user_id;
     const userName = body.user_name || 'Unknown';
-    const workspaceId = body.team_id || '';
+    const workspaceId = SLACK_TEAM_ID;
     const { targetDate, reason, isToday, timeRange } = parseDayOffCommand(text);
     const baseReason = normalizeReasonForSlack(reason);
     
@@ -320,6 +321,7 @@ const handleQuickDayOffCommand = async ({ body, client, respond, text }: any) =>
 
     await StandupEntry.findOneAndUpdate(
       {
+        workspaceId,
         slackUserId: userId,
         date: targetDate
       },
@@ -400,7 +402,7 @@ export const handleStandupSubmission = async (args: any) => {
   try {
     const userId = body.user.id;
     const userName = body.user.name || 'Unknown';
-    const workspaceId = body.team?.id || '';
+    const workspaceId = SLACK_TEAM_ID;
     
     // Get today's date in Cairo timezone
     const today = format(toZonedTime(new Date(), TIMEZONE), 'yyyy-MM-dd');
@@ -429,6 +431,7 @@ export const handleStandupSubmission = async (args: any) => {
     // Upsert the standup entry (update if exists, create if not)
     const standupEntry = await StandupEntry.findOneAndUpdate(
       {
+        workspaceId,
         slackUserId: userId,
         date: today
       },

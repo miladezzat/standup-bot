@@ -163,7 +163,7 @@ src/
 | `StandupThread` | Legacy thread tracking |
 
 ## 🔧 Requirements
-- Node.js 18+
+- Node.js 22.9+ (use the version in `.nvmrc`)
 - npm 9+
 - MongoDB instance (Atlas or self-hosted)
 - Slack app with Bot + App tokens (Socket Mode)
@@ -181,6 +181,7 @@ Copy `.env.example` to `.env` and configure:
 | `SLACK_SIGNING_SECRET` | Slack signing secret |
 | `SLACK_APP_TOKEN` | Slack app token (xapp-) for Socket Mode |
 | `CHANNEL_ID` | Default Slack channel for reminders |
+| `SLACK_TEAM_ID` | Slack workspace ID matching the configured bot (`T...`) |
 
 ### Authentication (choose one)
 | Name | Description |
@@ -198,7 +199,6 @@ Copy `.env.example` to `.env` and configure:
 | Name | Default | Description |
 | ---- | ------- | ----------- |
 | `APP_TIMEZONE` | `Africa/Cairo` | Timezone for cron jobs & UI |
-| `SLACK_TEAM_ID` | `default` | Workspace ID for metrics |
 | `API_RATE_LIMIT_MAX` | `100` | Max requests per 15min window |
 | `MAX_BREAK_DURATION_MINUTES` | `480` | Max break duration (8 hours) |
 | `BREAK_WARNING_THRESHOLD_MINUTES` | `120` | Warn when daily breaks exceed |
@@ -242,7 +242,7 @@ npm run dev    # Live reload with nodemon + ts-node
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run production server |
 | `npm run lint` | Type-check with `tsc --noEmit` |
-| `npm test` | Run lint (alias) |
+| `npm test` | Run behavioral regression tests |
 
 ## 🔒 Security
 
@@ -270,3 +270,72 @@ npm run dev    # Live reload with nodemon + ts-node
 ## 📄 License
 
 ISC
+
+
+## Reporting semantics and regression tests
+
+`npm test` runs the Node test runner against calculation, route authorization,
+workspace isolation, and index migration regressions. It does not require Slack,
+Clerk credentials, or MongoDB: tests replace external services with fixtures and
+exercise the real services and route middleware. Run `npm run lint` and
+`npm run build` separately. Run all three checks before merging.
+
+- Completed-task totals count nonempty reported lines from **yesterday** only.
+  These are self-reported items, not verified issue completions. Planned tasks
+  remain visible separately in the workflow view.
+- Reported-hour totals use `yesterdayHoursEstimate` only; today's plan is not
+  counted again. Missing estimates do not trigger low-activity capacity alerts.
+- Current metrics cover the calendar week (Sunday start), month or quarter
+  through today in `APP_TIMEZONE`. All three periods refresh daily.
+- Attendance uses elapsed scheduled workdays (`WORKING_DAYS`, default Sun–Thu),
+  minus configured `METRICS_HOLIDAYS` and full-day OOO entries. Partial-day OOO
+  remains an expected submission day. Rates never exceed 100%. Configure holidays
+  explicitly; reporting does not fetch holiday dates over the network.
+- Decline risk compares submission rates in disjoint date windows, including
+  missed dates. Recent workload considers the last seven calendar dates and
+  reported hours only. Submission times use `APP_TIMEZONE`.
+
+## Workspace access and rollout
+
+This is a **single Slack workspace deployment**. Set `SLACK_TEAM_ID` to the real
+`T...` workspace ID, matching the bot credentials. MongoDB readers and upserts
+are scoped to that workspace; legacy thread history is scoped to `CHANNEL_ID`.
+Slack payloads from other workspaces are rejected before handlers run.
+
+When Clerk is configured, provision each authorized user's **private metadata**
+through Clerk's administrative UI or Backend API before deploying:
+
+```json
+{
+  "standup": {
+    "workspaceId": "T1234567890",
+    "slackUserId": "U1234567890",
+    "role": "member"
+  }
+}
+```
+
+Use `role: "manager"` for managers. Missing or invalid membership, unknown roles,
+and workspace mismatches receive HTTP 403. Query parameters, public metadata,
+and unsafe metadata cannot grant membership. Members can read team standups,
+workflow, breaks, history and Linear notes, plus their own individual report.
+Managers can also read other users' reports, analytics, manager dashboards and
+all CSV exports. Enabled test-trigger routes also require manager access.
+The existing explicit no-Clerk `ALLOW_PUBLIC_DASHBOARD=true` mode remains public,
+including reports and exports, but still uses the configured workspace filters.
+
+Before rollout to an existing database:
+
+1. Provision Clerk private metadata and verify `SLACK_TEAM_ID`/`CHANNEL_ID`.
+2. Preview index changes with `npm run migrate:workspace-indexes` using the target
+   `MONGODB_URI`. Apply with `npm run migrate:workspace-indexes -- --apply`.
+   The migration creates workspace-qualified unique indexes before dropping only
+   the three known legacy global unique indexes. It preserves records and unrelated
+   indexes, and stops without dropping the old index if replacement creation fails.
+3. Deploy and let the daily metrics job refresh current periods. Previously
+   stored historical metrics, badges and alerts are not rewritten automatically;
+   review/rebuild those separately before using them for historical comparisons.
+
+No legacy `workspaceId` values are rewritten. If earlier deployments stored a
+placeholder such as `default`, audit and map those records to their owning Slack
+workspace before enabling these readers.

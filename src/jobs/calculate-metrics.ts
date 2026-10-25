@@ -22,19 +22,8 @@ export const calculateMetricsJob = new CronJob(
       await calculateTeamMetrics(workspaceId, 'week');
       logger.info('✅ Weekly metrics calculated');
 
-      // Calculate monthly metrics (on first day of month)
-      const today = new Date();
-      if (today.getDate() === 1) {
-        await calculateTeamMetrics(workspaceId, 'month');
-        logger.info('✅ Monthly metrics calculated');
-      }
-
-      // Calculate quarterly metrics (first day of quarter)
-      const month = today.getMonth();
-      if (today.getDate() === 1 && (month === 0 || month === 3 || month === 6 || month === 9)) {
-        await calculateTeamMetrics(workspaceId, 'quarter');
-        logger.info('✅ Quarterly metrics calculated');
-      }
+      await calculateTeamMetrics(workspaceId, 'month');
+      await calculateTeamMetrics(workspaceId, 'quarter');
 
       logger.info('✅ Performance metrics calculation completed');
     } catch (error) {

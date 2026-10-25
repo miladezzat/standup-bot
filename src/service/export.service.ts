@@ -1,3 +1,5 @@
+import { reportedHours } from '../utils/standup-metrics';
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import { Request, Response } from 'express';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
@@ -6,7 +8,6 @@ import Achievement from '../models/achievements';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logger } from '../utils/logger';
-import { APP_TIMEZONE } from '../config';
 import { appendReportUserExclusion } from '../utils/report-exclusions';
 
 const TIMEZONE = APP_TIMEZONE;
@@ -82,7 +83,7 @@ export const exportStandupsCSV = async (req: Request, res: Response) => {
         startDate = format(startOfMonth(now), 'yyyy-MM-dd');
     }
 
-    const query: any = { date: { $gte: startDate } };
+    const query: any = { workspaceId: SLACK_TEAM_ID, date: { $gte: startDate } };
     if (userId) {
       query.slackUserId = userId;
     }
@@ -104,7 +105,7 @@ export const exportStandupsCSV = async (req: Request, res: Response) => {
       notes: s.notes || '',
       yesterdayHours: s.yesterdayHoursEstimate || 0,
       todayHours: s.todayHoursEstimate || 0,
-      totalHours: (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0),
+      totalHours: reportedHours(s),
       source: s.source,
       submittedAt: format(new Date(s.createdAt), 'yyyy-MM-dd HH:mm:ss')
     }));
@@ -147,7 +148,7 @@ export const exportPerformanceMetricsCSV = async (req: Request, res: Response) =
     const period = (req.query.period as string) || 'week';
     const userId = req.query.userId as string;
 
-    const query: any = { period };
+    const query: any = { workspaceId: SLACK_TEAM_ID, period };
     if (userId) {
       query.slackUserId = userId;
     }
@@ -361,20 +362,24 @@ export const exportUserReportCSV = async (req: Request, res: Response) => {
 
     // Get user data
     const standups = await StandupEntry.find({
+      workspaceId: SLACK_TEAM_ID,
       slackUserId: userId,
       date: { $gte: last90Days }
     }).sort({ date: -1 }).lean();
 
     const metrics = await PerformanceMetrics.find({
+      workspaceId: SLACK_TEAM_ID,
       slackUserId: userId
     }).sort({ startDate: -1 }).lean();
 
     const achievements = await Achievement.find({
+      workspaceId: SLACK_TEAM_ID,
       slackUserId: userId,
       isActive: true
     }).lean();
 
     const alerts = await Alert.find({
+      workspaceId: SLACK_TEAM_ID,
       affectedUserId: userId
     }).sort({ createdAt: -1 }).lean();
 
@@ -401,7 +406,7 @@ export const exportUserReportCSV = async (req: Request, res: Response) => {
     reportSections.push('=== RECENT STANDUPS ===');
     reportSections.push('Date,Yesterday,Today,Blockers,Notes,Hours');
     standups.slice(0, 30).forEach(s => {
-      const totalHours = (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0);
+      const totalHours = reportedHours(s);
       reportSections.push(`${s.date},"${s.yesterday.replace(/"/g, '""')}","${s.today.replace(/"/g, '""')}","${(s.blockers || '').replace(/"/g, '""')}","${(s.notes || '').replace(/"/g, '""')}",${totalHours}`);
     });
     reportSections.push('');

@@ -15,8 +15,7 @@ const StandupThreadSchema: Schema = new Schema(
     date: { 
       type: String, 
       required: true,
-      index: true,
-      unique: true
+      index: true
     },
     threadTs: { 
       type: String, 
@@ -29,6 +28,8 @@ const StandupThreadSchema: Schema = new Schema(
   },
   { timestamps: true }
 );
+
+StandupThreadSchema.index({ channelId: 1, date: 1 }, { unique: true });
 
 // Create and export the model
 export default mongoose.model<IStandupThread>('StandupThread', StandupThreadSchema);

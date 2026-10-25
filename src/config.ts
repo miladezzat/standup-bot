@@ -39,3 +39,14 @@ const configuredExcludedReportUserIds = (process.env.REPORT_EXCLUDED_SLACK_USER_
 export const REPORT_EXCLUDED_SLACK_USER_IDS = Array.from(
 	new Set([...defaultExcludedReportUserIds, ...configuredExcludedReportUserIds])
 );
+
+// Reporting calendar: Sunday–Thursday by default. Holidays are ISO local dates.
+export const WORKING_DAYS = (process.env.WORKING_DAYS || '0,1,2,3,4').split(',').map(Number);
+export const METRICS_HOLIDAYS = (process.env.METRICS_HOLIDAYS || '').split(',').map(s => s.trim()).filter(Boolean);
+
+if (WORKING_DAYS.some(day => !Number.isInteger(day) || day < 0 || day > 6)) {
+  throw new Error('WORKING_DAYS must contain weekday numbers from 0 to 6.');
+}
+if (METRICS_HOLIDAYS.some(day => !/^\d{4}-\d{2}-\d{2}$/.test(day))) {
+  throw new Error('METRICS_HOLIDAYS must contain ISO dates (YYYY-MM-DD).');
+}

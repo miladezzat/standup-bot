@@ -1,3 +1,4 @@
+import { reportedHours } from '../utils/standup-metrics';
 import StandupEntry from '../models/standupEntry';
 import PerformanceMetrics from '../models/performanceMetrics';
 import Alert from '../models/alerts';
@@ -93,8 +94,8 @@ async function checkDecliningPerformance(workspaceId: string) {
   logger.info('Checking for declining performance...');
 
   const now = toZonedTime(new Date(), TIMEZONE);
-  const last7Days = format(subDays(now, 7), 'yyyy-MM-dd');
-  const last14Days = format(subDays(now, 14), 'yyyy-MM-dd');
+  const last7Days = format(subDays(now, 6), 'yyyy-MM-dd');
+  const last14Days = format(subDays(now, 13), 'yyyy-MM-dd');
 
   // Get all active users
   const users = await StandupEntry.distinct('slackUserId', {
@@ -105,18 +106,20 @@ async function checkDecliningPerformance(workspaceId: string) {
   for (const userId of users) {
     // Get recent 7 days and previous 7 days
     const recentStandups = await StandupEntry.countDocuments({
+      workspaceId,
       slackUserId: userId,
-      date: { $gte: last7Days }
+      date: { $gte: last7Days, $lte: format(now, 'yyyy-MM-dd') }
     });
 
     const previousStandups = await StandupEntry.countDocuments({
+      workspaceId,
       slackUserId: userId,
       date: { $gte: last14Days, $lt: last7Days }
     });
 
     // Alert if significant decline
     if (previousStandups >= 4 && recentStandups <= 2) {
-      const userName = (await StandupEntry.findOne({ slackUserId: userId }))?.slackUserName || 'Unknown';
+      const userName = (await StandupEntry.findOne({ workspaceId, slackUserId: userId }))?.slackUserName || 'Unknown';
       
       await createOrUpdateAlert(
         workspaceId,
@@ -140,7 +143,7 @@ async function checkDecliningPerformance(workspaceId: string) {
 
     // Alert if no submissions for 3+ days
     if (recentStandups === 0 && previousStandups > 0) {
-      const userName = (await StandupEntry.findOne({ slackUserId: userId }))?.slackUserName || 'Unknown';
+      const userName = (await StandupEntry.findOne({ workspaceId, slackUserId: userId }))?.slackUserName || 'Unknown';
       
       await createOrUpdateAlert(
         workspaceId,
@@ -171,7 +174,7 @@ async function checkRepeatedBlockers(workspaceId: string) {
   logger.info('Checking for repeated blockers...');
 
   const now = toZonedTime(new Date(), TIMEZONE);
-  const last14Days = format(subDays(now, 14), 'yyyy-MM-dd');
+  const last14Days = format(subDays(now, 13), 'yyyy-MM-dd');
 
   const standups = await StandupEntry.find({
     workspaceId,
@@ -244,21 +247,22 @@ async function checkOverworkRisk(workspaceId: string) {
   logger.info('Checking for overwork risk...');
 
   const now = toZonedTime(new Date(), TIMEZONE);
-  const last7Days = format(subDays(now, 7), 'yyyy-MM-dd');
+  const last7Days = format(subDays(now, 6), 'yyyy-MM-dd');
 
   const users = await StandupEntry.distinct('slackUserId', {
     workspaceId,
-    date: { $gte: last7Days }
+    date: { $gte: last7Days, $lte: format(now, 'yyyy-MM-dd') }
   });
 
   for (const userId of users) {
     const standups = await StandupEntry.find({
+      workspaceId,
       slackUserId: userId,
-      date: { $gte: last7Days }
+      date: { $gte: last7Days, $lte: format(now, 'yyyy-MM-dd') }
     }).lean();
 
     const totalHours = standups.reduce((sum, s) => 
-      sum + (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0), 0
+      sum + reportedHours(s), 0
     );
 
     // Alert if working >50 hours per week (assuming 5-day week)
@@ -297,24 +301,25 @@ async function checkUnderutilization(workspaceId: string) {
   logger.info('Checking for underutilization...');
 
   const now = toZonedTime(new Date(), TIMEZONE);
-  const last7Days = format(subDays(now, 7), 'yyyy-MM-dd');
+  const last7Days = format(subDays(now, 6), 'yyyy-MM-dd');
 
   const users = await StandupEntry.distinct('slackUserId', {
     workspaceId,
-    date: { $gte: last7Days }
+    date: { $gte: last7Days, $lte: format(now, 'yyyy-MM-dd') }
   });
 
   for (const userId of users) {
     const standups = await StandupEntry.find({
+      workspaceId,
       slackUserId: userId,
-      date: { $gte: last7Days }
+      date: { $gte: last7Days, $lte: format(now, 'yyyy-MM-dd') }
     }).lean();
 
     // Only check if they've been submitting regularly
-    if (standups.length < 4) continue;
+    if (standups.filter(s => reportedHours(s) > 0).length < 4) continue;
 
     const totalHours = standups.reduce((sum, s) => 
-      sum + (s.yesterdayHoursEstimate || 0) + (s.todayHoursEstimate || 0), 0
+      sum + reportedHours(s), 0
     );
 
     // Alert if working <20 hours per week

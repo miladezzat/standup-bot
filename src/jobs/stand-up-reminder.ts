@@ -2,6 +2,7 @@ import { CronJob } from "cron";
 import { slackApp } from '../singleton';
 import { CHANNEL_ID, APP_TIMEZONE } from "../config";
 import StandupThread from '../models/standupThread';
+import { toZonedTime } from 'date-fns-tz';
 import { format } from "date-fns";
 import { logInfo, logError } from '../utils/logger';
 import { retryAsync } from '../utils/retry';
@@ -56,10 +57,10 @@ export const standupReminder = new CronJob(
             currentStandupThreadTs = result.ts || null;
 
             if (currentStandupThreadTs) {
-                const dateKey = format(new Date(), 'yyyy-MM-dd');
+                const dateKey = format(toZonedTime(new Date(), TIMEZONE), 'yyyy-MM-dd');
 
                 await StandupThread.findOneAndUpdate(
-                    { date: dateKey },
+                    { channelId: CHANNEL_ID, date: dateKey },
                     {
                         date: dateKey,
                         threadTs: currentStandupThreadTs,

@@ -1,8 +1,8 @@
+import { SLACK_TEAM_ID, APP_TIMEZONE } from '../config';
 import { Request, Response } from 'express';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import Break from '../models/break';
-import { APP_TIMEZONE } from '../config';
 import { logInfo, logError } from '../utils/logger';
 import { hasClerk } from '../index';
 import { createBaseViewData } from '../config/view-engine';
@@ -195,12 +195,13 @@ export async function getBreaksDashboard(req: Request, res: Response) {
     const viewDate = dateParam || format(now, 'yyyy-MM-dd');
     
     // Get breaks for the selected date
-    const breaks = await Break.find({ date: viewDate, ...getReportUserExclusionFilter() }).sort({ createdAt: -1 });
+    const breaks = await Break.find({ workspaceId: SLACK_TEAM_ID, date: viewDate, ...getReportUserExclusionFilter() }).sort({ createdAt: -1 });
     
     // Get weekly summary
     const weekStart = format(startOfWeek(new Date(viewDate), { weekStartsOn: 0 }), 'yyyy-MM-dd');
     const weekEnd = format(endOfWeek(new Date(viewDate), { weekStartsOn: 0 }), 'yyyy-MM-dd');
     const weeklyBreaks = await Break.find({
+      workspaceId: SLACK_TEAM_ID,
       date: { $gte: weekStart, $lte: weekEnd },
       ...getReportUserExclusionFilter()
     });
